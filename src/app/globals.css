@@ -1,26 +1,112 @@
+/* ─── Google Fonts (must be first) ─── */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap");
+
+/* ─── Tailwind + HeroUI ─── */
 @import "tailwindcss";
+@import "@heroui/styles";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ─── Source scanning: tell Tailwind to scan HeroUI components ─── */
+@source "../../node_modules/@heroui/react/dist/**/*.{js,ts,jsx,tsx}";
 
+/* ─── Dark mode variant ─── */
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Tailwind v4 theme tokens (from DESIGN.md / Vyzor) ─── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font families */
+  --font-sans: "Space Grotesk", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+
+  /* DESIGN.md color tokens as Tailwind utilities */
+  --color-primary: #985FFD;
+  --color-primary-fg: #FFFFFF;
+  --color-secondary: #FF49CD;
+  --color-secondary-fg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F9F7FC;
+  --color-body-bg: #F8F9FD;
+  --color-border: #E2E8EE;
+  --color-menu-bg: #FFFFFF;
+  --color-menu-border: #E2E8EE;
+  --color-text: #011A42;
+  --color-text-muted: #6C7E96;
+  --color-menu-text: #302D36;
+  --color-success: #32D484;
+  --color-warning: #FDAF22;
+  --color-danger: #FF6757;
+  --color-info: #00C9FF;
+  --color-orange: #FA8128;
+  --color-pink: #FF69B4;
+  --color-teal: #35B5AA;
+  --color-purple: #BE2BEB;
+  --color-green: #00C9A7;
+  --color-dark: #0A0A0A;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ═══════════════════════════════════════════════════
+   HeroUI Theme Override — Map Vyzor palette to HeroUI variables
+   ═══════════════════════════════════════════════════ */
+
+@layer base {
+  :root,
+  .light,
+  [data-theme="light"] {
+    /* ── Base ── */
+    --background: #F8F9FD;
+    --foreground: #011A42;
+
+    /* ── Surface ── */
+    --surface: #FFFFFF;
+    --surface-foreground: #011A42;
+    --surface-secondary: #F9F7FC;
+    --surface-secondary-foreground: #011A42;
+    --surface-tertiary: #F0EDF5;
+    --surface-tertiary-foreground: #011A42;
+
+    /* ── Overlay ── */
+    --overlay: #FFFFFF;
+    --overlay-foreground: #011A42;
+
+    /* ── Muted ── */
+    --muted: #6C7E96;
+
+    /* ── Default ── */
+    --default: #E2E8EE;
+    --default-foreground: #011A42;
+
+    /* ── Accent (maps to Primary #985FFD) ── */
+    --accent: #985FFD;
+    --accent-foreground: #FFFFFF;
+
+    /* ── Form Fields ── */
+    --field-background: #FFFFFF;
+    --field-foreground: #011A42;
+    --field-placeholder: #6C7E96;
+    --field-border: #E2E8EE;
+
+    /* ── Status Colors ── */
+    --success: #32D484;
+    --success-foreground: #011A42;
+    --warning: #FDAF22;
+    --warning-foreground: #011A42;
+    --danger: #FF6757;
+    --danger-foreground: #FFFFFF;
+
+    /* ── Misc ── */
+    --border: #E2E8EE;
+    --separator: #E2E8EE;
+    --focus: #985FFD;
+    --link: #985FFD;
   }
 }
 
+/* ═══════════════════════════════════════════════════
+   Global Base Styles
+   ═══════════════════════════════════════════════════ */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--background, #F8F9FD);
+  color: var(--foreground, #011A42);
+  font-family: "Space Grotesk", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
