@@ -60,10 +60,10 @@ Related: Module 3 (Organization), Module 5 (Slide), Module 6 (Partner), Module 7
 
 Related: Module 8 (Program), Module 9 (Solution), Module 10 (Project + gallery), Module 11 (Article).
 
-- [ ] Program: list (filter by field/status) + form (Tiptap) + publish toggle (UC-PRG-01→07)
-- [ ] Solution: **copy the exact same pattern as Program**, swap entity (UC-SLT-01→07)
-- [ ] Project: similar pattern + `ProjectGallery` component (multi-image upload, captions, drag-and-drop reorder) (UC-PRJ-01→08)
-- [ ] Article: similar pattern + link to Project/Program/Solution selector (dropdown) (UC-ART-01→08)
+- [x] Program: list (filter by field/status) + form (Tiptap) + publish toggle (UC-PRG-01→07)
+- [x] Solution: **copy the exact same pattern as Program**, swap entity (UC-SLT-01→07)
+- [x] Project: similar pattern + `ProjectGallery` component (multi-image upload, captions, drag-and-drop reorder) (UC-PRJ-01→08)
+- [x] Article: similar pattern + link to Project/Program/Solution selector (dropdown) (UC-ART-01→08)
 
 **Definition of Done:** All 4 modules have full CRUD, publish/unpublish works, forms share the `RichTextEditor` component, filtering by operation field works correctly.
 

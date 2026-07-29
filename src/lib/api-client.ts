@@ -46,6 +46,17 @@ export class ApiError extends Error {
 // ─── Helpers ─────────────────────────────────────────────────
 
 /**
+ * Normalizes paginated responses from NestJS which use 'data' instead of 'items'
+ * for the array of records.
+ */
+function normalizeResponse(payload: any) {
+  if (payload && Array.isArray(payload.data) && typeof payload.total === "number") {
+    payload.items = payload.data;
+  }
+  return payload;
+}
+
+/**
  * Convert a `RequestInit` (fetch style) to `AxiosRequestConfig`.
  * Keeps backward compatibility with existing consumers.
  */
@@ -93,7 +104,7 @@ export async function apiFetch<T>(
   try {
     const config = toAxiosConfig(init);
     const res: AxiosResponse = await serverAxios(path, config);
-    return res.data?.data ?? res.data;
+    return normalizeResponse(res.data?.data ?? res.data) as T;
   } catch (err) {
     if (axios.isAxiosError(err) && err.response) {
       throw new ApiError(
@@ -153,7 +164,7 @@ export async function clientFetch<T>(
 
   try {
     const res = await doRequest();
-    return res.data?.data ?? res.data;
+    return normalizeResponse(res.data?.data ?? res.data) as T;
   } catch (err) {
     // Auto-refresh on 401
     if (axios.isAxiosError(err) && err.response?.status === 401) {
@@ -161,7 +172,7 @@ export async function clientFetch<T>(
       if (refreshed) {
         try {
           const res = await doRequest();
-          return res.data?.data ?? res.data;
+          return normalizeResponse(res.data?.data ?? res.data) as T;
         } catch (retryErr) {
           if (axios.isAxiosError(retryErr) && retryErr.response) {
             throw new ApiError(

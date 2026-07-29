@@ -16,3 +16,13 @@ export type {
   SortDescriptor,
   SortDirection,
 } from "./DataTable";
+
+// ─── RichTextEditor ──────────────────────────────────────────
+
+export { RichTextEditor } from "./RichTextEditor";
+export type { RichTextEditorProps } from "./RichTextEditor";
+
+// ─── PublishToggle ───────────────────────────────────────────
+
+export { PublishToggle } from "./PublishToggle";
+export type { PublishToggleProps } from "./PublishToggle";
