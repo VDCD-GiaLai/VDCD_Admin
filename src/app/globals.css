@@ -4,6 +4,7 @@
 /* ─── Tailwind + HeroUI ─── */
 @import "tailwindcss";
 @import "@heroui/styles";
+@import "../styles/grid.css";
 
 /* ─── Source scanning: tell Tailwind to scan HeroUI components ─── */
 @source "../../node_modules/@heroui/react/dist/**/*.{js,ts,jsx,tsx}";
@@ -109,4 +110,22 @@ body {
   font-family: "Space Grotesk", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════════════════
+   Custom Animations
+   ═══════════════════════════════════════════════════ */
+
+@keyframes spinner-grow {
+  0% { transform: scale(0); }
+  50% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@utility animate-spinner-grow {
+  animation: spinner-grow 0.75s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+  0% { background-position-x: 1rem; }
 }

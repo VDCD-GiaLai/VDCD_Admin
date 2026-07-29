@@ -10,7 +10,7 @@
 
 - Backend already exists: NestJS REST API at `/api/v1` (see `docs/API_DESCRIPTION.md`).
 - This admin panel is a **pure FE client**, containing no critical business logic — all important validation lives in the BE, FE only validates for UX (fail-fast, reduce round-trips).
-- Target users: `superadmin`, `editor`, `viewer` (internal VDCD staff) — not public users.
+- Target users: `superadmin`, `editor` (internal VDCD staff) — not public users. `viewer` role exists in DB but is not allowed to login to this admin panel.
 - Priorities: **CRUD speed, consistency across modules, easy maintenance** over SEO/SSR (unlike the public site).
 
 ---
@@ -27,6 +27,7 @@
 | Form | React Hook Form + Zod | Zod schema shared for validation + TS type generation |
 | Rich text | Tiptap | Used for `content` in Program/Solution/Project/Article |
 | Auth | HttpOnly cookie + Next.js Middleware + Route Handlers (BFF) | See details in section 4 |
+| HTTP client | Axios | Used in `api-client.ts`; provides interceptors, auto JSON parse, better error handling vs raw `fetch` |
 | Package manager | pnpm | |
 | Lint/Format | ESLint (next/core-web-vitals + typescript) + Prettier | Mandatory in CI |
 | CI/CD | GitHub Actions (lint/type-check/build) + Vercel (auto-deploy via Git integration) | |
@@ -175,11 +176,12 @@ export const PERMISSIONS = {
     "articles:*:except-delete", "jobs:*:except-delete",
     "leads:read", "leads:update-status",
   ],
-  viewer: ["leads:read", "leads:update-status", "*:read"],
+  // viewer role is NOT allowed to login to admin panel — excluded from RBAC
 } as const;
 ```
 
-- Route-level: Middleware blocks page access (e.g., viewer visiting `/admin-users` → redirect 403).
+- Route-level: Middleware blocks page access (e.g., non-superadmin visiting `/admin-users` → redirect 403).
+- `viewer` role exists in DB but is rejected at login — only `superadmin` and `editor` can access the admin panel.
 - Action-level: Components use hook `usePermission("programs:delete")` to hide/disable buttons — **do not invent new permissions**, every permission must be traceable to the actor table in `USE_CASE.md`. If a permission is missing for a specific action → ask, don't guess.
 
 ---
@@ -216,5 +218,7 @@ NODE_ENV=development
 | Init | TanStack Query + Zustand, separate server state / UI state | Avoid anti-pattern of stuffing API data into Zustand |
 | Init | Auth via HttpOnly cookie + BFF instead of localStorage | Prioritize security over setup speed |
 | Init | No automated tests yet, only lint + type-check in CI | Prioritize speed in early phase — **will be reviewed in Phase 5**, not a permanent decision |
+| 2026-07-28 | Axios instead of raw `fetch` in `api-client.ts` | Better error handling (auto-throw on non-2xx), auto JSON parse, interceptor support, cleaner code — confirmed by user |
+| 2026-07-29 | Remove `viewer` role from admin panel | Viewer will not be allowed to login to this admin panel. Role still exists in DB but is excluded from FE type/RBAC — confirmed by user |
 
 > Any future architecture changes must add a row to this table with rationale.
