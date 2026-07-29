@@ -6,7 +6,6 @@ import {
   type TextareaHTMLAttributes,
   forwardRef,
 } from "react";
-import { TextField, Input, Label } from "@heroui/react";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -136,12 +135,11 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
     const inputId = id ?? (label ? `field-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
 
     return (
-      <TextField
-        isInvalid={isInvalid}
+      <div
         className={`flex flex-col gap-1.5 ${wrapperClassName ?? ""}`}
       >
         {label && (
-          <Label
+          <label
             htmlFor={inputId}
             className={`font-medium text-[var(--foreground,#011A42)] ${labelSizeClasses[size]}`}
           >
@@ -149,7 +147,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
             {isRequired && (
               <span className="ml-0.5 text-[var(--danger,#FF6757)]">*</span>
             )}
-          </Label>
+          </label>
         )}
 
         <div className="relative">
@@ -159,7 +157,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
             </span>
           )}
 
-          <Input
+          <input
             ref={ref}
             id={inputId}
             className={buildInputClass(
@@ -186,7 +184,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
         ) : helperText ? (
           <p className="text-xs text-[var(--muted,#6C7E96)]">{helperText}</p>
         ) : null}
-      </TextField>
+      </div>
     );
   },
 );

@@ -220,5 +220,7 @@ NODE_ENV=development
 | Init | No automated tests yet, only lint + type-check in CI | Prioritize speed in early phase — **will be reviewed in Phase 5**, not a permanent decision |
 | 2026-07-28 | Axios instead of raw `fetch` in `api-client.ts` | Better error handling (auto-throw on non-2xx), auto JSON parse, interceptor support, cleaner code — confirmed by user |
 | 2026-07-29 | Remove `viewer` role from admin panel | Viewer will not be allowed to login to this admin panel. Role still exists in DB but is excluded from FE type/RBAC — confirmed by user |
+| 2026-07-29 | Add `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` | Drag-and-drop reorder for Partner/Slide ordering. Lightweight, accessible, React-first — approved by user |
+| 2026-07-29 | Generic catch-all BFF proxy `[...path]/route.ts` | One route file for all non-auth API proxy instead of dozens of per-endpoint files. Auth routes remain separate — approved by user |
 
 > Any future architecture changes must add a row to this table with rationale.
