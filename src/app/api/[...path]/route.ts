@@ -73,10 +73,23 @@ async function handler(
     });
 
     // ── Return response ────────────────────────────────────
-    const responseData = await res.json().catch(() => null);
+    const contentTypeRes = res.headers.get("content-type") || "";
 
-    return NextResponse.json(responseData ?? { statusCode: res.status }, {
+    if (contentTypeRes.includes("application/json")) {
+      const responseData = await res.json().catch(() => null);
+      return NextResponse.json(responseData ?? { statusCode: res.status }, {
+        status: res.status,
+      });
+    }
+
+    // Pass through raw binary/text (e.g. CSV, PDFs, etc.)
+    return new NextResponse(res.body, {
       status: res.status,
+      statusText: res.statusText,
+      headers: {
+        "Content-Type": contentTypeRes,
+        "Content-Disposition": res.headers.get("content-disposition") || "",
+      },
     });
   } catch {
     return NextResponse.json(

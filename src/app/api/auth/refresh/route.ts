@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getRefreshToken,
   setAccessTokenCookie,
+  setRefreshTokenCookie,
   clearAuthCookies,
 } from "@/lib/auth-cookies";
 
@@ -47,6 +48,7 @@ export async function POST() {
     // Try to read from body first, then from set-cookie header
     const json = await res.json().catch(() => null);
     const newAccessToken = json?.data?.accessToken;
+    const newRefreshToken = json?.data?.refreshToken;
 
     if (newAccessToken) {
       await setAccessTokenCookie({ value: newAccessToken, maxAge: 15 * 60 });
@@ -56,6 +58,16 @@ export async function POST() {
       const match = setCookieHeader?.match(/accessToken=([^;]+)/);
       if (match?.[1]) {
         await setAccessTokenCookie({ value: match[1], maxAge: 15 * 60 });
+      }
+    }
+
+    if (newRefreshToken) {
+      await setRefreshTokenCookie({ value: newRefreshToken, maxAge: 7 * 24 * 60 * 60 });
+    } else {
+      const setCookieHeader = res.headers.get("set-cookie");
+      const matchRt = setCookieHeader?.match(/refreshToken=([^;]+)/);
+      if (matchRt?.[1]) {
+        await setRefreshTokenCookie({ value: matchRt[1], maxAge: 7 * 24 * 60 * 60 });
       }
     }
 
