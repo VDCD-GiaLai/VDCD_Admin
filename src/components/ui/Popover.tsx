@@ -63,7 +63,7 @@ interface PopoverColorTokens {
 
 const colorTokens: Record<Exclude<PopoverColor, "default">, PopoverColorTokens> = {
   primary: {
-    solid: { bg: "bg-primary", text: "text-white", arrowVar: "#985FFD" },
+    solid: { bg: "bg-primary", text: "text-white", arrowVar: "#ca2a30" },
     soft: { bg: "bg-primary/10", text: "text-primary", arrowVar: "rgba(152,95,253,0.1)" },
     header: { bg: "bg-primary", text: "text-white" },
   },

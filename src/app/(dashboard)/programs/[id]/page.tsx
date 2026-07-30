@@ -65,11 +65,14 @@ export default function EditProgramPage() {
         metaDescription: program.metaDescription ?? "",
         isPublished: program.isPublished,
       });
-      setPreviewUrl(program.thumbnail ?? null);
-      if (!contentInitialized) {
-        setRichContent(program.content ?? "");
-        setContentInitialized(true);
-      }
+      const timer = setTimeout(() => {
+        setPreviewUrl(program.thumbnail ?? null);
+        if (!contentInitialized) {
+          setRichContent(program.content ?? "");
+          setContentInitialized(true);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [program, reset, contentInitialized]);
 

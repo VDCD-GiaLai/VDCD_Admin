@@ -73,13 +73,16 @@ export default function EditProjectPage() {
         metaDescription: project.metaDescription ?? "",
         isPublished: project.isPublished,
       });
-      setPreviewUrl(project.thumbnail ?? null);
-      setGalleryImages(project.images ?? []);
-      
-      if (!contentInitialized) {
-        setRichContent(project.overview ?? "");
-        setContentInitialized(true);
-      }
+      const timer = setTimeout(() => {
+        setPreviewUrl(project.thumbnail ?? null);
+        setGalleryImages(project.images ?? []);
+        
+        if (!contentInitialized) {
+          setRichContent(project.overview ?? "");
+          setContentInitialized(true);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [project, reset, contentInitialized]);
 

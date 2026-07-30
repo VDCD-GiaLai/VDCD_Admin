@@ -66,13 +66,15 @@ export default function EditJobPage() {
         isUrgent: job.isUrgent,
         isActive: job.isActive,
       });
-      if (!contentInitialized) {
-        setDescriptionContent(job.description ?? "");
-        setRequirementsContent(job.requirements ?? "");
-        setBenefitsContent(job.benefits ?? "");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        setContentInitialized(true);
-      }
+      const timer = setTimeout(() => {
+        if (!contentInitialized) {
+          setDescriptionContent(job.description ?? "");
+          setRequirementsContent(job.requirements ?? "");
+          setBenefitsContent(job.benefits ?? "");
+          setContentInitialized(true);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [job, reset, contentInitialized]);
 

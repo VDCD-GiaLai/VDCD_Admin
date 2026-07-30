@@ -38,10 +38,13 @@ export default function ArticlesPage() {
   });
 
   useEffect(() => {
-    setFilters((f) => {
-      if (f.category === debouncedCategory && f.tags === debouncedTags) return f;
-      return { ...f, category: debouncedCategory, tags: debouncedTags, page: 1 };
-    });
+    const timer = setTimeout(() => {
+      setFilters((f) => {
+        if (f.category === debouncedCategory && f.tags === debouncedTags) return f;
+        return { ...f, category: debouncedCategory, tags: debouncedTags, page: 1 };
+      });
+    }, 0);
+    return () => clearTimeout(timer);
   }, [debouncedCategory, debouncedTags]);
 
   const { data: articlesData, isLoading } = useArticles(filters);

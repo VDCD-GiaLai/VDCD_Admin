@@ -1,5 +1,5 @@
-/** Roles matching DB `admin_user.role` CHECK constraint (viewer excluded — not allowed to log in to admin panel) */
-export type AdminRole = "superadmin" | "editor";
+/** Roles matching DB `admin_user.role` CHECK constraint */
+export type AdminRole = "superadmin" | "editor" | "viewer";
 
 /**
  * AdminUser — maps to DB `admin_user` table.

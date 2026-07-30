@@ -130,7 +130,7 @@ export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
       !multiple && !visibleOptions
         ? `appearance-none bg-[${CHEVRON_SVG}] bg-[length:20px] bg-[right_8px_center] bg-no-repeat pr-10`
         : "",
-      "focus:border-[var(--focus,#985FFD)] focus:outline-none focus:ring-1 focus:ring-[var(--focus,#985FFD)]",
+      "focus:border-[var(--focus,#ca2a30)] focus:outline-none focus:ring-1 focus:ring-[var(--focus,#ca2a30)]",
       "disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-[var(--surface-secondary,#F9F7FC)]",
       sizeClasses[size],
       radiusClasses[radius],
@@ -412,7 +412,7 @@ export function FormSearchSelect({
             radiusClasses[radius],
             inputPadding[size],
             isOpen
-              ? "border-[var(--focus,#985FFD)] ring-1 ring-[var(--focus,#985FFD)]"
+              ? "border-[var(--focus,#ca2a30)] ring-1 ring-[var(--focus,#ca2a30)]"
               : isInvalid
                 ? "border-[var(--danger,#FF6757)]"
                 : "border-[var(--field-border,#E2E8EE)]",
@@ -430,7 +430,7 @@ export function FormSearchSelect({
               <span
                 key={v}
                 className={[
-                  "inline-flex items-center gap-1 rounded bg-[var(--accent,#985FFD)]/10 text-[var(--accent,#985FFD)] font-medium",
+                  "inline-flex items-center gap-1 rounded bg-[var(--accent,#ca2a30)]/10 text-[var(--accent,#ca2a30)] font-medium",
                   tagSize[size],
                 ].join(" ")}
               >
@@ -438,7 +438,7 @@ export function FormSearchSelect({
                 {isRemovable && !disabled && (
                   <button
                     type="button"
-                    className="ml-0.5 text-[var(--accent,#985FFD)]/60 transition-colors hover:text-[var(--accent,#985FFD)]"
+                    className="ml-0.5 text-[var(--accent,#ca2a30)]/60 transition-colors hover:text-[var(--accent,#ca2a30)]"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveTag(v);
@@ -599,9 +599,9 @@ function DropdownItem({
         textSize,
         option.disabled
           ? "cursor-not-allowed opacity-50"
-          : "cursor-pointer hover:bg-[var(--accent,#985FFD)]/5",
+          : "cursor-pointer hover:bg-[var(--accent,#ca2a30)]/5",
         isSelected && !isMulti
-          ? "bg-[var(--accent,#985FFD)]/10 font-medium text-[var(--accent,#985FFD)]"
+          ? "bg-[var(--accent,#ca2a30)]/10 font-medium text-[var(--accent,#ca2a30)]"
           : "text-[var(--field-foreground,#011A42)]",
       ].join(" ")}
       onClick={() => !option.disabled && onSelect(option.value)}
@@ -612,7 +612,7 @@ function DropdownItem({
           className={[
             "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
             isSelected
-              ? "border-[var(--accent,#985FFD)] bg-[var(--accent,#985FFD)]"
+              ? "border-[var(--accent,#ca2a30)] bg-[var(--accent,#ca2a30)]"
               : "border-[var(--field-border,#E2E8EE)]",
           ].join(" ")}
         >
@@ -621,7 +621,7 @@ function DropdownItem({
       )}
       <span className="truncate">{option.label}</span>
       {isSelected && !isMulti && (
-        <CheckIcon className="ml-auto h-4 w-4 shrink-0 text-[var(--accent,#985FFD)]" />
+        <CheckIcon className="ml-auto h-4 w-4 shrink-0 text-[var(--accent,#ca2a30)]" />
       )}
     </button>
   );

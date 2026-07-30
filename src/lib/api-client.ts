@@ -49,9 +49,16 @@ export class ApiError extends Error {
  * Normalizes paginated responses from NestJS which use 'data' instead of 'items'
  * for the array of records.
  */
-function normalizeResponse(payload: any) {
-  if (payload && Array.isArray(payload.data) && typeof payload.total === "number") {
-    payload.items = payload.data;
+function normalizeResponse(payload: unknown) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    Array.isArray((payload as Record<string, unknown>).data) &&
+    "total" in payload &&
+    typeof (payload as Record<string, unknown>).total === "number"
+  ) {
+    (payload as Record<string, unknown>).items = (payload as Record<string, unknown>).data;
   }
   return payload;
 }

@@ -4,6 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 import { useCallback, useEffect } from "react";
 
 // ─── Toolbar Button ──────────────────────────────────────────
@@ -202,8 +203,9 @@ export function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image.configure({ inline: false, allowBase64: false }),
-      Link.configure({ openOnClick: false, autolink: true }),
+      Placeholder.configure({ placeholder }),
+      Image.configure({ inline: false, allowBase64: true }),
+      Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { class: 'text-primary underline' } }),
     ],
     content,
     onUpdate: ({ editor: e }) => {
@@ -212,7 +214,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none p-4 min-h-[200px] focus:outline-none text-text",
+          "prose prose-sm md:prose-base dark:prose-invert max-w-none p-4 min-h-[200px] focus:outline-none text-text prose-img:rounded-lg prose-img:border prose-img:border-border",
       },
     },
     immediatelyRender: false,
@@ -243,9 +245,7 @@ export function RichTextEditor({
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
       <Toolbar editor={editor} />
-      <div data-placeholder={placeholder}>
-        <EditorContent editor={editor} />
-      </div>
+      <EditorContent editor={editor} />
     </div>
   );
 }

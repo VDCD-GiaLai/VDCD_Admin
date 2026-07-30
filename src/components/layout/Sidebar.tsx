@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import type { AdminRole } from "@/types/auth";
+import Image from "next/image";
 
 // ─── Menu structure ─────────────────────────────────────────
 
@@ -117,9 +118,12 @@ export function Sidebar({ userRole }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-border px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-fg">
+        <Link href="/" className="flex items-center">
+          {/* <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-fg">
             V
+          </div> */}
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-transparent">
+            <Image src="https://ik.imagekit.io/huy01040104/vdcd/images/logo%20V%20only.svg" width={22} height={22} alt="VDCD Logo" />
           </div>
           {!isCollapsed && (
             <span className="text-base font-bold text-text">VDCD</span>

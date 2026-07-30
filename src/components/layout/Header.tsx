@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useLogout } from "@/features/auth/api";
 import type { AdminUser } from "@/types/auth";
@@ -13,6 +14,8 @@ import {
   BadgeOverlay,
   Tooltip,
 } from "@/components/ui";
+import { SearchDialog } from "./SearchDialog";
+import { useEffect } from "react";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -34,10 +37,23 @@ const ROLE_LABELS: Record<string, string> = {
  * Right: notification, fullscreen, user profile dropdown.
  */
 export function Header({ user }: HeaderProps) {
+  const router = useRouter();
   const toggle = useSidebarStore((s) => s.toggle);
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
   const logoutMutation = useLogout();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -53,10 +69,11 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header
-      className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-surface px-6 transition-[margin-left] duration-200 ${
-        isCollapsed ? "ml-16" : "ml-64"
-      }`}
+      className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-surface px-6 transition-[margin-left] duration-200 ${isCollapsed ? "ml-16" : "ml-64"
+        }`}
     >
+      <SearchDialog isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
       {/* ─── Left: sidebar toggle ─── */}
       <div className="flex items-center gap-4">
         <button
@@ -71,16 +88,20 @@ export function Header({ user }: HeaderProps) {
 
       {/* ─── Center: search bar ─── */}
       <div className="hidden md:flex flex-1 max-w-md mx-6">
-        <div className="relative w-full">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+        <button
+          type="button"
+          onClick={() => setIsSearchOpen(true)}
+          className="relative w-full group flex h-9 items-center rounded-md border border-border bg-surface pl-9 pr-4 text-sm text-text-muted transition-all hover:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+        >
+          <span className="absolute left-3 top-1/2 -translate-y-1/2">
             <SearchIcon />
           </span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm..."
-            className="w-full h-9 rounded-md border border-border bg-surface pl-9 pr-4 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
-          />
-        </div>
+          <span className="flex-1 text-left">Tìm kiếm...</span>
+          <div className="flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium opacity-70 group-hover:opacity-100">
+            <span>Ctrl</span>
+            <span>K</span>
+          </div>
+        </button>
       </div>
 
       {/* ─── Right: actions ─── */}
@@ -89,6 +110,7 @@ export function Header({ user }: HeaderProps) {
         <Tooltip content="Tìm kiếm" placement="bottom">
           <button
             type="button"
+            onClick={() => setIsSearchOpen(true)}
             className="md:hidden flex h-9 w-9 items-center justify-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
             aria-label="Tìm kiếm"
           >
@@ -201,14 +223,15 @@ export function Header({ user }: HeaderProps) {
           {/* Menu items */}
           <DropdownItem
             startContent={<UserCircleIcon />}
+            onClick={() => router.push('/profile')}
           >
             Hồ sơ cá nhân
           </DropdownItem>
-          <DropdownItem
+          {/* <DropdownItem
             startContent={<SettingsIcon />}
           >
             Cài đặt tài khoản
-          </DropdownItem>
+          </DropdownItem> */}
 
           <DropdownDivider />
 
@@ -295,15 +318,6 @@ function UserCircleIcon() {
       <circle cx={12} cy={12} r={10} />
       <circle cx={12} cy={10} r={3} />
       <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx={12} cy={12} r={3} />
     </svg>
   );
 }

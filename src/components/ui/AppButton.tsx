@@ -54,7 +54,7 @@ const palette: Record<ButtonColor, ColorTokens> = {
     outline: "bg-transparent text-primary border border-primary hover:bg-primary hover:text-white",
     soft: "bg-primary/10 text-primary hover:bg-primary/20 border border-transparent",
     ghost: "bg-transparent text-primary hover:bg-primary/10 border border-transparent",
-    coloredShadow: "shadow-[0_4px_14px_-2px_rgba(152,95,253,0.45)]",
+    coloredShadow: "shadow-[0_4px_14px_-2px_rgba(202,42,48,0.45)]",
   },
   secondary: {
     solid: "bg-secondary text-secondary-fg hover:bg-secondary/90 border border-transparent",

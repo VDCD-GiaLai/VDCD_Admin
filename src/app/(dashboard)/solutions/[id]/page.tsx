@@ -62,11 +62,14 @@ export default function EditSolutionPage() {
         metaDescription: solution.metaDescription ?? "",
         isPublished: solution.isPublished,
       });
-      setPreviewUrl(solution.thumbnail ?? null);
-      if (!contentInitialized) {
-        setRichContent(solution.content ?? "");
-        setContentInitialized(true);
-      }
+      const timer = setTimeout(() => {
+        setPreviewUrl(solution.thumbnail ?? null);
+        if (!contentInitialized) {
+          setRichContent(solution.content ?? "");
+          setContentInitialized(true);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [solution, reset, contentInitialized]);
 

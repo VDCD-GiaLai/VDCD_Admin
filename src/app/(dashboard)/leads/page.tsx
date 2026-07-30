@@ -99,7 +99,7 @@ export default function LeadsPage() {
       await downloadLeadsCsv(exportFrom || undefined, exportTo || undefined);
       setShowExportModal(false);
       toast({ title: "Đang tải file CSV...", color: "success" });
-    } catch (error) {
+    } catch {
       toast({ title: "Xuất file thất bại", color: "danger" });
     } finally {
       setIsExporting(false);

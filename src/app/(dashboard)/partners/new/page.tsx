@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import { FormInput, FormCheckbox, AppButton } from "@/components/ui";
@@ -29,7 +29,7 @@ export default function NewPartnerPage() {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<PartnerFormData>({
     resolver: zodResolver(partnerSchema),
@@ -43,7 +43,7 @@ export default function NewPartnerPage() {
     },
   });
 
-  const currentName = watch("name");
+  const currentName = useWatch({ name: "name", control });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

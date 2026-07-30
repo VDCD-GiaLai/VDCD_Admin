@@ -21,9 +21,9 @@ type CheckColor =
 
 const colorMap: Record<CheckColor, { bg: string; border: string; ring: string }> = {
   primary: {
-    bg: "var(--accent, #985FFD)",
-    border: "var(--accent, #985FFD)",
-    ring: "var(--accent, #985FFD)",
+    bg: "var(--accent, #ca2a30)",
+    border: "var(--accent, #ca2a30)",
+    ring: "var(--accent, #ca2a30)",
   },
   secondary: {
     bg: "var(--color-secondary, #FF49CD)",

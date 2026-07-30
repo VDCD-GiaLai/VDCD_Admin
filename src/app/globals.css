@@ -8,6 +8,7 @@
 
 /* ─── Source scanning: tell Tailwind to scan HeroUI components ─── */
 @source "../../node_modules/@heroui/react/dist/**/*.{js,ts,jsx,tsx}";
+@plugin "@tailwindcss/typography";
 
 /* ─── Dark mode variant ─── */
 @custom-variant dark (&:is(.dark *));
@@ -18,7 +19,7 @@
   --font-sans: "Space Grotesk", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
 
   /* DESIGN.md color tokens as Tailwind utilities */
-  --color-primary: #985FFD;
+  --color-primary: #ca2a30;
   --color-primary-fg: #FFFFFF;
   --color-secondary: #FF49CD;
   --color-secondary-fg: #FFFFFF;
@@ -74,9 +75,27 @@
     --default: #E2E8EE;
     --default-foreground: #011A42;
 
-    /* ── Accent (maps to Primary #985FFD) ── */
-    --accent: #985FFD;
+    /* ── Accent (maps to Primary #ca2a30) ── */
+    --accent: #ca2a30;
     --accent-foreground: #FFFFFF;
+
+    /* ── Primary ── */
+    --primary: #ca2a30;
+    --primary-foreground: #FFFFFF;
+
+    /* ── HeroUI Variables Override ── */
+    --heroui-primary: 358 66% 48%; /* #ca2a30 */
+    --heroui-primary-50: 358 100% 97%;
+    --heroui-primary-100: 358 100% 94%;
+    --heroui-primary-200: 358 96% 86%;
+    --heroui-primary-300: 358 92% 75%;
+    --heroui-primary-400: 358 80% 63%;
+    --heroui-primary-500: 358 66% 48%;
+    --heroui-primary-600: 358 74% 39%;
+    --heroui-primary-700: 358 75% 32%;
+    --heroui-primary-800: 358 72% 27%;
+    --heroui-primary-900: 358 66% 23%;
+    --heroui-primary-foreground: 0 0% 100%;
 
     /* ── Form Fields ── */
     --field-background: #FFFFFF;
@@ -95,8 +114,9 @@
     /* ── Misc ── */
     --border: #E2E8EE;
     --separator: #E2E8EE;
-    --focus: #985FFD;
-    --link: #985FFD;
+    --focus: #ca2a30;
+    --heroui-focus: 358 66% 48%;
+    --link: #ca2a30;
   }
 }
 
@@ -128,4 +148,15 @@ body {
 
 @keyframes progress-bar-stripes {
   0% { background-position-x: 1rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TipTap Editor Styles
+   ═══════════════════════════════════════════════════ */
+.tiptap p.is-editor-empty:first-child::before {
+  color: var(--muted, #6C7E96);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }

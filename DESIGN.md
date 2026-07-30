@@ -19,7 +19,7 @@ Color palette sourced from the [Vyzor Bootstrap 5 Admin Template](https://previe
 ```css
 :root {
   /* ── Core ── */
-  --color-primary: #985FFD;      /* purple — primary action color, sidebar active */
+  --color-primary: #ca2a30;      /* red — primary action color, sidebar active */
   --color-primary-fg: #FFFFFF;
   --color-secondary: #FF49CD;    /* pink — secondary actions, accents */
   --color-secondary-fg: #FFFFFF;

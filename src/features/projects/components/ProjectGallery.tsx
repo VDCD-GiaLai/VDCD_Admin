@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardHeader, CardTitle, CardContent } from "@heroui/react";
-import { AppButton, Spinner } from "@/components/ui";
+import { AppButton } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import {
   useUploadProjectImages,

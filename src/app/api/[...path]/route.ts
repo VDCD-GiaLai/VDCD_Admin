@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken } from "@/lib/auth-cookies";
 
+export const dynamic = "force-dynamic";
+
 const API_BASE_URL = process.env.API_BASE_URL ?? "";
 
 /**
@@ -70,6 +72,7 @@ async function handler(
       method: request.method,
       headers,
       body,
+      cache: "no-store",
     });
 
     // ── Return response ────────────────────────────────────

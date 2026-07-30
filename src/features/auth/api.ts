@@ -6,7 +6,7 @@ import {
 import { useRouter } from "next/navigation";
 import { clientFetch, ApiError } from "@/lib/api-client";
 import type { AdminUser } from "@/types/auth";
-import type { LoginFormData } from "./schema";
+import type { LoginFormData, UpdateProfileFormData, ChangePasswordFormData } from "./schema";
 
 // ─── Query key factory ──────────────────────────────────────
 
@@ -79,3 +79,35 @@ export function useLogout() {
     },
   });
 }
+
+/**
+ * Update Profile mutation: PATCH /api/auth/me
+ */
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AdminUser, ApiError, UpdateProfileFormData>({
+    mutationFn: (data) =>
+      clientFetch<AdminUser>("/api/auth/me/info", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authKeys.me() });
+    },
+  });
+}
+
+/**
+ * Change Password mutation: POST /api/auth/change-password
+ */
+export function useChangePassword() {
+  return useMutation<unknown, ApiError, ChangePasswordFormData>({
+    mutationFn: ({ oldPassword, newPassword }) =>
+      clientFetch("/api/auth/me/password", {
+        method: "PATCH",
+        body: JSON.stringify({ oldPassword, newPassword }),
+      }),
+  });
+}
+

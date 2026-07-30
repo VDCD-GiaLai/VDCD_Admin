@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import { FormInput, FormCheckbox, AppButton, Spinner } from "@/components/ui";
@@ -35,14 +35,14 @@ export default function EditPartnerPage() {
     handleSubmit,
     setValue,
     reset,
-    watch,
+    control,
     formState: { errors, isDirty },
   } = useForm<PartnerFormData>({
     resolver: zodResolver(partnerSchema),
     defaultValues: { name: "", logo: "", logoFileId: null, websiteUrl: "", order: 0, isActive: true },
   });
 
-  const currentName = watch("name");
+  const currentName = useWatch({ name: "name", control });
 
   useEffect(() => {
     if (partner) {

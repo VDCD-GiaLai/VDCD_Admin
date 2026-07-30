@@ -232,6 +232,46 @@ Get the currently logged-in account information.
 
 ---
 
+### 4.5. 🔐 PATCH `/auth/me/info`
+
+Update the currently logged-in account profile information.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `username` | string | ✅ | New username |
+
+**Response (200):** Updated user object
+
+**Errors:** `400` — Validation error · `401` — Unauthorized
+
+---
+
+### 4.6. 🔐 PATCH `/auth/me/password`
+
+Change the password for the currently logged-in account.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `oldPassword` | string | ✅ | Current password |
+| `newPassword` | string | ✅ | New password |
+
+**Response (200):**
+
+```json
+{
+  "statusCode": 200,
+  "data": { "message": "Đổi mật khẩu thành công" }
+}
+```
+
+**Errors:** `400` — Incorrect old password or validation error · `401` — Unauthorized
+
+---
+
 ## 5. Admin Users
 
 **Prefix:** `/api/v1/admin/users`

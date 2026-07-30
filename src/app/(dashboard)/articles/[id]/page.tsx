@@ -85,12 +85,15 @@ export default function EditArticlePage() {
         isPublished: article.isPublished,
         publishedAt: publishedAtValue || null,
       });
-      setPreviewUrl(article.thumbnail ?? null);
-      
-      if (!contentInitialized) {
-        setRichContent(article.content ?? "");
-        setContentInitialized(true);
-      }
+      const timer = setTimeout(() => {
+        setPreviewUrl(article.thumbnail ?? null);
+        
+        if (!contentInitialized) {
+          setRichContent(article.content ?? "");
+          setContentInitialized(true);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [article, reset, contentInitialized]);
 

@@ -22,6 +22,9 @@ export const PERMISSIONS: Record<AdminRole, readonly string[]> = {
     "leads:read",
     "leads:update-status",
   ],
+  viewer: [
+    "*:read",
+  ],
 } as const;
 
 /**

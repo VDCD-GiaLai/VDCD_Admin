@@ -223,7 +223,7 @@ export default function PartnersPage() {
         },
       });
     },
-    [sortedPartners, reorderMutation, toast],
+    [sortedPartners, reorderMutation, toast, queryClient],
   );
 
   const handleToggle = useCallback(

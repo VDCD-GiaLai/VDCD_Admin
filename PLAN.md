@@ -86,10 +86,10 @@ Related: Module 12 (Job), Module 13 (Lead).
 
 Related: Module 2 (Admin User, superadmin only).
 
-- [ ] Admin User CRUD (UC-ADM-01→05)
-- [ ] Dashboard overview (quick stats: unread leads, published projects, active jobs...)
-- [ ] Review RBAC across the entire application per "Use Case Summary by Actor" table
-- [ ] Revisit the "no tests yet" decision in `ARCHITECT.md` — decide whether to add Vitest for critical logic functions (permissions, api-client) or not
+- [x] Admin User CRUD (UC-ADM-01→05)
+- [x] Dashboard overview (quick stats: unread leads, published projects, active jobs...)
+- [x] Review RBAC across the entire application per "Use Case Summary by Actor" table
+- [x] Revisit the "no tests yet" decision in `ARCHITECT.md` — decide whether to add Vitest for critical logic functions (permissions, api-client) or not
 - [ ] Review basic accessibility (contrast, focus visible) per `DESIGN.md`
 
 **Definition of Done:** Superadmin can manage all accounts; no action is visible to roles without sufficient permissions; all modules have gone through at least one round of self-review per `DESIGN.md`.

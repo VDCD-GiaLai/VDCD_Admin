@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLogin } from "@/features/auth/api";
 import { loginSchema, type LoginFormData } from "@/features/auth/schema";
+import Image from "next/image"
 
 /**
  * Login page — UC-AUTH-01
@@ -90,8 +91,8 @@ export default function LoginPage() {
             autoComplete="email"
             autoFocus
             className={`h-[38px] w-full rounded-[5px] border bg-surface px-3.5 text-sm text-text placeholder:text-text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-[3px] focus:ring-primary/25 ${errors.email
-                ? "border-danger focus:border-danger focus:ring-danger/25"
-                : "border-border"
+              ? "border-danger focus:border-danger focus:ring-danger/25"
+              : "border-border"
               }`}
           />
           {errors.email && (
@@ -115,8 +116,8 @@ export default function LoginPage() {
               placeholder="Nhập mật khẩu"
               autoComplete="current-password"
               className={`h-[38px] w-full rounded-[5px] border bg-surface pr-11 pl-3.5 text-sm text-text placeholder:text-text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-[3px] focus:ring-primary/25 ${errors.password
-                  ? "border-danger focus:border-danger focus:ring-danger/25"
-                  : "border-border"
+                ? "border-danger focus:border-danger focus:ring-danger/25"
+                : "border-border"
                 }`}
             />
             <button
@@ -144,7 +145,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loginMutation.isPending}
-          className="mt-6 flex h-[38px] w-full items-center justify-center rounded-[5px] bg-primary text-sm font-semibold text-primary-fg shadow-sm transition-all duration-200 hover:bg-[#834ce3] focus:outline-none focus:ring-[3px] focus:ring-primary/25 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+          className="mt-6 flex h-[38px] w-full items-center justify-center rounded-[5px] bg-primary text-sm font-semibold text-primary-fg shadow-sm transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-[3px] focus:ring-primary/25 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
         >
           {loginMutation.isPending ? (
             <span className="flex items-center gap-2">
@@ -167,9 +168,9 @@ export default function LoginPage() {
 /** VDCD brand logo — stylized arrow mark matching Vyzor aesthetic */
 function VdcdLogo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-        <svg
+    <div className="flex items-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-transparent">
+        {/* <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"
@@ -180,7 +181,8 @@ function VdcdLogo() {
           className="h-5 w-5"
         >
           <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-        </svg>
+        </svg> */}
+        <Image src="https://ik.imagekit.io/huy01040104/vdcd/images/logo%20V%20only.svg" width={25} height={25} alt="VDCD Logo" />
       </div>
       <span className="text-xl font-bold tracking-tight text-text">
         VDCD <span className="font-normal text-text-muted">Admin</span>

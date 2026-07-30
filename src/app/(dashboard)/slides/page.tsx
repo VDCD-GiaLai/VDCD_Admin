@@ -139,7 +139,7 @@ export default function SlidesPage() {
       },
       onError: (error) => { setLocalOrder(null); toast({ title: "Sắp xếp thất bại", description: error.message, color: "danger" }); },
     });
-  }, [sortedSlides, reorderMutation, toast]);
+  }, [sortedSlides, reorderMutation, toast, queryClient]);
 
   const handleToggle = useCallback((id: string, isActive: boolean) => {
     toggleMutation.mutate({ id, isActive }, {

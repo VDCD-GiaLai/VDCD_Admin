@@ -57,7 +57,7 @@ interface TooltipColorTokens {
 
 const colorTokens: Record<TooltipColor, TooltipColorTokens> = {
   default: { bg: "bg-black/90", text: "text-white", arrowHex: "rgba(0,0,0,0.9)" },
-  primary: { bg: "bg-primary", text: "text-white", arrowHex: "#985FFD" },
+  primary: { bg: "bg-primary", text: "text-white", arrowHex: "#ca2a30" },
   secondary: { bg: "bg-secondary", text: "text-white", arrowHex: "#FF49CD" },
   success: { bg: "bg-success", text: "text-white", arrowHex: "#32D484" },
   warning: { bg: "bg-warning", text: "text-dark", arrowHex: "#FDAF22" },
