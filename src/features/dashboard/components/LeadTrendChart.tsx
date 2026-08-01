@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useState } from "react";
+import { DropdownSelect } from "@/components/ui";
 
 export function LeadTrendChart() {
   const [range, setRange] = useState("7days");
@@ -23,15 +24,16 @@ export function LeadTrendChart() {
           <h3 className="text-lg font-bold text-text">Biểu đồ Leads</h3>
           <p className="text-sm text-text-muted">Xu hướng khách hàng tiềm năng</p>
         </div>
-        <select
-          className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        <DropdownSelect
+          placement="bottom-end"
           value={range}
-          onChange={(e) => setRange(e.target.value)}
-        >
-          <option value="7days">7 ngày qua</option>
-          <option value="30days">30 ngày qua</option>
-          <option value="90days">90 ngày qua</option>
-        </select>
+          onChange={setRange}
+          options={[
+            { value: "7days", label: "7 ngày qua" },
+            { value: "30days", label: "30 ngày qua" },
+            { value: "90days", label: "90 ngày qua" },
+          ]}
+        />
       </div>
 
       <div className="h-[300px] w-full flex-1">

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AppButton, Spinner } from "@/components/ui";
+import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { DataTable, PublishToggle } from "@/components/shared";
@@ -224,65 +224,61 @@ export default function ProjectsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={filters.fieldId ?? ""}
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
-                fieldId: e.target.value || undefined,
+                fieldId: val || undefined,
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả lĩnh vực</option>
-            {operationFields?.map((field) => (
-              <option key={field.id} value={field.id}>
-                {field.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Tất cả lĩnh vực" },
+              ...(operationFields?.map((field) => ({
+                value: field.id,
+                label: field.name,
+              })) ?? []),
+            ]}
+          />
 
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={filters.provinceId ?? ""}
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
-                provinceId: e.target.value || undefined,
+                provinceId: val || undefined,
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả tỉnh thành</option>
-            {provinces?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Tất cả tỉnh thành" },
+              ...(provinces?.map((p) => ({
+                value: p.id,
+                label: p.name,
+              })) ?? []),
+            ]}
+          />
 
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
-            value={filters.year ?? ""}
-            onChange={(e) =>
+          <DropdownSelect
+            value={filters.year ? String(filters.year) : ""}
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
-                year: e.target.value ? parseInt(e.target.value) : undefined,
+                year: val ? parseInt(val, 10) : undefined,
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả năm</option>
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Tất cả năm" },
+              ...yearOptions.map((y) => ({
+                value: String(y),
+                label: String(y),
+              })),
+            ]}
+          />
 
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={
               filters.isPublished === ""
                 ? ""
@@ -290,21 +286,22 @@ export default function ProjectsPage() {
                   ? "true"
                   : "false"
             }
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
                 isPublished:
-                  e.target.value === ""
+                  val === ""
                     ? ""
-                    : e.target.value === "true",
+                    : val === "true",
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="true">Đã xuất bản</option>
-            <option value="false">Bản nháp</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "true", label: "Đã xuất bản" },
+              { value: "false", label: "Bản nháp" },
+            ]}
+          />
         </div>
 
         <DataTable

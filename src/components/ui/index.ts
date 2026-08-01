@@ -126,6 +126,7 @@ export {
   DropdownDivider,
   DropdownText,
   DropdownCustom,
+  DropdownSelect,
 } from "./Dropdown";
 
 export type {
@@ -135,6 +136,8 @@ export type {
   DropdownTextProps,
   DropdownCustomProps,
   DropdownPlacement,
+  DropdownSelectProps,
+  DropdownSelectOption,
 } from "./Dropdown";
 
 // ─── Popover ─────────────────────────────────────────────────

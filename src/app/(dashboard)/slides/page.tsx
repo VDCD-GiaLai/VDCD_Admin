@@ -174,19 +174,19 @@ export default function SlidesPage() {
         </div>
 
         <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-surface-muted/50">
-                <th className="w-10 px-3 py-2.5" />
-                <th className="w-28 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Ảnh</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Tiêu đề</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">CTA</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Trạng thái</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Thao tác</th>
-              </tr>
-            </thead>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={sortedSlides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedSlides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted/50">
+                    <th className="w-10 px-3 py-2.5" />
+                    <th className="w-28 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Ảnh</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Tiêu đề</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">CTA</th>
+                    <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Trạng thái</th>
+                    <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Thao tác</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {sortedSlides.length === 0 ? (
                     <tr><td colSpan={6} className="py-12 text-center text-sm text-text-muted">Chưa có slide nào</td></tr>
@@ -203,9 +203,9 @@ export default function SlidesPage() {
                     ))
                   )}
                 </tbody>
-              </SortableContext>
-            </DndContext>
-          </table>
+              </table>
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 

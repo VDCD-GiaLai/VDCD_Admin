@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AppButton, Spinner } from "@/components/ui";
+import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { DataTable, PublishToggle } from "@/components/shared";
@@ -225,27 +225,25 @@ export default function ProgramsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={filters.fieldId ?? ""}
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
-                fieldId: e.target.value || undefined,
+                fieldId: val || undefined,
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả lĩnh vực</option>
-            {operationFields?.map((field) => (
-              <option key={field.id} value={field.id}>
-                {field.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Tất cả lĩnh vực" },
+              ...(operationFields?.map((field) => ({
+                value: field.id,
+                label: field.name,
+              })) ?? []),
+            ]}
+          />
 
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={
               filters.isPublished === ""
                 ? ""
@@ -253,21 +251,22 @@ export default function ProgramsPage() {
                   ? "true"
                   : "false"
             }
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
                 isPublished:
-                  e.target.value === ""
+                  val === ""
                     ? ""
-                    : e.target.value === "true",
+                    : val === "true",
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="true">Đã xuất bản</option>
-            <option value="false">Bản nháp</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "true", label: "Đã xuất bản" },
+              { value: "false", label: "Bản nháp" },
+            ]}
+          />
         </div>
 
         {/* Table */}

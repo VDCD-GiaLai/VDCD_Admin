@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { format } from "date-fns";
-import { AppButton, Spinner } from "@/components/ui";
+import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { DataTable } from "@/components/shared";
@@ -235,8 +235,7 @@ export default function LeadsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={
               filters.isRead === ""
                 ? ""
@@ -244,21 +243,22 @@ export default function LeadsPage() {
                   ? "true"
                   : "false"
             }
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
                 isRead:
-                  e.target.value === ""
+                  val === ""
                     ? ""
-                    : e.target.value === "true",
+                    : val === "true",
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="true">Đã đọc</option>
-            <option value="false">Chưa đọc</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "true", label: "Đã đọc" },
+              { value: "false", label: "Chưa đọc" },
+            ]}
+          />
         </div>
 
         {/* Table */}

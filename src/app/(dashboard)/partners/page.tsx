@@ -285,19 +285,19 @@ export default function PartnersPage() {
         </div>
 
         <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-surface-muted/50">
-                <th className="w-10 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted" />
-                <th className="w-16 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Logo</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Tên</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Website</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Trạng thái</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Thao tác</th>
-              </tr>
-            </thead>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={sortedPartners.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedPartners.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted/50">
+                    <th className="w-10 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted" />
+                    <th className="w-16 px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Logo</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Tên</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-text-muted">Website</th>
+                    <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Trạng thái</th>
+                    <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase text-text-muted">Thao tác</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {sortedPartners.length === 0 ? (
                     <tr>
@@ -318,9 +318,9 @@ export default function PartnersPage() {
                     ))
                   )}
                 </tbody>
-              </SortableContext>
-            </DndContext>
-          </table>
+              </table>
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 

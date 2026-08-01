@@ -2,28 +2,33 @@
 
 import {
   type ReactNode,
+  type ComponentProps,
   useState,
-  useRef,
-  useEffect,
   useCallback,
   createContext,
   useContext,
 } from "react";
+import {
+  Popover as HeroPopover,
+  PopoverTrigger as HeroPopoverTrigger,
+  PopoverContent as HeroPopoverContent,
+} from "@heroui/react";
 
 // ─── Types ───────────────────────────────────────────────────
 
-export type DropdownPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end" | "left" | "right";
-
-// ─── Placement CSS ───────────────────────────────────────────
-
-const placementClasses: Record<DropdownPlacement, string> = {
-  "bottom-start": "top-full left-0 mt-1",
-  "bottom-end": "top-full right-0 mt-1",
-  "top-start": "bottom-full left-0 mb-1",
-  "top-end": "bottom-full right-0 mb-1",
-  left: "right-full top-0 mr-1",
-  right: "left-full top-0 ml-1",
-};
+export type DropdownPlacement =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "top-start"
+  | "top-end"
+  | "bottom-start"
+  | "bottom-end"
+  | "left-start"
+  | "left-end"
+  | "right-start"
+  | "right-end";
 
 // ─── Context for auto-close ──────────────────────────────────
 
@@ -65,63 +70,36 @@ export function Dropdown({
   className,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Click outside to close
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // Escape to close
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsOpen(false);
-    }
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      return () => document.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [isOpen]);
 
   const close = useCallback(() => setIsOpen(false), []);
 
   return (
     <DropdownContext.Provider value={{ close, autoClose }}>
-      <div ref={containerRef} className={`relative inline-flex ${className ?? ""}`}>
-        {/* Trigger — clone onClick to toggle */}
-        <div
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="inline-flex cursor-pointer"
-          role="button"
-          aria-haspopup="true"
-          aria-expanded={isOpen}
-        >
-          {trigger}
-        </div>
-
-        {/* Menu */}
-        {isOpen && (
-          <div
-            className={[
-              "absolute z-50 overflow-hidden rounded-md border border-border bg-surface py-1 shadow-lg",
-              "animate-in fade-in-0 zoom-in-95 duration-150",
-              placementClasses[placement],
-            ].join(" ")}
-            style={{ minWidth }}
-            role="menu"
-          >
-            {children}
+      <HeroPopover
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+      >
+        <HeroPopoverTrigger>
+          {/* Wrap in an inline-flex div to ensure the trigger receives popover ref and onClick events correctly */}
+          <div className="inline-flex cursor-pointer" role="button">
+            {trigger}
           </div>
-        )}
-      </div>
+        </HeroPopoverTrigger>
+        <HeroPopoverContent
+          placement={
+            placement.replace("-", " ") as ComponentProps<
+              typeof HeroPopoverContent
+            >["placement"]
+          }
+          className={[
+            "p-1 bg-surface border border-border shadow-lg rounded-md overflow-hidden",
+            className ?? "",
+          ].join(" ")}
+          style={{ minWidth }}
+        >
+          <div className="w-full flex flex-col">{children}</div>
+        </HeroPopoverContent>
+      </HeroPopover>
     </DropdownContext.Provider>
   );
 }
@@ -168,7 +146,7 @@ export function DropdownItem({
   };
 
   const itemClasses = [
-    "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors",
+    "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors rounded-md",
     disabled
       ? "cursor-not-allowed opacity-50 text-text-muted"
       : "cursor-pointer hover:bg-surface-muted",
@@ -182,14 +160,20 @@ export function DropdownItem({
     return (
       <a href={href} className={itemClasses} role="menuitem" onClick={handleClick}>
         {startContent && <span className="shrink-0">{startContent}</span>}
-        <span className="flex-1">{children}</span>
+        <span className="flex-1 text-left">{children}</span>
         {endContent && <span className="shrink-0">{endContent}</span>}
       </a>
     );
   }
 
   return (
-    <button type="button" className={itemClasses} role="menuitem" onClick={handleClick} disabled={disabled}>
+    <button
+      type="button"
+      className={itemClasses}
+      role="menuitem"
+      onClick={handleClick}
+      disabled={disabled}
+    >
       {startContent && <span className="shrink-0">{startContent}</span>}
       <span className="flex-1 text-left">{children}</span>
       {endContent && <span className="shrink-0">{endContent}</span>}
@@ -210,7 +194,7 @@ export function DropdownHeader({ children, className }: DropdownHeaderProps) {
   return (
     <div
       className={[
-        "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted",
+        "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none",
         className ?? "",
       ].join(" ")}
     >
@@ -238,7 +222,7 @@ export interface DropdownTextProps {
 
 export function DropdownText({ children, className }: DropdownTextProps) {
   return (
-    <div className={`px-3 py-2 text-xs text-text-muted ${className ?? ""}`}>
+    <div className={`px-3 py-2 text-xs text-text-muted select-none ${className ?? ""}`}>
       {children}
     </div>
   );
@@ -258,5 +242,87 @@ export function DropdownCustom({ children, className }: DropdownCustomProps) {
     <div className={`px-3 py-2 ${className ?? ""}`}>
       {children}
     </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+//  DropdownSelect — select-like dropdown menu
+// ═════════════════════════════════════════════════════════════
+
+export interface DropdownSelectOption<T = string> {
+  value: T;
+  label: ReactNode;
+}
+
+export interface DropdownSelectProps<T = string> {
+  /** Selected value */
+  value: T;
+  /** Selection change callback */
+  onChange: (value: T) => void;
+  /** Option list */
+  options: DropdownSelectOption<T>[];
+  /** Placeholder text */
+  placeholder?: string;
+  /** Dropdown placement */
+  placement?: DropdownPlacement;
+  /** Min width of the dropdown menu */
+  minWidth?: number;
+  /** Trigger button custom className */
+  className?: string;
+}
+
+export function DropdownSelect<T = string>({
+  value,
+  onChange,
+  options,
+  placeholder = "Chọn...",
+  placement = "bottom-start",
+  minWidth = 160,
+  className,
+}: DropdownSelectProps<T>) {
+  const currentOption = options.find((opt) => opt.value === value);
+
+  return (
+    <Dropdown
+      placement={placement}
+      minWidth={minWidth}
+      trigger={
+        <button
+          type="button"
+          className={[
+            "flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text transition-all duration-200 hover:border-primary hover:text-primary focus:border-primary focus:outline-none",
+            className ?? "",
+          ].join(" ")}
+        >
+          <span className="font-medium">
+            {currentOption ? currentOption.label : placeholder}
+          </span>
+          <svg
+            className="h-3.5 w-3.5 text-text-muted transition-colors"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+      }
+    >
+      {options.map((opt) => (
+        <DropdownItem
+          key={String(opt.value)}
+          isActive={opt.value === value}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </DropdownItem>
+      ))}
+    </Dropdown>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppButton, Badge } from "@/components/ui";
+import { AppButton, Badge, DropdownSelect } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { useAdminUsers, useDeleteAdminUser } from "@/features/admin-users/api";
 import { DataTable } from "@/components/shared";
@@ -152,21 +152,20 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex flex-col">
-          <select
-            className="h-9 w-48 rounded-md border border-border bg-surface px-3 py-1 text-sm text-text"
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="all">Tất cả vai trò</option>
-            <option value="superadmin">Superadmin</option>
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
-          </select>
-        </div>
+        <DropdownSelect
+          value={roleFilter}
+          onChange={(val) => {
+            setRoleFilter(val);
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "Tất cả vai trò" },
+            { value: "superadmin", label: "Superadmin" },
+            { value: "editor", label: "Editor" },
+            { value: "viewer", label: "Viewer" },
+          ]}
+          className="w-48"
+        />
       </div>
 
       <DataTable

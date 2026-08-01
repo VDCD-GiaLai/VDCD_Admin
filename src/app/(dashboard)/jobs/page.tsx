@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AppButton, Spinner } from "@/components/ui";
+import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { DataTable, PublishToggle } from "@/components/shared";
@@ -225,25 +225,24 @@ export default function JobsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={filters.type ?? ""}
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
-                type: e.target.value || undefined,
+                type: val || undefined,
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả loại hình</option>
-            <option value="full-time">Toàn thời gian</option>
-            <option value="part-time">Bán thời gian</option>
-            <option value="intern">Thực tập sinh</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả loại hình" },
+              { value: "full-time", label: "Toàn thời gian" },
+              { value: "part-time", label: "Bán thời gian" },
+              { value: "intern", label: "Thực tập sinh" },
+            ]}
+          />
 
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={
               filters.isActive === ""
                 ? ""
@@ -251,21 +250,22 @@ export default function JobsPage() {
                   ? "true"
                   : "false"
             }
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
                 isActive:
-                  e.target.value === ""
+                  val === ""
                     ? ""
-                    : e.target.value === "true",
+                    : val === "true",
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="true">Đang mở</option>
-            <option value="false">Đã đóng</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "true", label: "Đang mở" },
+              { value: "false", label: "Đã đóng" },
+            ]}
+          />
         </div>
 
         {/* Table */}
