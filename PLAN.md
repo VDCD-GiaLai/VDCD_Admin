@@ -42,13 +42,14 @@ Related: UC-AUTH-01→04.
 
 ## Phase 2 — Master data (foundational data for content modules)
 
-Related: Module 3 (Organization), Module 5 (Slide), Module 6 (Partner), Module 7 (Operation Field), Module 5 map use case (Province).
+Related: Module 3 (Organization), Module 5 (Slide), Module 6 (Partner), Module 7 (Operation Field), Module 5 map use case (Province), Page Banner.
 
 - [ ] Organization (UC-ORG-01, 02) — single-record form
 - [ ] Operation Field (UC-FLD-01→04) — simple CRUD, needed first since Program/Solution/Project depend on this
 - [ ] Province (UC-MAP-01, 02) — only needs a table to update `has_project`/`center_count`, **no need to build interactive SVG map at this phase** (interactive map belongs to the public site, not admin — confirm scope if admin also needs map preview)
 - [ ] Partner (UC-PTN-01→07) — CRUD + drag-and-drop reorder
 - [ ] Slide (UC-SLD-01→07) — CRUD + reorder + image upload
+- [x] Page Banner — CRUD + image upload (manage banners for specific pages)
 
 **Must confirm:** Image upload storage provider (`/upload/image`) — S3, Cloudinary, or BE's own VPS storage? Doesn't significantly affect FE (just one upload endpoint) but need to know size/format limits to display correct error messages.
 
@@ -69,16 +70,17 @@ Related: Module 8 (Program), Module 9 (Solution), Module 10 (Project + gallery),
 
 ---
 
-## Phase 4 — Job & Lead
+## Phase 4 — Job, Lead & Contact
 
-Related: Module 12 (Job), Module 13 (Lead).
+Related: Module 12 (Job), Module 13 (Lead), Contact.
 
 - [ ] Job: CRUD + "Urgent" badge + toggle active (UC-JOB-04→08)
 - [ ] Lead: list + mark read/unread + export CSV (UC-LED-02→06)
+- [x] Contact: list + mark read/unread + export CSV (similar to Lead pattern)
 
-**Must confirm:** Is real-time notification needed (unread lead count badge updates live) or is refetch on page visit sufficient for the initial version? (determines whether polling/websocket is needed).
+**Must confirm:** Is real-time notification needed (unread lead/contact count badge updates live) or is refetch on page visit sufficient for the initial version? (determines whether polling/websocket is needed).
 
-**Definition of Done:** Viewer can see leads but cannot delete (correct RBAC); CSV export downloads file with the correct selected time range.
+**Definition of Done:** Viewer can see leads/contacts but cannot delete (correct RBAC); CSV export downloads file with the correct selected time range.
 
 ---
 

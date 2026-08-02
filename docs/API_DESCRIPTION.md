@@ -26,6 +26,8 @@
 - [16. Leads](#16-leads)
 - [17. Upload](#17-upload)
 - [18. Health](#18-health)
+- [19. Page Banners](#19-page-banners)
+- [20. Contacts](#20-contacts)
 
 ---
 
@@ -1556,6 +1558,122 @@ Check database, Redis, and uptime status.
 
 ---
 
+## 19. Page Banners
+
+**Prefix:** `/api/v1/page-banners`
+**Description:** Manage page banners.
+
+### 19.1. 🔓 GET `/page-banners`
+
+Get active banners.
+
+**Response (200):** Array of PageBanner objects
+
+---
+
+### 19.2. ✏️ GET `/page-banners/all`
+
+Get all banners (including inactive).
+
+**Response (200):** Array of PageBanner objects
+
+---
+
+### 19.3. ✏️ POST `/page-banners`
+
+Create a new banner.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pageName` | string | ✅ | Target page |
+| `title` | string | ❌ | Banner title |
+| `description` | string | ❌ | Banner description |
+| `imageUrl` | string | ✅ | Banner image |
+| `isActive` | boolean | ❌ | Active status |
+
+**Response (201):** Created PageBanner object
+
+---
+
+### 19.4. ✏️ PATCH `/page-banners/:id`
+
+Update banner.
+
+**Response (200):** Updated PageBanner object
+
+---
+
+### 19.5. ✏️ PATCH `/page-banners/:id/toggle`
+
+Toggle active status.
+
+**Response (200):** Success
+
+---
+
+### 19.6. 👑 DELETE `/page-banners/:id`
+
+Delete banner.
+
+**Response (200):** Success
+
+---
+
+## 20. Contacts
+
+**Prefix:** `/api/v1/contacts`
+**Description:** Manage contacts.
+
+### 20.1. 🔓 POST `/contacts`
+
+Submit a contact form.
+
+**Response (201):** Success
+
+---
+
+### 20.2. 🔐 GET `/contacts`
+
+Get list of contacts (paginated).
+
+**Response (200):** Paginated contacts
+
+---
+
+### 20.3. 👑 GET `/contacts/export`
+
+Export contacts as CSV.
+
+**Response (200):** CSV file
+
+---
+
+### 20.4. 🔐 GET `/contacts/:id`
+
+Get contact details.
+
+**Response (200):** Contact object
+
+---
+
+### 20.5. 🔐 PATCH `/contacts/:id/read`
+
+Mark contact as read.
+
+**Response (200):** Success
+
+---
+
+### 20.6. 👑 DELETE `/contacts/:id`
+
+Delete contact.
+
+**Response (200):** Success
+
+---
+
 ## Endpoints Overview
 
 | # | Module | Method | Endpoint | Auth | Description |
@@ -1648,7 +1766,19 @@ Check database, Redis, and uptime status.
 | 86 | Upload | GET | `/upload/transform` | 🔓 | Transform image URL |
 | 87 | Upload | GET | `/upload/auth` | ✏️ | Auth params client upload |
 | 88 | Health | GET | `/health` | 🔓 | System health check |
+| 89 | Page Banners | GET | `/page-banners` | 🔓 | Active page banners |
+| 90 | Page Banners | GET | `/page-banners/all` | ✏️ | All page banners |
+| 91 | Page Banners | POST | `/page-banners` | ✏️ | Create page banner |
+| 92 | Page Banners | PATCH | `/page-banners/:id` | ✏️ | Update page banner |
+| 93 | Page Banners | PATCH | `/page-banners/:id/toggle` | ✏️ | Toggle page banner |
+| 94 | Page Banners | DELETE | `/page-banners/:id` | 👑 | Delete page banner |
+| 95 | Contacts | POST | `/contacts` | 🔓 | Submit contact form |
+| 96 | Contacts | GET | `/contacts` | 🔐 | List contacts |
+| 97 | Contacts | GET | `/contacts/export` | 👑 | Export contacts CSV |
+| 98 | Contacts | GET | `/contacts/:id` | 🔐 | Contact details |
+| 99 | Contacts | PATCH | `/contacts/:id/read` | 🔐 | Mark contact as read |
+| 100 | Contacts | DELETE | `/contacts/:id` | 👑 | Delete contact |
 
 ---
 
-> **Total: 88 endpoints** · **13 main modules** + Auth + Upload + Health
+> **Total: 100 endpoints** · **15 main modules** + Auth + Upload + Health

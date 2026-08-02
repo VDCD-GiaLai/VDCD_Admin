@@ -244,6 +244,39 @@
 
 ---
 
+## page_banner
+
+**Description:** Manage banners for specific pages
+
+| No | Field | Data type | Constraints | Description |
+| ---: | --- | --- | --- | --- |
+| 1 | id | UUID | Primary Key, Not Null | Unique identifier |
+| 2 | page_name | VARCHAR(100) | Not Null, Unique | The page where the banner is displayed (e.g., 'home', 'about') |
+| 3 | title | VARCHAR(255) | Nullable | Banner title |
+| 4 | description | TEXT | Nullable | Banner description |
+| 5 | image_url | VARCHAR(500) | Not Null | Banner background image URL |
+| 6 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable banner |
+| 7 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 8 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+
+---
+
+## contact
+
+**Description:** General contact form submissions
+
+| No | Field | Data type | Constraints | Description |
+| ---: | --- | --- | --- | --- |
+| 1 | id | UUID | Primary Key, Not Null | Unique identifier |
+| 2 | full_name | VARCHAR(255) | Not Null | Contact person's full name |
+| 3 | email | VARCHAR(255) | Not Null | Contact email |
+| 4 | phone | VARCHAR(20) | Nullable | Phone number |
+| 5 | message | TEXT | Not Null | Message content |
+| 6 | is_read | BOOLEAN | Not Null, Default: FALSE | Whether admin has read it |
+| 7 | created_at | TIMESTAMP | Not Null, Default: NOW() | Form submission timestamp |
+
+---
+
 # Indexes
 
 | Index Name | Table | Column(s) | Description |
@@ -264,6 +297,8 @@
 | `idx_article_published` | article | published_at DESC | Sort articles by publication date |
 | `idx_lead_created` | lead | created_at DESC | Sort leads by submission date |
 | `idx_lead_is_read` | lead | is_read | Filter leads by read status |
+| `idx_contact_created` | contact | created_at DESC | Sort contacts by submission date |
+| `idx_contact_is_read` | contact | is_read | Filter contacts by read status |
 
 ---
 
@@ -435,6 +470,27 @@ erDiagram
         VARCHAR attachment
         BOOLEAN is_read
         TIMESTAMP created_at
+    }
+
+    contact {
+        UUID id PK
+        VARCHAR full_name
+        VARCHAR email
+        VARCHAR phone
+        TEXT message
+        BOOLEAN is_read
+        TIMESTAMP created_at
+    }
+
+    page_banner {
+        UUID id PK
+        VARCHAR page_name UK
+        VARCHAR title
+        TEXT description
+        VARCHAR image_url
+        BOOLEAN is_active
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     operation_field ||--o{ program : "has many"

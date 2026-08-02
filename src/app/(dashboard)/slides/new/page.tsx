@@ -123,7 +123,7 @@ export default function NewSlidePage() {
             <FormTextarea label="Mô tả" rows={3} errorMessage={errors.description?.message} {...register("description")} />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormInput label="Nút CTA" placeholder="VD: Tìm hiểu thêm" errorMessage={errors.ctaText?.message} {...register("ctaText")} />
-              <FormInput label="Link CTA" type="url" placeholder="https://..." errorMessage={errors.ctaUrl?.message} {...register("ctaUrl")} />
+              <FormInput label="Link CTA" type="text" placeholder="Link" errorMessage={errors.ctaUrl?.message} {...register("ctaUrl")} />
             </div>
           </CardContent>
         </Card>

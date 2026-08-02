@@ -23,7 +23,6 @@ export const slideSchema = z.object({
 
   ctaUrl: z
     .string()
-    .url("URL CTA không hợp lệ")
     .or(z.literal(""))
     .nullable()
     .optional(),

@@ -58,6 +58,7 @@ vdcd-admin/
 │   │   │   ├── organization/page.tsx
 │   │   │   ├── admin-users/page.tsx
 │   │   │   ├── slides/page.tsx
+│   │   │   ├── page-banners/page.tsx
 │   │   │   ├── provinces/page.tsx
 │   │   │   ├── partners/page.tsx
 │   │   │   ├── operation-fields/page.tsx
@@ -70,6 +71,9 @@ vdcd-admin/
 │   │   │   ├── articles/...              # same pattern
 │   │   │   ├── jobs/...                  # same pattern
 │   │   │   └── leads/
+│   │   │       ├── page.tsx
+│   │   │       └── [id]/page.tsx
+│   │   │   ├── contacts/
 │   │   │       ├── page.tsx
 │   │   │       └── [id]/page.tsx
 │   │   └── api/auth/                     # Route Handlers (BFF) — see section 4
@@ -87,6 +91,7 @@ vdcd-admin/
 │   │   ├── organization/
 │   │   ├── admin-users/
 │   │   ├── slides/
+│   │   ├── page-banners/
 │   │   ├── provinces/
 │   │   ├── partners/
 │   │   ├── operation-fields/
@@ -103,7 +108,8 @@ vdcd-admin/
 │   │   ├── projects/                     # + components/ProjectGallery.tsx
 │   │   ├── articles/
 │   │   ├── jobs/
-│   │   └── leads/
+│   │   ├── leads/
+│   │   └── contacts/
 │   ├── lib/
 │   │   ├── api-client.ts                 # fetch wrapper: base URL, credentials, error mapping
 │   │   ├── query-client.ts               # QueryClient config (staleTime, retry...)
@@ -112,8 +118,8 @@ vdcd-admin/
 │   ├── stores/                           # Zustand stores (ui-store, sidebar-store...)
 │   ├── hooks/                            # shared hooks not belonging to any feature
 │   ├── types/                            # types matching DB schema: Program, Solution, Project,
-│   │                                       # Article, Job, Lead, Partner, Province,
-│   │                                       # OperationField, Organization, AdminUser, Slide
+│   │                                       # Article, Job, Lead, Contact, Partner, Province,
+│   │                                       # OperationField, Organization, AdminUser, Slide, PageBanner
 │   └── middleware.ts                     # auth guard + refresh token
 ├── .env.example
 ├── tailwind.config.ts
@@ -171,10 +177,11 @@ export const PERMISSIONS = {
   superadmin: ["*"], // full access
   editor: [
     "organization:update",
-    "slides:*", "partners:*", "operation-fields:create", "operation-fields:update",
+    "slides:*", "page-banners:*", "partners:*", "operation-fields:create", "operation-fields:update",
     "programs:*:except-delete", "solutions:*:except-delete", "projects:*:except-delete",
     "articles:*:except-delete", "jobs:*:except-delete",
     "leads:read", "leads:update-status",
+    "contacts:read", "contacts:update-status",
   ],
   // viewer role is NOT allowed to login to admin panel — excluded from RBAC
 } as const;

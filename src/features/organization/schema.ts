@@ -31,6 +31,8 @@ export const organizationSchema = z.object({
     .max(new Date().getFullYear(), "Năm không được vượt quá năm hiện tại")
     .nullable()
     .optional(),
+    
+  address: z.string().nullable().optional(),
 
   stats: z
     .object({
@@ -42,13 +44,13 @@ export const organizationSchema = z.object({
     .nullable()
     .optional(),
 
-  socialLinks: z
-    .object({
-      facebook: z.string().url("URL không hợp lệ").or(z.literal("")).optional(),
-      zalo: z.string().url("URL không hợp lệ").or(z.literal("")).optional(),
-      youtube: z.string().url("URL không hợp lệ").or(z.literal("")).optional(),
-    })
-    .nullable()
+  socialLinksArray: z
+    .array(
+      z.object({
+        platform: z.string().min(1, "Vui lòng nhập phương thức (VD: Zalo, Hotline...)"),
+        url: z.string().min(1, "Vui lòng nhập thông tin liên hệ (SĐT, Link...)"),
+      })
+    )
     .optional(),
 });
 
