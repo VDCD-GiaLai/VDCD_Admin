@@ -26,7 +26,8 @@ export interface Organization {
   vision: string | null;
   coreValues: string | null;
   foundedYear: number | null;
+  address: string | null;
   stats: OrganizationStats | null;
-  socialLinks: OrganizationSocialLinks | null;
+  socialLinks: Record<string, string> | null;
   updatedAt: string;
 }

@@ -921,6 +921,41 @@
 
 ---
 
+## Module 15 – Page Banner Management
+
+### UC-BNR-01: View banner list (admin)
+- **Actor:** Superadmin, Editor
+
+### UC-BNR-02: Add new banner
+- **Actor:** Superadmin, Editor
+
+### UC-BNR-03: Update banner
+- **Actor:** Superadmin, Editor
+
+### UC-BNR-04: Delete banner
+- **Actor:** Superadmin
+
+---
+
+## Module 16 – Contact Management
+
+### UC-CNT-01: Submit contact form
+- **Actor:** Guest
+
+### UC-CNT-02: View contact list (admin)
+- **Actor:** Superadmin, Editor
+
+### UC-CNT-03: Mark contact as read/unread
+- **Actor:** Superadmin, Editor
+
+### UC-CNT-04: Export contacts
+- **Actor:** Superadmin
+
+### UC-CNT-05: Delete contact
+- **Actor:** Superadmin
+
+---
+
 ## Use Case Summary by Actor
 
 ### Guest
@@ -941,4 +976,4 @@ UC-ADM-01~05, UC-SLD-07, UC-PTN-07, UC-FLD-04, UC-PRG-07, UC-SLT-07, UC-PRJ-08, 
 
 ---
 
-**Total:** 14 modules – 65 use cases
+**Total:** 16 modules – 74 use cases
