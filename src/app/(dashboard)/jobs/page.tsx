@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable, PublishToggle } from "@/components/shared";
+import { DataTable, PublishToggle, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   useJobs,
@@ -273,19 +273,20 @@ export default function JobsPage() {
           data={jobsData?.items ?? []}
           columns={columns}
           keyExtractor={(item) => item.id}
-          pagination={
-            jobsData
-              ? {
-                  currentPage: jobsData.page,
-                  totalPages: jobsData.totalPages,
-                  totalItems: jobsData.total,
-                  pageSize: jobsData.limit,
-                  onPageChange: (page) =>
-                    setFilters((f) => ({ ...f, page })),
-                }
-              : undefined
-          }
           emptyContent="Chưa có vị trí tuyển dụng nào"
+        />
+
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={jobsData?.totalPages || 1}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          limit={filters.limit || 10}
+          onLimitChange={(limit) =>
+            setFilters((f) => ({ ...f, limit, page: 1 }))
+          }
+          label="Danh sách vị trí tuyển dụng"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

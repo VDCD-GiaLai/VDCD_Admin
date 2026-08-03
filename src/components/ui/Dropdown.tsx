@@ -269,6 +269,8 @@ export interface DropdownSelectProps<T = string> {
   minWidth?: number;
   /** Trigger button custom className */
   className?: string;
+  /** Disable the dropdown */
+  disabled?: boolean;
 }
 
 export function DropdownSelect<T = string>({
@@ -279,6 +281,7 @@ export function DropdownSelect<T = string>({
   placement = "bottom-start",
   minWidth = 160,
   className,
+  disabled = false,
 }: DropdownSelectProps<T>) {
   const currentOption = options.find((opt) => opt.value === value);
 
@@ -289,8 +292,10 @@ export function DropdownSelect<T = string>({
       trigger={
         <button
           type="button"
+          disabled={disabled}
           className={[
             "flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text transition-all duration-200 hover:border-primary hover:text-primary focus:border-primary focus:outline-none",
+            disabled ? "opacity-50 pointer-events-none cursor-not-allowed bg-surface-muted" : "",
             className ?? "",
           ].join(" ")}
         >

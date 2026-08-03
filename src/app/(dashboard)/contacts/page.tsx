@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { AppButton, Spinner, Badge } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable } from "@/components/shared";
+import { DataTable, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   useContacts,
@@ -264,19 +264,20 @@ export default function ContactsPage() {
           data={contactsData?.items ?? []}
           columns={columns}
           keyExtractor={(item) => item.id}
-          pagination={
-            contactsData
-              ? {
-                  currentPage: contactsData.page,
-                  totalPages: contactsData.totalPages,
-                  totalItems: contactsData.total,
-                  pageSize: contactsData.limit,
-                  onPageChange: (page) =>
-                    setFilters((f) => ({ ...f, page })),
-                }
-              : undefined
-          }
           emptyContent="Chưa có liên hệ nào"
+        />
+
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={contactsData?.totalPages || 1}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          limit={filters.limit || 10}
+          onLimitChange={(limit) =>
+            setFilters((f) => ({ ...f, limit, page: 1 }))
+          }
+          label="Danh sách liên hệ của khách hàng"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

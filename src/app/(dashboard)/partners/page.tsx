@@ -29,6 +29,7 @@ import {
   useReorderPartners,
   partnerKeys,
 } from "@/features/partners/api";
+import { TablePagination } from "@/components/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermission } from "@/hooks/usePermission";
 import type { Partner } from "@/types/partner";
@@ -191,6 +192,13 @@ export default function PartnersPage() {
     [localOrder, partners],
   );
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const paginatedPartners = useMemo(() => {
+    return sortedPartners.slice((page - 1) * limit, page * limit);
+  }, [sortedPartners, page, limit]);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -286,7 +294,7 @@ export default function PartnersPage() {
 
         <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sortedPartners.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={paginatedPartners.map((p) => p.id)} strategy={verticalListSortingStrategy}>
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted/50">
@@ -299,14 +307,14 @@ export default function PartnersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedPartners.length === 0 ? (
+                  {paginatedPartners.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-sm text-text-muted">
                         Chưa có đối tác nào
                       </td>
                     </tr>
                   ) : (
-                    sortedPartners.map((partner) => (
+                    paginatedPartners.map((partner) => (
                       <SortablePartnerRow
                         key={partner.id}
                         partner={partner}
@@ -322,6 +330,22 @@ export default function PartnersPage() {
             </SortableContext>
           </DndContext>
         </div>
+
+        {sortedPartners.length > 0 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={Math.ceil(sortedPartners.length / limit) || 1}
+            onPageChange={setPage}
+            limit={limit}
+            onLimitChange={(lim) => {
+              setLimit(lim);
+              setPage(1);
+            }}
+            label="Danh sách đối tác"
+            disabled={isLoading}
+            className="mt-4"
+          />
+        )}
       </div>
 
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}>

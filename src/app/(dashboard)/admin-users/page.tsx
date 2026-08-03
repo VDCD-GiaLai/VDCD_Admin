@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Badge, DropdownSelect } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { useAdminUsers, useDeleteAdminUser } from "@/features/admin-users/api";
-import { DataTable } from "@/components/shared";
+import { DataTable, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { AdminUser } from "@/types/auth";
 import { usePermission } from "@/hooks/usePermission";
@@ -17,6 +17,7 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
 
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
@@ -24,7 +25,7 @@ export default function AdminUsersPage() {
 
   const { data, isLoading } = useAdminUsers({
     page,
-    limit: 10,
+    limit,
     role: roleFilter === "all" ? undefined : roleFilter,
   });
 
@@ -173,18 +174,21 @@ export default function AdminUsersPage() {
         data={data?.items ?? []}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        pagination={
-          data
-            ? {
-                currentPage: data.page,
-                totalPages: data.totalPages,
-                totalItems: data.total,
-                pageSize: data.limit,
-                onPageChange: setPage,
-              }
-            : undefined
-        }
         emptyContent="Không có tài khoản nào."
+      />
+
+      <TablePagination
+        currentPage={page}
+        totalPages={data?.totalPages || 1}
+        onPageChange={setPage}
+        limit={limit}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
+        label="Danh sách tài khoản quản trị"
+        disabled={isLoading}
+        className="mt-4"
       />
 
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}>

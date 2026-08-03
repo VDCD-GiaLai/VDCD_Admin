@@ -17,6 +17,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/comp
 import {
   useSlides, useDeleteSlide, useToggleSlide, useReorderSlides, slideKeys,
 } from "@/features/slides/api";
+import { TablePagination } from "@/components/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermission } from "@/hooks/usePermission";
 import type { Slide } from "@/types/slide";
@@ -115,6 +116,13 @@ export default function SlidesPage() {
     [localOrder, slides],
   );
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const paginatedSlides = useMemo(() => {
+    return sortedSlides.slice((page - 1) * limit, page * limit);
+  }, [sortedSlides, page, limit]);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -175,7 +183,7 @@ export default function SlidesPage() {
 
         <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sortedSlides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={paginatedSlides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted/50">
@@ -188,10 +196,10 @@ export default function SlidesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedSlides.length === 0 ? (
+                  {paginatedSlides.length === 0 ? (
                     <tr><td colSpan={6} className="py-12 text-center text-sm text-text-muted">Chưa có slide nào</td></tr>
                   ) : (
-                    sortedSlides.map((slide) => (
+                    paginatedSlides.map((slide) => (
                       <SortableSlideRow
                         key={slide.id}
                         slide={slide}
@@ -207,6 +215,22 @@ export default function SlidesPage() {
             </SortableContext>
           </DndContext>
         </div>
+
+        {sortedSlides.length > 0 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={Math.ceil(sortedSlides.length / limit) || 1}
+            onPageChange={setPage}
+            limit={limit}
+            onLimitChange={(lim) => {
+              setLimit(lim);
+              setPage(1);
+            }}
+            label="Danh sách slide"
+            disabled={isLoading}
+            className="mt-4"
+          />
+        )}
       </div>
 
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}>

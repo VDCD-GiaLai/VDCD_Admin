@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable } from "@/components/shared";
+import { DataTable, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   useLeads,
@@ -266,20 +266,21 @@ export default function LeadsPage() {
           data={leadsData?.items ?? []}
           columns={columns}
           keyExtractor={(item) => item.id}
-          pagination={
-            leadsData
-              ? {
-                  currentPage: leadsData.page,
-                  totalPages: leadsData.totalPages,
-                  totalItems: leadsData.total,
-                  pageSize: leadsData.limit,
-                  onPageChange: (page) =>
-                    setFilters((f) => ({ ...f, page })),
-                }
-              : undefined
-          }
           emptyContent="Chưa có liên hệ nào"
           onRowClick={(item) => router.push(`/leads/${item.id}`)}
+        />
+
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={leadsData?.totalPages || 1}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          limit={filters.limit || 10}
+          onLimitChange={(limit) =>
+            setFilters((f) => ({ ...f, limit, page: 1 }))
+          }
+          label="Danh sách liên hệ khách hàng"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

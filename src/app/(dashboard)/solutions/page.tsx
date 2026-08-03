@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable, PublishToggle } from "@/components/shared";
+import { DataTable, PublishToggle, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   useSolutions,
@@ -261,19 +261,20 @@ export default function SolutionsPage() {
           data={solutionsData?.items ?? []}
           columns={columns}
           keyExtractor={(item) => item.id}
-          pagination={
-            solutionsData
-              ? {
-                  currentPage: solutionsData.page,
-                  totalPages: solutionsData.totalPages,
-                  totalItems: solutionsData.total,
-                  pageSize: solutionsData.limit,
-                  onPageChange: (page) =>
-                    setFilters((f) => ({ ...f, page })),
-                }
-              : undefined
-          }
           emptyContent="Chưa có giải pháp nào"
+        />
+
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={solutionsData?.totalPages || 1}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          limit={filters.limit || 10}
+          onLimitChange={(limit) =>
+            setFilters((f) => ({ ...f, limit, page: 1 }))
+          }
+          label="Danh sách giải pháp"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

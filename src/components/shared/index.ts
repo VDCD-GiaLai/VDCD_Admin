@@ -26,3 +26,8 @@ export type { RichTextEditorProps } from "./RichTextEditor";
 
 export { PublishToggle } from "./PublishToggle";
 export type { PublishToggleProps } from "./PublishToggle";
+
+// ─── TablePagination ─────────────────────────────────────────
+
+export { TablePagination } from "./TablePagination";
+export type { TablePaginationProps } from "./TablePagination";

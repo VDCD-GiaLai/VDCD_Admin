@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Spinner } from "@/components/ui";
-import { DataTable, type ColumnDef } from "@/components/shared";
+import { DataTable, type ColumnDef, TablePagination } from "@/components/shared";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import {
   useOperationFields,
@@ -26,6 +26,13 @@ export default function OperationFieldsPage() {
   const canDelete = usePermission("operation-fields:delete");
 
   const [deleteTarget, setDeleteTarget] = useState<OperationField | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const paginatedFields = useMemo(() => {
+    if (!fields) return [];
+    return fields.slice((page - 1) * limit, page * limit);
+  }, [fields, page, limit]);
 
   const handleDelete = useCallback(() => {
     if (!deleteTarget) return;
@@ -164,7 +171,7 @@ export default function OperationFieldsPage() {
         </div>
 
         <DataTable<OperationField>
-          data={fields ?? []}
+          data={paginatedFields}
           columns={columns}
           keyExtractor={(f) => f.id}
           isLoading={isLoading}
@@ -178,6 +185,20 @@ export default function OperationFieldsPage() {
               </p>
             </div>
           }
+        />
+
+        <TablePagination
+          currentPage={page}
+          totalPages={Math.ceil((fields?.length || 0) / limit) || 1}
+          onPageChange={setPage}
+          limit={limit}
+          onLimitChange={(lim) => {
+            setLimit(lim);
+            setPage(1);
+          }}
+          label="Danh sách lĩnh vực"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Spinner, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable, PublishToggle } from "@/components/shared";
+import { DataTable, PublishToggle, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   useArticles,
@@ -280,19 +280,20 @@ export default function ArticlesPage() {
           data={articlesData?.items ?? []}
           columns={columns}
           keyExtractor={(item) => item.id}
-          pagination={
-            articlesData
-              ? {
-                  currentPage: articlesData.page,
-                  totalPages: articlesData.totalPages,
-                  totalItems: articlesData.total,
-                  pageSize: articlesData.limit,
-                  onPageChange: (page) =>
-                    setFilters((f) => ({ ...f, page })),
-                }
-              : undefined
-          }
           emptyContent="Chưa có bài viết nào"
+        />
+
+        <TablePagination
+          currentPage={filters.page || 1}
+          totalPages={articlesData?.totalPages || 1}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          limit={filters.limit || 10}
+          onLimitChange={(limit) =>
+            setFilters((f) => ({ ...f, limit, page: 1 }))
+          }
+          label="Danh sách bài viết"
+          disabled={isLoading}
+          className="mt-4"
         />
       </div>
 

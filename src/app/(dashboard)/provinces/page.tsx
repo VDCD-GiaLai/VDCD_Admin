@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Badge } from "@/components/ui";
-import { DataTable, type ColumnDef } from "@/components/shared";
+import { DataTable, type ColumnDef, TablePagination } from "@/components/shared";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { useProvinces, useDeleteProvince } from "@/features/provinces/api";
 import { usePermission } from "@/hooks/usePermission";
@@ -23,6 +23,13 @@ export default function ProvincesPage() {
   const canDelete = usePermission("provinces:delete");
 
   const [deleteTarget, setDeleteTarget] = useState<Province | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const paginatedProvinces = useMemo(() => {
+    if (!provinces) return [];
+    return provinces.slice((page - 1) * limit, page * limit);
+  }, [provinces, page, limit]);
 
   const handleDelete = useCallback(() => {
     if (!deleteTarget) return;
@@ -137,7 +144,7 @@ export default function ProvincesPage() {
         </div>
 
         <DataTable<Province>
-          data={provinces ?? []}
+          data={paginatedProvinces}
           columns={columns}
           keyExtractor={(p) => p.id}
           isLoading={isLoading}
@@ -147,6 +154,22 @@ export default function ProvincesPage() {
             </div>
           }
         />
+
+        {provinces && provinces.length > 0 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={Math.ceil(provinces.length / limit) || 1}
+            onPageChange={setPage}
+            limit={limit}
+            onLimitChange={(lim) => {
+              setLimit(lim);
+              setPage(1);
+            }}
+            label="Danh sách tỉnh thành"
+            disabled={isLoading}
+            className="mt-4"
+          />
+        )}
       </div>
 
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}>

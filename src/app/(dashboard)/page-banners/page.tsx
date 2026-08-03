@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AppButton, Spinner, Badge } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
-import { DataTable } from "@/components/shared";
+import { DataTable, TablePagination } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import {
   usePageBanners,
@@ -42,6 +42,13 @@ export default function PageBannersPage() {
   const toggleMutation = useTogglePageBanner();
 
   const [deleteTarget, setDeleteTarget] = useState<PageBanner | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const paginatedBanners = useMemo(() => {
+    if (!banners) return [];
+    return banners.slice((page - 1) * limit, page * limit);
+  }, [banners, page, limit]);
 
   const handleToggle = useCallback(
     (pageKey: string, isActive: boolean) => {
@@ -202,11 +209,27 @@ export default function PageBannersPage() {
         </div>
 
         <DataTable
-          data={banners ?? []}
+          data={paginatedBanners}
           columns={columns}
           keyExtractor={(item) => item.id}
           emptyContent="Chưa có banner nào"
         />
+
+        {banners && banners.length > 0 && (
+          <TablePagination
+            currentPage={page}
+            totalPages={Math.ceil(banners.length / limit) || 1}
+            onPageChange={setPage}
+            limit={limit}
+            onLimitChange={(lim) => {
+              setLimit(lim);
+              setPage(1);
+            }}
+            label="Danh sách banner"
+            disabled={isLoading}
+            className="mt-4"
+          />
+        )}
       </div>
 
       {/* Delete modal */}

@@ -58,7 +58,11 @@ function normalizeResponse(payload: unknown) {
     "total" in payload &&
     typeof (payload as Record<string, unknown>).total === "number"
   ) {
-    (payload as Record<string, unknown>).items = (payload as Record<string, unknown>).data;
+    const record = payload as Record<string, unknown>;
+    record.items = record.data;
+    const total = record.total as number;
+    const limit = typeof record.limit === "number" ? record.limit : 10;
+    record.totalPages = Math.ceil(total / limit) || 1;
   }
   return payload;
 }
