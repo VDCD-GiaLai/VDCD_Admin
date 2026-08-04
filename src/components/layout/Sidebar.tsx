@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import type { AdminRole } from "@/types/auth";
 import Image from "next/image";
+import { useContacts } from "@/features/contacts/api";
+import { Badge, BadgeOverlay } from "@/components/ui";
 
 // ─── Menu structure ─────────────────────────────────────────
 
@@ -123,6 +125,9 @@ export function Sidebar({ userRole }: SidebarProps) {
     (item) => item.roles.length === 0 || item.roles.includes(userRole)
   );
 
+  const { data: unreadContactsData } = useContacts({ isRead: false, limit: 1 });
+  const unreadCount = unreadContactsData?.total ?? 0;
+
   return (
     <aside
       className={`fixed top-0 left-0 z-40 flex h-full flex-col border-r border-border bg-menu-bg transition-[width] duration-200 ${isCollapsed ? "w-16" : "w-64"
@@ -152,6 +157,8 @@ export function Sidebar({ userRole }: SidebarProps) {
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
 
+            const isContactItem = item.href === "/contacts";
+
             return (
               <li key={item.href}>
                 <Link
@@ -162,8 +169,23 @@ export function Sidebar({ userRole }: SidebarProps) {
                     } ${isCollapsed ? "justify-center" : ""}`}
                   title={isCollapsed ? item.label : undefined}
                 >
-                  <span className="h-4.5 w-4.5 shrink-0">{item.icon}</span>
-                  {!isCollapsed && <span>{item.label}</span>}
+                  {isCollapsed && isContactItem && unreadCount > 0 ? (
+                    <BadgeOverlay color="orange" content={unreadCount} position="top-right">
+                      <span className="h-4.5 w-4.5 shrink-0">{item.icon}</span>
+                    </BadgeOverlay>
+                  ) : (
+                    <span className="h-4.5 w-4.5 shrink-0">{item.icon}</span>
+                  )}
+                  {!isCollapsed && (
+                    <div className="flex flex-1 items-center justify-between">
+                      <span>{item.label}</span>
+                      {isContactItem && unreadCount > 0 && (
+                        <Badge color="orange" variant="solid" radius="full" size="xs">
+                          {unreadCount}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </Link>
               </li>
             );

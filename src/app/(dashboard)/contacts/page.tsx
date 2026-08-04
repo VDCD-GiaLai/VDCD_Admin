@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { AppButton, Spinner, Badge } from "@/components/ui";
+import { AppButton, Spinner, Badge, DropdownSelect } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import { DataTable, TablePagination } from "@/components/shared";
@@ -29,10 +29,13 @@ export default function ContactsPage() {
   const [filters, setFilters] = useState<ContactFilters>({
     page: 1,
     limit: 10,
-    isRead: "",
+    isRead: false,
   });
 
   const { data: contactsData, isLoading } = useContacts(filters);
+  const { data: unreadContactsData } = useContacts({ isRead: false, limit: 1 });
+  const unreadCount = unreadContactsData?.total ?? 0;
+
   const toggleMutation = useToggleReadContact();
   const deleteMutation = useDeleteContact();
 
@@ -218,7 +221,14 @@ export default function ContactsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-text">Liên hệ</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-text">Liên hệ</h1>
+              {unreadCount > 0 && (
+                <Badge color="orange" variant="solid" radius="full" size="sm">
+                  {unreadCount}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-text-muted">Danh sách khách hàng để lại thông tin liên hệ từ website.</p>
           </div>
           {canExport && (
@@ -234,8 +244,7 @@ export default function ContactsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          <DropdownSelect
             value={
               filters.isRead === ""
                 ? ""
@@ -243,21 +252,22 @@ export default function ContactsPage() {
                   ? "true"
                   : "false"
             }
-            onChange={(e) =>
+            onChange={(val) =>
               setFilters((f) => ({
                 ...f,
                 isRead:
-                  e.target.value === ""
+                  val === ""
                     ? ""
-                    : e.target.value === "true",
+                    : val === "true",
                 page: 1,
               }))
             }
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="false">Chưa đọc</option>
-            <option value="true">Đã đọc</option>
-          </select>
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "false", label: "Chưa đọc" },
+              { value: "true", label: "Đã đọc" },
+            ]}
+          />
         </div>
 
         <DataTable
