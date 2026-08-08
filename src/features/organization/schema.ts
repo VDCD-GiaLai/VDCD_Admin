@@ -51,15 +51,6 @@ export const organizationSchema = z.object({
     .nullable()
     .optional(),
 
-  // ── Khối 4: Lĩnh vực hoạt động ──
-  operationFieldsArray: z
-    .array(
-      z.object({
-        title: z.string().min(1, "Tiêu đề không được để trống"),
-        description: z.string().default(""),
-      })
-    )
-    .optional(),
 
   // ── Khối 5: Năng lực kế thừa từ VDCD ──
   ecosystemCapabilities: z.string().nullable().optional(),

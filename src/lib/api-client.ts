@@ -177,8 +177,12 @@ export async function clientFetch<T>(
     const res = await doRequest();
     return normalizeResponse(res.data?.data ?? res.data) as T;
   } catch (err) {
-    // Auto-refresh on 401
-    if (axios.isAxiosError(err) && err.response?.status === 401) {
+    // Auto-refresh on 401 (skip for login requests)
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.status === 401 &&
+      path !== "/api/auth/login"
+    ) {
       const refreshed = await tryRefresh();
       if (refreshed) {
         try {
