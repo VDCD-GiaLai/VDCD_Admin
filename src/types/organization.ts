@@ -8,6 +8,8 @@ export interface OrganizationStats {
   experts?: number;
   provinces?: number;
   projects?: number;
+  centers?: number;
+  subsidiaries?: number;
 }
 
 export interface OrganizationSocialLinks {
