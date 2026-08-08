@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import { FormInput, FormTextarea, AppButton, FormSelect } from "@/components/ui";
@@ -94,7 +94,6 @@ export default function OrganizationPage() {
     control,
     handleSubmit,
     reset,
-    watch,
     formState: { errors, isDirty },
   } = useForm<OrganizationFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,7 +108,7 @@ export default function OrganizationPage() {
       coreValues: "",
       foundedYear: null,
       address: "",
-      stats: { staff: 0, experts: 0, provinces: 0, centers: 0, subsidiaries: 0, projects: 0 },
+      stats: { staff: 0, experts: 0, provinces: 0, projects: 0 },
       operationFieldsArray: [],
       ecosystemCapabilities: "",
       developmentOrientationsArray: [],
@@ -136,7 +135,7 @@ export default function OrganizationPage() {
     remove: removeDev,
   } = useFieldArray({ control, name: "developmentOrientationsArray" });
 
-  const socialLinksWatch = watch("socialLinksArray");
+  const socialLinksWatch = useWatch({ control, name: "socialLinksArray" });
 
   // ── Populate form from API ──
   useEffect(() => {
@@ -170,8 +169,6 @@ export default function OrganizationPage() {
           staff: org.stats?.staff ?? 0,
           experts: org.stats?.experts ?? 0,
           provinces: org.stats?.provinces ?? 0,
-          centers: org.stats?.centers ?? 0,
-          subsidiaries: org.stats?.subsidiaries ?? 0,
           projects: org.stats?.projects ?? 0,
         },
         ecosystemCapabilities: org.ecosystemCapabilities ?? "",
@@ -246,7 +243,7 @@ export default function OrganizationPage() {
       <div>
         <h1 className="text-xl font-bold text-text">Thông tin tổ chức</h1>
         <p className="text-sm text-text-muted">
-          Quản lý nội dung trang "Về chúng tôi" — 6 khối nội dung.
+          Quản lý nội dung trang &ldquo;Về chúng tôi&rdquo; — 6 khối nội dung.
         </p>
       </div>
 
@@ -354,7 +351,7 @@ export default function OrganizationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <FormInput
                 label="Nhân sự"
                 type="number"
@@ -369,16 +366,6 @@ export default function OrganizationPage() {
                 label="Tỉnh thành"
                 type="number"
                 {...register("stats.provinces", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Trung tâm"
-                type="number"
-                {...register("stats.centers", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Công ty thành viên"
-                type="number"
-                {...register("stats.subsidiaries", { valueAsNumber: true })}
               />
               <FormInput
                 label="Dự án"
@@ -411,7 +398,7 @@ export default function OrganizationPage() {
           </CardHeader>
           <CardContent className="space-y-4 p-5">
             {opFields.length === 0 ? (
-              <p className="text-sm text-text-muted">Chưa có lĩnh vực hoạt động nào. Bấm "Thêm lĩnh vực" để bắt đầu.</p>
+              <p className="text-sm text-text-muted">Chưa có lĩnh vực hoạt động nào. Bấm &ldquo;Thêm lĩnh vực&rdquo; để bắt đầu.</p>
             ) : (
               <div className="space-y-3">
                 {opFields.map((field, index) => (
@@ -501,7 +488,7 @@ export default function OrganizationPage() {
           </CardHeader>
           <CardContent className="space-y-4 p-5">
             {devFields.length === 0 ? (
-              <p className="text-sm text-text-muted">Chưa có định hướng phát triển nào. Bấm "Thêm định hướng" để bắt đầu.</p>
+              <p className="text-sm text-text-muted">Chưa có định hướng phát triển nào. Bấm &ldquo;Thêm định hướng&rdquo; để bắt đầu.</p>
             ) : (
               <div className="space-y-3">
                 {devFields.map((field, index) => (

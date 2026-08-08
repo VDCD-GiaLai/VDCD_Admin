@@ -46,8 +46,6 @@ export const organizationSchema = z.object({
       staff: z.number().int().min(0).optional(),
       experts: z.number().int().min(0).optional(),
       provinces: z.number().int().min(0).optional(),
-      centers: z.number().int().min(0).optional(),
-      subsidiaries: z.number().int().min(0).optional(),
       projects: z.number().int().min(0).optional(),
     })
     .nullable()

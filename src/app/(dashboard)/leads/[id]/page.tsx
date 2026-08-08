@@ -47,7 +47,7 @@ export default function LeadDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="space-y-6 lg:col-span-2">
           <Card className="border border-border bg-surface shadow-sm">
             <CardHeader className="border-b border-border px-5 py-3.5">
               <CardTitle className="text-base font-semibold text-text">
@@ -59,12 +59,33 @@ export default function LeadDetailPage() {
                 <h3 className="text-sm font-semibold text-text">Chủ đề:</h3>
                 <p className="mt-1 text-sm text-text">{lead.subject || "Không có chủ đề"}</p>
               </div>
-              <div className="border-t border-border pt-4">
-                <h3 className="text-sm font-semibold text-text">Nội dung:</h3>
-                <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
-                  {lead.message || "Không có nội dung"}
+
+              {lead.coverLetter && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-text">Thư ứng tuyển:</h3>
+                  <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
+                    {lead.coverLetter}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {lead.message && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-text">Nội dung:</h3>
+                  <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
+                    {lead.message}
+                  </div>
+                </div>
+              )}
+
+              {!lead.coverLetter && !lead.message && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-text">Nội dung:</h3>
+                  <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
+                    Không có nội dung
+                  </div>
+                </div>
+              )}
               
               {lead.attachment && (
                 <div className="border-t border-border pt-4">
@@ -106,8 +127,77 @@ export default function LeadDetailPage() {
                 <p className="text-xs text-text-muted">Số điện thoại</p>
                 <p className="text-sm font-medium text-text">{lead.phone || "—"}</p>
               </div>
+              {lead.dob && (
+                <div>
+                  <p className="text-xs text-text-muted">Ngày sinh</p>
+                  <p className="text-sm font-medium text-text">
+                    {format(new Date(lead.dob), "dd/MM/yyyy")}
+                  </p>
+                </div>
+              )}
+              {lead.address && (
+                <div>
+                  <p className="text-xs text-text-muted">Địa chỉ</p>
+                  <p className="text-sm font-medium text-text">{lead.address}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {(lead.experienceYears || lead.expectedSalary || lead.portfolioUrl || lead.source) && (
+            <Card className="border border-border bg-surface shadow-sm">
+              <CardHeader className="border-b border-border px-5 py-3.5">
+                <CardTitle className="text-base font-semibold text-text">
+                  Thông tin ứng tuyển
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-5">
+                {lead.experienceYears && (
+                  <div>
+                    <p className="text-xs text-text-muted">Kinh nghiệm</p>
+                    <p className="text-sm font-medium text-text">{lead.experienceYears}</p>
+                  </div>
+                )}
+                {lead.expectedSalary && (
+                  <div>
+                    <p className="text-xs text-text-muted">Mức lương mong muốn</p>
+                    <p className="text-sm font-medium text-text">{lead.expectedSalary}</p>
+                  </div>
+                )}
+                {lead.portfolioUrl && (
+                  <div>
+                    <p className="text-xs text-text-muted">Portfolio / LinkedIn</p>
+                    <a
+                      href={lead.portfolioUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {lead.portfolioUrl}
+                    </a>
+                  </div>
+                )}
+                {lead.source && (
+                  <div>
+                    <p className="text-xs text-text-muted">Nguồn</p>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      lead.source === "career_form"
+                        ? "bg-primary/10 text-primary"
+                        : lead.source === "contact_form"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-success/10 text-success"
+                    }`}>
+                      {lead.source === "career_form"
+                        ? "Ứng tuyển"
+                        : lead.source === "contact_form"
+                          ? "Liên hệ"
+                          : lead.source}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

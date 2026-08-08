@@ -7,8 +7,6 @@ export interface OrganizationStats {
   staff?: number;
   experts?: number;
   provinces?: number;
-  centers?: number;
-  subsidiaries?: number;
   projects?: number;
 }
 

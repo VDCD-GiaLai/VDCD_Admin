@@ -12,11 +12,13 @@ export const jobSchema = z.object({
   slug: z.string().optional(),
   department: z.string().optional(),
   location: z.string().optional(),
-  type: z.enum(["full-time", "part-time", "intern"], {
+  type: z.enum(["full-time", "part-time", "intern", "contract"], {
     message: "Vui lòng chọn loại hình công việc hợp lệ",
   }),
   salaryRange: z.string().optional(),
   deadline: z.string().optional(),
+  experience: z.string().optional(),
+  tags: z.string().optional(),
   description: z.string().optional(),
   requirements: z.string().optional(),
   benefits: z.string().optional(),

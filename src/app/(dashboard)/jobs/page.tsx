@@ -119,6 +119,7 @@ export default function JobsPage() {
           "full-time": "Toàn thời gian",
           "part-time": "Bán thời gian",
           intern: "Thực tập sinh",
+          contract: "Hợp đồng",
         };
         return (
           <span className="text-sm text-text-muted">
@@ -239,6 +240,7 @@ export default function JobsPage() {
               { value: "full-time", label: "Toàn thời gian" },
               { value: "part-time", label: "Bán thời gian" },
               { value: "intern", label: "Thực tập sinh" },
+              { value: "contract", label: "Hợp đồng" },
             ]}
           />
 

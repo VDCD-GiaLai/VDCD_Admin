@@ -119,7 +119,7 @@ export function Header({ user }: HeaderProps) {
         </Tooltip>
 
         {/* Notifications */}
-        <Dropdown
+        {/* <Dropdown
           trigger={
             <Tooltip content="Thông báo" placement="bottom">
               <button
@@ -152,7 +152,7 @@ export function Header({ user }: HeaderProps) {
           <DropdownItem className="justify-center text-primary font-medium">
             Xem tất cả
           </DropdownItem>
-        </Dropdown>
+        </Dropdown> */}
 
         {/* Fullscreen toggle */}
         <Tooltip

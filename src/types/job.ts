@@ -8,9 +8,11 @@ export interface Job {
   slug: string;
   department: string | null;
   location: string | null;
-  type: 'full-time' | 'part-time' | 'intern';
+  type: 'full-time' | 'part-time' | 'intern' | 'contract';
   salaryRange: string | null;
   deadline: string | null;
+  experience: string | null;
+  tags: string[] | null;
   description: string | null;
   requirements: string | null;
   benefits: string | null;

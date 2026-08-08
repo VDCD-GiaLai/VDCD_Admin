@@ -90,7 +90,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: <HandshakeIcon />,
   },
   {
-    label: "Leads",
+    label: "Ứng viên",
     href: "/leads",
     roles: [],
     icon: <InboxIcon />,

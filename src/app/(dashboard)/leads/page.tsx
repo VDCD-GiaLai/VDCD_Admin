@@ -143,6 +143,27 @@ export default function LeadsPage() {
       ),
     },
     {
+      key: "source",
+      label: "Nguồn",
+      align: "center" as const,
+      width: "w-32",
+      render: (item) => {
+        const sourceLabels: Record<string, { label: string; className: string }> = {
+          career_form: { label: "Ứng tuyển", className: "bg-primary/10 text-primary" },
+          contact_form: { label: "Liên hệ", className: "bg-warning/10 text-warning" },
+          landing_page: { label: "Landing", className: "bg-success/10 text-success" },
+        };
+        const source = item.source ? sourceLabels[item.source] : null;
+        return source ? (
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${source.className}`}>
+            {source.label}
+          </span>
+        ) : (
+          <span className="text-xs text-text-muted">—</span>
+        );
+      },
+    },
+    {
       key: "isRead",
       label: "Trạng thái",
       align: "center" as const,

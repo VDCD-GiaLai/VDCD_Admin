@@ -42,6 +42,8 @@ export default function EditJobPage() {
       type: "full-time",
       salaryRange: "",
       deadline: "",
+      experience: "",
+      tags: "",
       description: "",
       requirements: "",
       benefits: "",
@@ -60,6 +62,8 @@ export default function EditJobPage() {
         type: job.type,
         salaryRange: job.salaryRange ?? "",
         deadline: job.deadline ? format(new Date(job.deadline), "yyyy-MM-dd") : "",
+        experience: job.experience ?? "",
+        tags: job.tags ? job.tags.join(", ") : "",
         description: job.description ?? "",
         requirements: job.requirements ?? "",
         benefits: job.benefits ?? "",
@@ -79,12 +83,16 @@ export default function EditJobPage() {
   }, [job, reset, contentInitialized]);
 
   const onSubmit = (data: JobFormData) => {
+    const tagsArray = data.tags
+      ? data.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
     updateMutation.mutate(
       {
         ...data,
         description: descriptionContent,
         requirements: requirementsContent,
         benefits: benefitsContent,
+        tags: tagsArray as unknown as string,
       },
       {
         onSuccess: () => {
@@ -166,6 +174,22 @@ export default function EditJobPage() {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput
+                    label="Yêu cầu kinh nghiệm"
+                    placeholder='VD: 1 - 3 năm, Không yêu cầu'
+                    errorMessage={errors.experience?.message}
+                    {...register("experience")}
+                  />
+                  <FormInput
+                    label="Kỹ năng / Tags"
+                    placeholder="VD: NestJS, Next.js, TypeScript"
+                    helperText="Nhập các tag cách nhau bởi dấu phẩy"
+                    errorMessage={errors.tags?.message}
+                    {...register("tags")}
+                  />
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-text">
                     Mô tả công việc
@@ -218,6 +242,7 @@ export default function EditJobPage() {
                     <option value="full-time">Toàn thời gian</option>
                     <option value="part-time">Bán thời gian</option>
                     <option value="intern">Thực tập sinh</option>
+                    <option value="contract">Hợp đồng</option>
                   </select>
                   {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
                 </div>
