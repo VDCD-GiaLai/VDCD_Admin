@@ -57,13 +57,13 @@ export default function LeadDetailPage() {
             <CardContent className="space-y-4 p-5">
               <div>
                 <h3 className="text-sm font-semibold text-text">Chủ đề:</h3>
-                <p className="mt-1 text-sm text-text">{lead.subject || "Không có chủ đề"}</p>
+                <p className="mt-1 break-all text-sm text-text">{lead.subject || "Không có chủ đề"}</p>
               </div>
 
               {lead.coverLetter && (
                 <div className="border-t border-border pt-4">
                   <h3 className="text-sm font-semibold text-text">Thư ứng tuyển:</h3>
-                  <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
+                  <div className="mt-2 whitespace-pre-wrap break-all rounded-md bg-surface-muted p-4 text-sm text-text">
                     {lead.coverLetter}
                   </div>
                 </div>
@@ -72,7 +72,7 @@ export default function LeadDetailPage() {
               {lead.message && (
                 <div className="border-t border-border pt-4">
                   <h3 className="text-sm font-semibold text-text">Nội dung:</h3>
-                  <div className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-4 text-sm text-text">
+                  <div className="mt-2 whitespace-pre-wrap break-all rounded-md bg-surface-muted p-4 text-sm text-text">
                     {lead.message}
                   </div>
                 </div>
@@ -121,7 +121,7 @@ export default function LeadDetailPage() {
               </div>
               <div>
                 <p className="text-xs text-text-muted">Email</p>
-                <p className="text-sm font-medium text-text">{lead.email}</p>
+                <p className="break-all text-sm font-medium text-text">{lead.email}</p>
               </div>
               <div>
                 <p className="text-xs text-text-muted">Số điện thoại</p>
@@ -171,7 +171,7 @@ export default function LeadDetailPage() {
                       href={lead.portfolioUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
+                      className="break-all text-sm font-medium text-primary hover:underline"
                     >
                       {lead.portfolioUrl}
                     </a>
