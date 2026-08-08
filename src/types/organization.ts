@@ -4,10 +4,12 @@
  */
 
 export interface OrganizationStats {
+  staff?: number;
+  experts?: number;
   provinces?: number;
   centers?: number;
+  subsidiaries?: number;
   projects?: number;
-  staff?: number;
 }
 
 export interface OrganizationSocialLinks {
@@ -17,10 +19,21 @@ export interface OrganizationSocialLinks {
   [key: string]: string | undefined;
 }
 
+export interface OperationFieldItem {
+  title: string;
+  description: string;
+}
+
+export interface DevelopmentOrientationItem {
+  title: string;
+  description: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
   tagline: string | null;
+  businessLicenseNo: string | null;
   description: string | null;
   mission: string | null;
   vision: string | null;
@@ -29,5 +42,8 @@ export interface Organization {
   address: string | null;
   stats: OrganizationStats | null;
   socialLinks: Record<string, string> | null;
+  operationFields: OperationFieldItem[] | null;
+  ecosystemCapabilities: string | null;
+  developmentOrientations: DevelopmentOrientationItem[] | null;
   updatedAt: string;
 }

@@ -81,7 +81,7 @@ import {
 } from "@/features/organization/schema";
 
 /**
- * Organization page — UC-ORG-01, UC-ORG-02.
+ * Organization page — redesigned for About Us (6 content blocks).
  * Single-record form: GET organization, edit, PUT to save.
  */
 export default function OrganizationPage() {
@@ -97,39 +97,69 @@ export default function OrganizationPage() {
     watch,
     formState: { errors, isDirty },
   } = useForm<OrganizationFormData>({
-    resolver: zodResolver(organizationSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(organizationSchema) as any,
     defaultValues: {
       name: "",
       tagline: "",
+      businessLicenseNo: "",
       description: "",
       mission: "",
       vision: "",
       coreValues: "",
       foundedYear: null,
       address: "",
-      stats: { provinces: 0, centers: 0, projects: 0, staff: 0 },
+      stats: { staff: 0, experts: 0, provinces: 0, centers: 0, subsidiaries: 0, projects: 0 },
+      operationFieldsArray: [],
+      ecosystemCapabilities: "",
+      developmentOrientationsArray: [],
       socialLinksArray: [],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "socialLinksArray",
-  });
+  // ── Field arrays ──
+  const {
+    fields: socialFields,
+    append: appendSocial,
+    remove: removeSocial,
+  } = useFieldArray({ control, name: "socialLinksArray" });
+
+  const {
+    fields: opFields,
+    append: appendOp,
+    remove: removeOp,
+  } = useFieldArray({ control, name: "operationFieldsArray" });
+
+  const {
+    fields: devFields,
+    append: appendDev,
+    remove: removeDev,
+  } = useFieldArray({ control, name: "developmentOrientationsArray" });
 
   const socialLinksWatch = watch("socialLinksArray");
 
+  // ── Populate form from API ──
   useEffect(() => {
     if (org) {
-      // Convert Record<string, string> to Array<{platform, url}>
       const socialLinksArray = Object.entries(org.socialLinks || {}).map(([key, value]) => ({
         platform: key,
         url: value as string,
       }));
 
+      const operationFieldsArray = (org.operationFields || []).map((item) => ({
+        title: item.title || "",
+        description: item.description || "",
+      }));
+
+      const developmentOrientationsArray = (org.developmentOrientations || []).map((item) => ({
+        title: item.title || "",
+        description: item.description || "",
+      }));
+
       reset({
         name: org.name,
         tagline: org.tagline ?? "",
+        businessLicenseNo: org.businessLicenseNo ?? "",
         description: org.description ?? "",
         mission: org.mission ?? "",
         vision: org.vision ?? "",
@@ -137,35 +167,53 @@ export default function OrganizationPage() {
         foundedYear: org.foundedYear ?? null,
         address: org.address ?? "",
         stats: {
+          staff: org.stats?.staff ?? 0,
+          experts: org.stats?.experts ?? 0,
           provinces: org.stats?.provinces ?? 0,
           centers: org.stats?.centers ?? 0,
+          subsidiaries: org.stats?.subsidiaries ?? 0,
           projects: org.stats?.projects ?? 0,
-          staff: org.stats?.staff ?? 0,
         },
+        ecosystemCapabilities: org.ecosystemCapabilities ?? "",
+        operationFieldsArray,
+        developmentOrientationsArray,
         socialLinksArray,
       });
     }
   }, [org, reset]);
 
+  // ── Submit ──
   const onSubmit = (data: OrganizationFormData) => {
-    // Transform socialLinksArray back to Record<string, string>
+    // Transform socialLinksArray → Record<string, string>
     const socialLinks = data.socialLinksArray?.reduce((acc, curr) => {
       if (curr.platform && curr.url) {
-        // format platform name to be camelCase or lowercase without spaces if needed, but keeping as typed is fine.
         acc[curr.platform] = curr.url;
       }
       return acc;
     }, {} as Record<string, string>) ?? {};
 
-    // Create payload
-    const payload = {
-      ...data,
-      socialLinks,
-    };
-    
-    // Remove the array from payload to match DTO if needed (though API might just ignore it)
+    // Transform operationFieldsArray → array
+    const operationFields = (data.operationFieldsArray || []).map((item) => ({
+      title: item.title,
+      description: item.description || "",
+    }));
+
+    // Transform developmentOrientationsArray → array
+    const developmentOrientations = (data.developmentOrientationsArray || []).map((item) => ({
+      title: item.title,
+      description: item.description || "",
+    }));
+
+    // Build payload (remove form-only array keys)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { socialLinksArray, ...apiPayload } = payload;
+    const { socialLinksArray, operationFieldsArray, developmentOrientationsArray, ...rest } = data;
+
+    const apiPayload = {
+      ...rest,
+      socialLinks,
+      operationFields,
+      developmentOrientations,
+    };
 
     updateMutation.mutate(apiPayload, {
       onSuccess: () => {
@@ -198,16 +246,20 @@ export default function OrganizationPage() {
       <div>
         <h1 className="text-xl font-bold text-text">Thông tin tổ chức</h1>
         <p className="text-sm text-text-muted">
-          Cập nhật thông tin chung của VDCD.
+          Quản lý nội dung trang "Về chúng tôi" — 6 khối nội dung.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ── Basic Info ── */}
+
+        {/* ════════════════════════════════════════════
+            Khối 1 – Giới thiệu chung
+        ════════════════════════════════════════════ */}
         <Card className="border border-border bg-surface shadow-sm">
           <CardHeader className="border-b border-border px-5 py-3.5">
             <CardTitle className="text-base font-semibold text-text">
-              Thông tin cơ bản
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">1</span>
+              Giới thiệu chung
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
@@ -225,8 +277,14 @@ export default function OrganizationPage() {
                 {...register("tagline")}
               />
             </div>
-            
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <FormInput
+                label="Mã ĐKKD"
+                placeholder="VD: 4101443823"
+                errorMessage={errors.businessLicenseNo?.message}
+                {...register("businessLicenseNo")}
+              />
               <FormInput
                 label="Năm thành lập"
                 type="number"
@@ -240,23 +298,28 @@ export default function OrganizationPage() {
                 {...register("address")}
               />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* ── Mission, Vision, Core Values ── */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <CardTitle className="text-base font-semibold text-text">
-              Sứ mệnh & Tầm nhìn
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
             <FormTextarea
-              label="Mô tả"
-              rows={4}
+              label="Mô tả tổ chức"
+              rows={5}
+              placeholder="Giới thiệu chung về tổ chức..."
               errorMessage={errors.description?.message}
               {...register("description")}
             />
+          </CardContent>
+        </Card>
+
+        {/* ════════════════════════════════════════════
+            Khối 2 – Sứ mệnh, Tầm nhìn, Giá trị cốt lõi
+        ════════════════════════════════════════════ */}
+        <Card className="border border-border bg-surface shadow-sm">
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <CardTitle className="text-base font-semibold text-text">
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">2</span>
+              Sứ mệnh, Tầm nhìn & Giá trị cốt lõi
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormTextarea
                 label="Sứ mệnh"
@@ -280,15 +343,28 @@ export default function OrganizationPage() {
           </CardContent>
         </Card>
 
-        {/* ── Statistics ── */}
+        {/* ════════════════════════════════════════════
+            Khối 3 – Mạng lưới (Thống kê)
+        ════════════════════════════════════════════ */}
         <Card className="border border-border bg-surface shadow-sm">
           <CardHeader className="border-b border-border px-5 py-3.5">
             <CardTitle className="text-base font-semibold text-text">
-              Thống kê
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">3</span>
+              Mạng lưới & Thống kê
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+              <FormInput
+                label="Nhân sự"
+                type="number"
+                {...register("stats.staff", { valueAsNumber: true })}
+              />
+              <FormInput
+                label="Chuyên gia"
+                type="number"
+                {...register("stats.experts", { valueAsNumber: true })}
+              />
               <FormInput
                 label="Tỉnh thành"
                 type="number"
@@ -300,20 +376,181 @@ export default function OrganizationPage() {
                 {...register("stats.centers", { valueAsNumber: true })}
               />
               <FormInput
+                label="Công ty thành viên"
+                type="number"
+                {...register("stats.subsidiaries", { valueAsNumber: true })}
+              />
+              <FormInput
                 label="Dự án"
                 type="number"
                 {...register("stats.projects", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Nhân sự"
-                type="number"
-                {...register("stats.staff", { valueAsNumber: true })}
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* ── Social / Contact Links ── */}
+        {/* ════════════════════════════════════════════
+            Khối 4 – Lĩnh vực hoạt động
+        ════════════════════════════════════════════ */}
+        <Card className="border border-border bg-surface shadow-sm">
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <div className="flex w-full flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-text">
+                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">4</span>
+                Lĩnh vực hoạt động
+              </CardTitle>
+              <AppButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendOp({ title: "", description: "" })}
+              >
+                + Thêm lĩnh vực
+              </AppButton>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            {opFields.length === 0 ? (
+              <p className="text-sm text-text-muted">Chưa có lĩnh vực hoạt động nào. Bấm "Thêm lĩnh vực" để bắt đầu.</p>
+            ) : (
+              <div className="space-y-3">
+                {opFields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-surface-alt/30 p-4 transition-all focus-within:border-primary/50 focus-within:shadow-sm hover:border-border-strong"
+                  >
+                    <div className="flex items-center justify-center pt-7 text-sm font-bold text-text-muted min-w-[28px]">
+                      {(index + 1).toString().padStart(2, "0")}
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="md:col-span-4">
+                        <FormInput
+                          label="Tiêu đề"
+                          placeholder="VD: Công nghệ số & Chuyển đổi số"
+                          errorMessage={errors.operationFieldsArray?.[index]?.title?.message}
+                          {...register(`operationFieldsArray.${index}.title`)}
+                        />
+                      </div>
+                      <div className="md:col-span-8">
+                        <FormTextarea
+                          label="Mô tả"
+                          rows={2}
+                          placeholder="Mô tả chi tiết lĩnh vực..."
+                          errorMessage={errors.operationFieldsArray?.[index]?.description?.message}
+                          {...register(`operationFieldsArray.${index}.description`)}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeOp(index)}
+                      className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10"
+                      title="Xoá"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ════════════════════════════════════════════
+            Khối 5 – Năng lực kế thừa từ hệ sinh thái VDCD
+        ════════════════════════════════════════════ */}
+        <Card className="border border-border bg-surface shadow-sm">
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <CardTitle className="text-base font-semibold text-text">
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">5</span>
+              Năng lực kế thừa từ hệ sinh thái VDCD
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            <FormTextarea
+              label="Nội dung"
+              rows={5}
+              placeholder="Trung tâm kế thừa năng lực công nghệ, đội ngũ chuyên gia và mạng lưới triển khai..."
+              errorMessage={errors.ecosystemCapabilities?.message}
+              {...register("ecosystemCapabilities")}
+            />
+          </CardContent>
+        </Card>
+
+        {/* ════════════════════════════════════════════
+            Khối 6 – Định hướng phát triển
+        ════════════════════════════════════════════ */}
+        <Card className="border border-border bg-surface shadow-sm">
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <div className="flex w-full flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-text">
+                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">6</span>
+                Định hướng phát triển
+              </CardTitle>
+              <AppButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendDev({ title: "", description: "" })}
+              >
+                + Thêm định hướng
+              </AppButton>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            {devFields.length === 0 ? (
+              <p className="text-sm text-text-muted">Chưa có định hướng phát triển nào. Bấm "Thêm định hướng" để bắt đầu.</p>
+            ) : (
+              <div className="space-y-3">
+                {devFields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-surface-alt/30 p-4 transition-all focus-within:border-primary/50 focus-within:shadow-sm hover:border-border-strong"
+                  >
+                    <div className="flex items-center justify-center pt-7 text-sm font-bold text-text-muted min-w-[28px]">
+                      {(index + 1).toString().padStart(2, "0")}
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="md:col-span-5">
+                        <FormInput
+                          label="Tiêu đề"
+                          placeholder="VD: Phát triển hạ tầng dữ liệu..."
+                          errorMessage={errors.developmentOrientationsArray?.[index]?.title?.message}
+                          {...register(`developmentOrientationsArray.${index}.title`)}
+                        />
+                      </div>
+                      <div className="md:col-span-7">
+                        <FormTextarea
+                          label="Mô tả (tuỳ chọn)"
+                          rows={2}
+                          placeholder="Mô tả chi tiết hướng phát triển..."
+                          errorMessage={errors.developmentOrientationsArray?.[index]?.description?.message}
+                          {...register(`developmentOrientationsArray.${index}.description`)}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeDev(index)}
+                      className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10"
+                      title="Xoá"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ════════════════════════════════════════════
+            Liên hệ / Mạng xã hội (giữ nguyên)
+        ════════════════════════════════════════════ */}
         <Card className="border border-border bg-surface shadow-sm">
           <CardHeader className="border-b border-border px-5 py-3.5">
             <div className="flex w-full flex-row items-center justify-between">
@@ -324,20 +561,20 @@ export default function OrganizationPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ platform: "", url: "" })}
+                onClick={() => appendSocial({ platform: "", url: "" })}
               >
                 + Thêm phương thức
               </AppButton>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
-            {fields.length === 0 ? (
+            {socialFields.length === 0 ? (
               <p className="text-sm text-text-muted">Chưa có phương thức liên hệ nào.</p>
             ) : (
               <div className="space-y-3">
-                {fields.map((field, index) => {
+                {socialFields.map((field, index) => {
                   const currentPlatform = socialLinksWatch?.[index]?.platform || "other";
-                  
+
                   return (
                     <div key={field.id} className="flex items-start gap-3 rounded-xl border border-border bg-surface-alt/30 p-4 transition-all focus-within:border-primary/50 focus-within:shadow-sm hover:border-border-strong">
                       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -366,7 +603,7 @@ export default function OrganizationPage() {
                       </div>
                     <button
                       type="button"
-                      onClick={() => remove(index)}
+                      onClick={() => removeSocial(index)}
                       className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10"
                       title="Xoá"
                     >

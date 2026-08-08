@@ -5,6 +5,7 @@ import { z } from "zod";
  * All fields optional since it's a single-record update (PUT).
  */
 export const organizationSchema = z.object({
+  // ── Khối 1: Giới thiệu chung ──
   name: z
     .string()
     .min(1, "Tên tổ chức không được để trống")
@@ -16,13 +17,13 @@ export const organizationSchema = z.object({
     .nullable()
     .optional(),
 
+  businessLicenseNo: z
+    .string()
+    .max(50, "Mã ĐKKD tối đa 50 ký tự")
+    .nullable()
+    .optional(),
+
   description: z.string().nullable().optional(),
-
-  mission: z.string().nullable().optional(),
-
-  vision: z.string().nullable().optional(),
-
-  coreValues: z.string().nullable().optional(),
 
   foundedYear: z
     .number()
@@ -31,19 +32,51 @@ export const organizationSchema = z.object({
     .max(new Date().getFullYear(), "Năm không được vượt quá năm hiện tại")
     .nullable()
     .optional(),
-    
+
   address: z.string().nullable().optional(),
 
+  // ── Khối 2: Sứ mệnh, Tầm nhìn, Giá trị cốt lõi ──
+  mission: z.string().nullable().optional(),
+  vision: z.string().nullable().optional(),
+  coreValues: z.string().nullable().optional(),
+
+  // ── Khối 3: Mạng lưới (Thống kê) ──
   stats: z
     .object({
+      staff: z.number().int().min(0).optional(),
+      experts: z.number().int().min(0).optional(),
       provinces: z.number().int().min(0).optional(),
       centers: z.number().int().min(0).optional(),
+      subsidiaries: z.number().int().min(0).optional(),
       projects: z.number().int().min(0).optional(),
-      staff: z.number().int().min(0).optional(),
     })
     .nullable()
     .optional(),
 
+  // ── Khối 4: Lĩnh vực hoạt động ──
+  operationFieldsArray: z
+    .array(
+      z.object({
+        title: z.string().min(1, "Tiêu đề không được để trống"),
+        description: z.string().default(""),
+      })
+    )
+    .optional(),
+
+  // ── Khối 5: Năng lực kế thừa từ VDCD ──
+  ecosystemCapabilities: z.string().nullable().optional(),
+
+  // ── Khối 6: Định hướng phát triển ──
+  developmentOrientationsArray: z
+    .array(
+      z.object({
+        title: z.string().min(1, "Tiêu đề không được để trống"),
+        description: z.string().default(""),
+      })
+    )
+    .optional(),
+
+  // ── Social Links ──
   socialLinksArray: z
     .array(
       z.object({
