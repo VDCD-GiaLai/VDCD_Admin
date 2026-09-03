@@ -163,7 +163,7 @@ export default function NewPartnerPage() {
                     disabled={uploading}
                   />
                 </label>
-                <span className="text-xs text-text-muted">JPG, PNG, WebP, GIF • Tối đa 5MB</span>
+                <span className="text-xs text-text-muted">JPG, PNG, WebP, GIF • Tối đa 10MB</span>
               </div>
 
               {errors.logo && (

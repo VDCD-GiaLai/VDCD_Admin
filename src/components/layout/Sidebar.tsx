@@ -72,6 +72,12 @@ const MENU_ITEMS: MenuItem[] = [
     icon: <ImageIcon />,
   },
   {
+    label: "Bài viết Slide",
+    href: "/slide-detail-blogs",
+    roles: ["superadmin", "editor"],
+    icon: <SlideBlogIcon />,
+  },
+  {
     label: "Page Banner",
     href: "/page-banners",
     roles: ["superadmin", "editor"],
@@ -323,3 +329,15 @@ function BannerIcon() {
     </svg>
   );
 }
+
+function SlideBlogIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5">
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+      <path d="M6 6h10" />
+      <path d="M6 10h10" />
+      <path d="M6 14h6" />
+    </svg>
+  );
+}
+

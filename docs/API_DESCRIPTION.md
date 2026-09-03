@@ -1439,9 +1439,30 @@ Upload a project image to the `projects/` folder.
 
 ### 17.4. ✏️ POST `/upload/image/slide`
 
-Upload a slide image to the `slides/` folder.
+Upload a slide image to the `slides/` folder or subfolder.
 
 **Content-Type:** `multipart/form-data`
+
+| Field / Param | Type | Required | Description |
+| --- | --- | --- | --- |
+| `file` | File | ✅ | Image file to upload (≤ 10MB) |
+| `subfolder` | Query / Body string | ❌ | Optional subfolder name under `slides/` (e.g. `bai-viet`) |
+
+**Request / Response:** Same as `POST /upload/image`
+
+---
+
+### 17.5. ✏️ POST `/upload/image/slide-detail-blog`
+
+Upload an image for a slide detail blog to ImageKit under `slides/<subfolder>` (e.g. `/vdcd/slides/bai-viet`). If `subfolder` is not specified, defaults to `slides/detail-blogs`.
+
+**Content-Type:** `multipart/form-data`
+
+| Field / Param | Type | Required | Description |
+| --- | --- | --- | --- |
+| `file` | File | ✅ | Image file to upload (≤ 10MB) |
+| `subfolder` | Query / Body string | ❌ | Subfolder name or blog slug (e.g. `bai-viet`, `so-hoa-du-lieu`) |
+
 **Request / Response:** Same as `POST /upload/image`
 
 ---

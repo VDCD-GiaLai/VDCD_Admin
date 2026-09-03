@@ -11,6 +11,7 @@ export const PERMISSIONS: Record<AdminRole, readonly string[]> = {
   editor: [
     "organization:update",
     "slides:*",
+    "slide-detail-blogs:*:except-delete",
     "partners:*",
     "operation-fields:create",
     "operation-fields:update",

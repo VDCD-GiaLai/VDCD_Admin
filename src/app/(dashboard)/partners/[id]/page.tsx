@@ -154,7 +154,7 @@ export default function EditPartnerPage() {
                   {uploading ? "Đang tải lên..." : "Thay đổi logo"}
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleFileChange} disabled={uploading} />
                 </label>
-                <span className="text-xs text-text-muted">JPG, PNG, WebP, GIF • Tối đa 5MB</span>
+                <span className="text-xs text-text-muted">JPG, PNG, WebP, GIF • Tối đa 10MB</span>
               </div>
               {errors.logo && <p className="mt-1 text-xs text-danger">{errors.logo.message}</p>}
               <input type="hidden" {...register("logo")} />

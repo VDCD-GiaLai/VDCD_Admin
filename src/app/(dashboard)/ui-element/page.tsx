@@ -706,10 +706,10 @@ export default function UIElementPage() {
         {/* File Input */}
         <Section title="File Input">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormFileInput label="Upload File" helperText="PNG, JPG, GIF — tối đa 5MB" />
+            <FormFileInput label="Upload File" helperText="PNG, JPG, GIF — tối đa 10MB" />
             <FormFileInput label="Multiple Files" multiple helperText="Chọn nhiều file" />
             <FormFileInput label="Images Only" accept="image/*" />
-            <FormFileInput label="Error State" errorMessage="File vượt quá kích thước cho phép (5MB)" />
+            <FormFileInput label="Error State" errorMessage="File vượt quá kích thước cho phép (10MB)" />
           </div>
         </Section>
 

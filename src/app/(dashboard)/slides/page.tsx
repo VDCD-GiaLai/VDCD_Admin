@@ -17,6 +17,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/comp
 import {
   useSlides, useDeleteSlide, useToggleSlide, useReorderSlides, slideKeys,
 } from "@/features/slides/api";
+import { useSlideDetailBlogs } from "@/features/slide-detail-blogs/api";
 import { TablePagination } from "@/components/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermission } from "@/hooks/usePermission";
@@ -25,10 +26,12 @@ import type { Slide } from "@/types/slide";
 // ─── Sortable row ────────────────────────────────────────────
 
 function SortableSlideRow({
-  slide, onEdit, onDelete, onToggle, canDelete,
+  slide, hasBlog, onEdit, onManageBlog, onDelete, onToggle, canDelete,
 }: {
   slide: Slide;
+  hasBlog: boolean;
   onEdit: () => void;
+  onManageBlog: () => void;
   onDelete: () => void;
   onToggle: (isActive: boolean) => void;
   canDelete: boolean;
@@ -73,6 +76,21 @@ function SortableSlideRow({
       </td>
       <td className="px-3 py-2.5 text-center">
         <div className="flex items-center justify-center gap-1">
+          <button
+            type="button"
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+              hasBlog
+                ? "text-purple-600 hover:bg-purple-50"
+                : "text-text-muted hover:bg-surface-muted hover:text-text"
+            }`}
+            aria-label="Quản lý bài viết chi tiết"
+            title={hasBlog ? "Chỉnh sửa bài viết chi tiết" : "Tạo bài viết chi tiết"}
+            onClick={onManageBlog}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z" />
+            </svg>
+          </button>
           <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10" aria-label="Sửa" onClick={onEdit}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
@@ -101,12 +119,21 @@ export default function SlidesPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: slides, isLoading } = useSlides();
+  const { data: blogsData } = useSlideDetailBlogs({ limit: 100 });
   const deleteMutation = useDeleteSlide();
   const toggleMutation = useToggleSlide();
   const reorderMutation = useReorderSlides();
   const canCreate = usePermission("slides:create");
   const canDelete = usePermission("slides:delete");
   const queryClient = useQueryClient();
+
+  const blogsBySlideId = useMemo(() => {
+    const map = new Map<string, string>();
+    blogsData?.items?.forEach((b) => {
+      map.set(b.slideId, b.id);
+    });
+    return map;
+  }, [blogsData]);
 
   const [deleteTarget, setDeleteTarget] = useState<Slide | null>(null);
   const [localOrder, setLocalOrder] = useState<Slide[] | null>(null);
@@ -199,16 +226,27 @@ export default function SlidesPage() {
                   {paginatedSlides.length === 0 ? (
                     <tr><td colSpan={6} className="py-12 text-center text-sm text-text-muted">Chưa có slide nào</td></tr>
                   ) : (
-                    paginatedSlides.map((slide) => (
-                      <SortableSlideRow
-                        key={slide.id}
-                        slide={slide}
-                        onEdit={() => router.push(`/slides/${slide.id}`)}
-                        onDelete={() => setDeleteTarget(slide)}
-                        onToggle={(isActive) => handleToggle(slide.id, isActive)}
-                        canDelete={canDelete}
-                      />
-                    ))
+                    paginatedSlides.map((slide) => {
+                      const blogId = blogsBySlideId.get(slide.id);
+                      return (
+                        <SortableSlideRow
+                          key={slide.id}
+                          slide={slide}
+                          hasBlog={!!blogId}
+                          onEdit={() => router.push(`/slides/${slide.id}`)}
+                          onManageBlog={() => {
+                            if (blogId) {
+                              router.push(`/slide-detail-blogs/${blogId}`);
+                            } else {
+                              router.push(`/slide-detail-blogs/new?slideId=${slide.id}`);
+                            }
+                          }}
+                          onDelete={() => setDeleteTarget(slide)}
+                          onToggle={(isActive) => handleToggle(slide.id, isActive)}
+                          canDelete={canDelete}
+                        />
+                      );
+                    })
                   )}
                 </tbody>
               </table>

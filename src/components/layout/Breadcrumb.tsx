@@ -17,6 +17,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   articles: "Bài viết",
   jobs: "Tuyển dụng",
   slides: "Slide",
+  "slide-detail-blogs": "Bài viết Slide",
+  "page-banners": "Page Banner",
   provinces: "Tỉnh thành",
   partners: "Đối tác",
   leads: "Leads",

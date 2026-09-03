@@ -893,7 +893,7 @@
 
 - **Actor:** Superadmin, Editor
 - **Description:** Upload images for thumbnails, slides, gallery, logos
-- **Precondition:** File must be jpg / png / webp, size ≤ 5MB
+- **Precondition:** File must be jpg / png / webp, size ≤ 10MB
 
 **Main Flow**
 

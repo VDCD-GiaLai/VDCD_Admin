@@ -224,7 +224,7 @@ export function PageBannerForm({ initialData }: PageBannerFormProps) {
                     disabled={uploading}
                   />
                 </label>
-                <span className="text-xs text-text-muted">JPG, PNG, WebP • Tối đa 5MB</span>
+                <span className="text-xs text-text-muted">JPG, PNG, WebP • Tối đa 10MB</span>
               </div>
 
               {errors.imageUrl && (

@@ -236,7 +236,7 @@ export function ProjectGallery({ projectId, images, onUpdateCache }: ProjectGall
           </DndContext>
         )}
         <p className="mt-3 text-xs text-text-muted">
-          Kéo thả để sắp xếp thứ tự ảnh. Định dạng JPG, PNG, WebP. Tối đa 5MB/ảnh và tổng 20 ảnh.
+          Kéo thả để sắp xếp thứ tự ảnh. Định dạng JPG, PNG, WebP. Tối đa 10MB/ảnh và tổng 20 ảnh.
         </p>
       </CardContent>
     </Card>
