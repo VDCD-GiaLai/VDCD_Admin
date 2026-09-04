@@ -1,5 +1,9 @@
 /**
- * Client-side upload helpers — wraps file upload calls to BFF proxy → NestJS → ImageKit.
+ * Client-side upload helpers.
+ *
+ * Small files (< 4 MB): go through BFF proxy `/api/upload/*` → NestJS → ImageKit.
+ * Large files (≥ 4 MB): bypass Vercel's 4.5 MB limit by uploading directly
+ * to the backend API with a Bearer token.
  *
  * Usage:
  *   const result = await uploadImage(file, "slide");
@@ -68,30 +72,33 @@ export function slugifyVietnamese(text: string): string {
     .slice(0, 100); // keep reasonable length
 }
 
+// ─── Constants ───────────────────────────────────────────────
+
+/** Vercel serverless body-size limit is 4.5 MB. Use direct upload for larger files. */
+const DIRECT_UPLOAD_THRESHOLD = 4 * 1024 * 1024; // 4 MB (safe margin)
+
 // ─── Upload function ─────────────────────────────────────────
 
 /**
- * Upload an image file via the BFF proxy.
+ * Upload an image file.
+ *
+ * - Files < 4 MB: go through BFF proxy (simple, no CORS needed).
+ * - Files ≥ 4 MB: uploaded directly to backend API with Bearer token
+ *   to bypass Vercel's 4.5 MB serverless body limit.
  *
  * @param file - The File object to upload
  * @param folder - Target folder (maps to upload endpoint)
  * @param options - Additional upload options like subfolder
  * @returns Upload result with url, fileId, etc.
  * @throws ApiError if upload fails
- *
- * @example
- * ```ts
- * const result = await uploadImage(file, "slide-detail-blog", { subfolder: "bai-viet" });
- * // Result uploaded to /vdcd/slides/bai-viet/ on ImageKit
- * ```
  */
 export async function uploadImage(
   file: File,
   folder: UploadFolder = "image",
   options?: UploadImageOptions,
 ): Promise<UploadResult> {
-  const endpoint =
-    folder === "image" ? "/api/upload/image" : `/api/upload/image/${folder}`;
+  const apiPath =
+    folder === "image" ? "/upload/image" : `/upload/image/${folder}`;
 
   const formData = new FormData();
   formData.append("file", file);
@@ -101,9 +108,17 @@ export async function uploadImage(
     formData.append("subfolder", subfolder);
   }
 
+  const params = subfolder ? { subfolder } : undefined;
+
   try {
-    const res = await axios.post(endpoint, formData, {
-      params: subfolder ? { subfolder } : undefined,
+    // Large files → direct to backend API (bypass Vercel 4.5 MB limit)
+    if (file.size >= DIRECT_UPLOAD_THRESHOLD) {
+      return await uploadDirect(apiPath, formData, params);
+    }
+
+    // Small files → through BFF proxy
+    const res = await axios.post(`/api${apiPath}`, formData, {
+      params,
       headers: { "Content-Type": "multipart/form-data" },
     });
 
@@ -124,6 +139,71 @@ export async function uploadImage(
       throw new ApiError(err.response.status, msg, body);
     }
     throw err;
+  }
+}
+
+// ─── Direct upload (bypass Vercel) ───────────────────────────
+
+/**
+ * Upload directly to the backend API using a Bearer token.
+ * 1. GET /api/upload/token → retrieves access token from HttpOnly cookie via BFF
+ * 2. POST directly to backend API with Authorization: Bearer header
+ */
+async function uploadDirect(
+  apiPath: string,
+  formData: FormData,
+  params?: Record<string, string>,
+): Promise<UploadResult> {
+  // Step 1: Get access token from BFF (tiny JSON response, no body limit issue)
+  const tokenRes = await axios.get("/api/upload/token");
+  const token = tokenRes.data?.token;
+  if (!token) {
+    throw new ApiError(401, "Không thể lấy token upload. Vui lòng đăng nhập lại.");
+  }
+
+  // Step 2: Build direct backend URL
+  // Use window.location.origin to determine the API URL pattern
+  // Production: admin.domain → api.domain
+  // Local: same origin (falls back to BFF which won't happen for large files in dev)
+  const backendUrl = getBackendApiUrl();
+  const url = new URL(`${backendUrl}/api/v1${apiPath}`);
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  }
+
+  // Step 3: Upload directly with Bearer token
+  const res = await axios.post(url.toString(), formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return res.data?.data ?? res.data;
+}
+
+/**
+ * Determines the backend API URL based on the current origin.
+ * - Production: replaces "admin." with "api." in the hostname
+ * - Local dev: uses the same origin (backend runs on localhost:3001)
+ */
+function getBackendApiUrl(): string {
+  if (typeof window === "undefined") return "";
+
+  const origin = window.location.origin;
+
+  // Local development
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return "http://localhost:3001";
+  }
+
+  // Production: admin.doimoisangtaogialai.vn → api.doimoisangtaogialai.vn
+  try {
+    const url = new URL(origin);
+    url.hostname = url.hostname.replace(/^admin\./, "api.");
+    return url.origin;
+  } catch {
+    return origin;
   }
 }
 
