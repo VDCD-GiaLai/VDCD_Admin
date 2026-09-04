@@ -6,6 +6,7 @@ import type {
   SlideDetailBlogContent,
   SlideDetailBlogBlock,
 } from "@/types/slide-detail-blog";
+import { createListBlock } from "../../utils/list-helpers";
 
 interface BlockEditorProps {
   value: SlideDetailBlogContent;
@@ -68,11 +69,7 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
         };
         break;
       case "list":
-        newBlock = {
-          id: generateId("ls"),
-          type: "list",
-          items: [""],
-        };
+        newBlock = createListBlock({ id: generateId("ls") });
         break;
       case "section":
         newBlock = {

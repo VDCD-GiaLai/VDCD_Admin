@@ -329,11 +329,15 @@ h6.blog-preview-heading {
 /* ── List Blocks ── */
 .blog-preview-list {
   font-size: 0.9375rem;
-  line-height: 1.75;
+  line-height: var(--blog-list-line-height, 1.75);
   color: var(--color-text, #011A42);
   padding-left: 1.25rem;
   margin: 0;
   list-style-type: disc;
+}
+
+ol.blog-preview-list {
+  list-style-type: decimal;
 }
 
 .blog-preview-list li {
@@ -341,7 +345,37 @@ h6.blog-preview-heading {
 }
 
 .blog-preview-list li + li {
-  margin-top: 0.375rem;
+  margin-top: var(--blog-list-item-spacing, 0.375rem);
+}
+
+/* Multi-level nested unordered lists */
+.blog-preview-list ul.blog-preview-list {
+  list-style-type: circle;
+  margin-top: 0.25rem;
+  padding-left: 1.25rem;
+}
+
+.blog-preview-list ul.blog-preview-list ul.blog-preview-list {
+  list-style-type: square;
+}
+
+.blog-preview-list ul.blog-preview-list ul.blog-preview-list ul.blog-preview-list {
+  list-style-type: disc;
+}
+
+/* Multi-level nested ordered lists */
+.blog-preview-list ol.blog-preview-list {
+  list-style-type: lower-alpha;
+  margin-top: 0.25rem;
+  padding-left: 1.25rem;
+}
+
+.blog-preview-list ol.blog-preview-list ol.blog-preview-list {
+  list-style-type: lower-roman;
+}
+
+.blog-preview-list ol.blog-preview-list ol.blog-preview-list ol.blog-preview-list {
+  list-style-type: decimal;
 }
 
 /* ── Section Blocks ── */

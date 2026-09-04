@@ -18,10 +18,12 @@ import type {
   ParagraphBlock,
   ImageBlock,
   ListBlock,
+  ListItem,
   SectionBlock,
   SectionChildBlock,
   CtaBlock,
 } from "@/types/slide-detail-blog";
+import { createListBlock } from "../../utils/list-helpers";
 
 interface VisualEditorBlockProps {
   block: SlideDetailBlogBlock;
@@ -138,7 +140,7 @@ function VisualEditorBlockInner({
   );
 
   const handleItemsChange = useCallback(
-    (items: string[]) => {
+    (items: ListItem[]) => {
       if (block.type === "list") {
         onBlockChange(index, { ...block, items } as ListBlock);
       }
@@ -191,7 +193,7 @@ function VisualEditorBlockInner({
           newChild = { id: childId, type: "image", url: "", fileId: null, alt: "", caption: null };
           break;
         case "list":
-          newChild = { id: childId, type: "list", items: [""] };
+          newChild = createListBlock({ id: childId });
           break;
       }
       const newChildren = [...(block as SectionBlock).children, newChild];

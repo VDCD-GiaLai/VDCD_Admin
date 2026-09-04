@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ListItem } from "@/types/slide-detail-blog";
 
 // ─── Spacing Schema ──────────────────────────────────────────
 
@@ -41,13 +42,65 @@ export const imageBlockSchema = z.object({
   spacing: blockSpacingSchema,
 });
 
+export const listItemSchema: z.ZodType<ListItem, ListItem> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    content: z.string().min(1, "Mục không được để trống"),
+    children: z.array(listItemSchema),
+    checked: z.boolean().optional(),
+  }),
+);
+
+export const listTypeSchema = z.enum(["bullet", "ordered", "checklist"]);
+export const listStyleSchema = z.enum([
+  "disc",
+  "circle",
+  "square",
+  "decimal",
+  "lower-alpha",
+  "upper-alpha",
+  "checklist",
+]);
+
+export const listFontWeightSchema = z.enum(["normal", "medium", "semibold", "bold"]);
+
+export const listLevelStyleSchema = z.object({
+  marker: listStyleSchema.optional(),
+  fontSize: z.number().min(10).max(96).optional(),
+  fontWeight: listFontWeightSchema.optional(),
+  color: z.string().optional(),
+  itemSpacing: z.number().min(0).max(48).optional(),
+});
+
+export const listStyleConfigSchema = z.object({
+  marker: listStyleSchema.optional(),
+  fontFamily: z.string().optional(),
+  fontSize: z.number().min(10).max(96).optional(),
+  fontWeight: listFontWeightSchema.optional(),
+  color: z.string().optional(),
+  lineHeight: z.number().min(1.0).max(3.0).optional(),
+  itemSpacing: z.number().min(0).max(48).optional(),
+  indentation: z.number().min(8).max(64).optional(),
+  backgroundColor: z.string().optional(),
+  borderColor: z.string().optional(),
+  borderWidth: z.number().min(0).max(10).optional(),
+  borderRadius: z.number().min(0).max(32).optional(),
+  padding: z.number().min(0).max(48).optional(),
+  levelStyles: z.record(z.coerce.number(), listLevelStyleSchema).optional(),
+});
+
 export const listBlockSchema = z.object({
   id: z.string(),
   type: z.literal("list"),
   items: z
-    .array(z.string().min(1, "Mục không được để trống"))
+    .array(listItemSchema)
     .min(1, "Danh sách phải có ít nhất 1 mục"),
+  listType: listTypeSchema.optional(),
+  listStyle: listStyleSchema.optional(),
   fontSize: z.number().min(10).max(96).optional(),
+  lineHeight: z.number().min(1.0).max(3.0).optional(),
+  itemSpacing: z.number().min(0).max(48).optional(),
+  style: listStyleConfigSchema.optional(),
   spacing: blockSpacingSchema,
 });
 

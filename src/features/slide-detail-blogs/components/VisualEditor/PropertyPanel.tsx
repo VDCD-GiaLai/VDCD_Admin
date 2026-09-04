@@ -16,9 +16,56 @@ import type {
   BlockSpacing,
   HeroMeta,
   HeroPlacement,
+  ListType,
+  ListStyle,
+  ListItem,
+  ListFontWeight,
+  ListStyleConfig,
+  ListLevelStyle,
 } from "@/types/slide-detail-blog";
+import {
+  normalizeListItems,
+  flattenListItems,
+  indentListItem,
+  outdentListItem,
+  deleteListItemInTree,
+  addListItem,
+  moveListItem,
+  updateListItemContent,
+  findItemLocation,
+  resolveListLevelStyle,
+} from "../../utils/list-helpers";
+import { parseClipboardTextToList } from "../../utils/list-parser";
 
 const FONT_SIZE_PRESETS = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48];
+
+const COLOR_PALETTE = [
+  { label: "Mặc định", value: "" },
+  { label: "Đậm chính (Navy)", value: "#011A42" },
+  { label: "Đỏ VDCD", value: "#ca2a30" },
+  { label: "Ghi phụ", value: "#6C7E96" },
+  { label: "Xanh lá", value: "#32D484" },
+  { label: "Cam", value: "#FDAF22" },
+  { label: "Xanh ngọc", value: "#35B5AA" },
+  { label: "Đen", value: "#0A0A0A" },
+];
+
+const BG_PALETTE = [
+  { label: "Trong suốt", value: "" },
+  { label: "Xám tím", value: "#F9F7FC" },
+  { label: "Nền Body", value: "#F8F9FD" },
+  { label: "Đỏ nhẹ", value: "#FFF5F5" },
+  { label: "Xanh lá nhẹ", value: "#F0FDF4" },
+  { label: "Xanh dương", value: "#EFF6FF" },
+];
+
+const FONT_FAMILY_OPTIONS = [
+  { label: "Mặc định (Space Grotesk / Be Vietnam Pro)", value: "" },
+  { label: "Space Grotesk (Hiện đại)", value: '"Space Grotesk", sans-serif' },
+  { label: "Be Vietnam Pro (Tiêu chuẩn)", value: '"Be Vietnam Pro", sans-serif' },
+  { label: "Serif (Có chân trang trọng)", value: "Georgia, serif" },
+  { label: "Monospace (Mã lập trình)", value: "monospace" },
+];
 
 interface PropertyPanelProps {
   block?: SlideDetailBlogBlock | null;
@@ -41,6 +88,31 @@ const BLOCK_TYPE_LABELS: Record<SlideDetailBlogBlock["type"], string> = {
   cta: "Nút CTA",
 };
 
+function getListMarker(
+  index: number,
+  depth: number,
+  listType: ListType,
+  listStyle?: ListStyle,
+): string {
+  if (listType === "checklist" || listStyle === "checklist") {
+    return "☑";
+  }
+  if (listType === "ordered") {
+    const num = index + 1;
+    if (listStyle === "lower-alpha" || (depth === 1 && !listStyle)) {
+      return `${String.fromCharCode(96 + ((num - 1) % 26) + 1)}.`;
+    }
+    if (listStyle === "upper-alpha") {
+      return `${String.fromCharCode(64 + ((num - 1) % 26) + 1)}.`;
+    }
+    return `${num}.`;
+  }
+  if (listStyle === "circle" || depth === 1) return "◦";
+  if (listStyle === "square" || depth === 2) return "▪";
+  if (depth >= 3) return "▫";
+  return "•";
+}
+
 /**
  * Right sidebar property panel — shows block-specific or hero-specific settings when selected.
  */
@@ -57,6 +129,9 @@ export function PropertyPanel({
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [bulkPasteText, setBulkPasteText] = useState("");
+  const [showBulkPasteArea, setShowBulkPasteArea] = useState(false);
+  const [activeListLevel, setActiveListLevel] = useState<"all" | 1 | 2 | 3>("all");
   const { toast } = useToast();
   const { subfolder, uploadBlogImage } = useSlideDetailBlogUpload();
 
@@ -221,6 +296,255 @@ export function PropertyPanel({
     (number: string) => {
       if (block?.type === "section" && onBlockChange) {
         onBlockChange({ ...block, number } as SectionBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  // ── List handlers ──
+  const handleListStyleUpdate = useCallback(
+    (updater: (currentStyle: ListStyleConfig) => ListStyleConfig) => {
+      if (block?.type === "list" && onBlockChange) {
+        const currentBlock = block as ListBlock;
+        const currentStyle: ListStyleConfig = currentBlock.style ?? {};
+        const nextStyle = updater(currentStyle);
+        onBlockChange({
+          ...currentBlock,
+          style: nextStyle,
+          ...(activeListLevel === "all"
+            ? {
+                ...(nextStyle.lineHeight !== undefined ? { lineHeight: nextStyle.lineHeight } : {}),
+                ...(nextStyle.itemSpacing !== undefined ? { itemSpacing: nextStyle.itemSpacing } : {}),
+                ...(nextStyle.fontSize !== undefined ? { fontSize: nextStyle.fontSize } : {}),
+                ...(nextStyle.marker !== undefined ? { listStyle: nextStyle.marker } : {}),
+              }
+            : {}),
+        } as ListBlock);
+      }
+    },
+    [activeListLevel, block, onBlockChange],
+  );
+
+  const handleListLevelOverrideUpdate = useCallback(
+    (level: 1 | 2 | 3, updater: (currentLevelStyle: ListLevelStyle) => ListLevelStyle) => {
+      handleListStyleUpdate((prev) => {
+        const prevLevelStyles = prev.levelStyles ?? {};
+        const currentLevelStyle = prevLevelStyles[level] ?? {};
+        const updatedLevelStyle = updater(currentLevelStyle);
+        return {
+          ...prev,
+          levelStyles: {
+            ...prevLevelStyles,
+            [level]: updatedLevelStyle,
+          },
+        };
+      });
+    },
+    [handleListStyleUpdate],
+  );
+
+  const handleResetLevelOverride = useCallback(
+    (level: 1 | 2 | 3) => {
+      handleListStyleUpdate((prev) => {
+        if (!prev.levelStyles || !prev.levelStyles[level]) return prev;
+        const nextLevelStyles = { ...prev.levelStyles };
+        delete nextLevelStyles[level];
+        return {
+          ...prev,
+          levelStyles: Object.keys(nextLevelStyles).length > 0 ? nextLevelStyles : undefined,
+        };
+      });
+    },
+    [handleListStyleUpdate],
+  );
+
+  const handleListTypeChange = useCallback(
+    (listType: ListType) => {
+      if (block?.type === "list" && onBlockChange) {
+        let listStyle: ListStyle = "disc";
+        if (listType === "ordered") listStyle = "decimal";
+        if (listType === "checklist") listStyle = "checklist";
+        const currentStyle = (block as ListBlock).style ?? {};
+        onBlockChange({
+          ...block,
+          listType,
+          listStyle,
+          style: {
+            ...currentStyle,
+            marker: listStyle,
+          },
+        } as ListBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListStyleChange = useCallback(
+    (listStyle: ListStyle) => {
+      if (block?.type === "list" && onBlockChange) {
+        if (activeListLevel === "all") {
+          const currentStyle = (block as ListBlock).style ?? {};
+          onBlockChange({
+            ...block,
+            listStyle,
+            style: {
+              ...currentStyle,
+              marker: listStyle,
+            },
+          } as ListBlock);
+        } else {
+          handleListLevelOverrideUpdate(activeListLevel, (prev) => ({
+            ...prev,
+            marker: listStyle,
+          }));
+        }
+      }
+    },
+    [activeListLevel, block, handleListLevelOverrideUpdate, onBlockChange],
+  );
+
+  const handleListLineHeightChange = useCallback(
+    (lineHeight: number) => {
+      if (block?.type === "list" && onBlockChange) {
+        const currentStyle = (block as ListBlock).style ?? {};
+        onBlockChange({
+          ...block,
+          lineHeight,
+          style: {
+            ...currentStyle,
+            lineHeight,
+          },
+        } as ListBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListItemSpacingChange = useCallback(
+    (itemSpacing: number) => {
+      if (block?.type === "list" && onBlockChange) {
+        if (activeListLevel === "all") {
+          const currentStyle = (block as ListBlock).style ?? {};
+          onBlockChange({
+            ...block,
+            itemSpacing,
+            style: {
+              ...currentStyle,
+              itemSpacing,
+            },
+          } as ListBlock);
+        } else {
+          handleListLevelOverrideUpdate(activeListLevel, (prev) => ({
+            ...prev,
+            itemSpacing,
+          }));
+        }
+      }
+    },
+    [activeListLevel, block, handleListLevelOverrideUpdate, onBlockChange],
+  );
+
+  const handleListApplyBulkPaste = useCallback(() => {
+    if (block?.type === "list" && onBlockChange && bulkPasteText.trim()) {
+      const { items: parsed, suggestedListType, suggestedListStyle } =
+        parseClipboardTextToList(bulkPasteText);
+      if (parsed.length > 0) {
+        onBlockChange({
+          ...block,
+          items: parsed,
+          listType: (block as ListBlock).listType ?? suggestedListType,
+          listStyle: (block as ListBlock).listStyle ?? suggestedListStyle,
+        } as ListBlock);
+        toast({ title: `Đã dán thành công ${parsed.length} mục`, color: "success" });
+        setBulkPasteText("");
+        setShowBulkPasteArea(false);
+      }
+    }
+  }, [block, bulkPasteText, onBlockChange, toast]);
+
+  const handleListItemContentChange = useCallback(
+    (itemId: string, content: string) => {
+      if (block?.type === "list" && onBlockChange) {
+        const nextItems = updateListItemContent((block as ListBlock).items, itemId, content);
+        onBlockChange({ ...block, items: nextItems } as ListBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListMoveItem = useCallback(
+    (itemId: string, direction: "up" | "down") => {
+      if (block?.type === "list" && onBlockChange) {
+        const { items: nextItems, success } = moveListItem(
+          (block as ListBlock).items,
+          itemId,
+          direction,
+        );
+        if (success) {
+          onBlockChange({ ...block, items: nextItems } as ListBlock);
+        }
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListIndentItem = useCallback(
+    (itemId: string) => {
+      if (block?.type === "list" && onBlockChange) {
+        const { items: nextItems, success } = indentListItem((block as ListBlock).items, itemId);
+        if (success) {
+          onBlockChange({ ...block, items: nextItems } as ListBlock);
+        }
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListOutdentItem = useCallback(
+    (itemId: string) => {
+      if (block?.type === "list" && onBlockChange) {
+        const { items: nextItems, success } = outdentListItem((block as ListBlock).items, itemId);
+        if (success) {
+          onBlockChange({ ...block, items: nextItems } as ListBlock);
+        }
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListDeleteItem = useCallback(
+    (itemId: string) => {
+      if (block?.type === "list" && onBlockChange) {
+        const { items: nextItems } = deleteListItemInTree((block as ListBlock).items, itemId);
+        onBlockChange({ ...block, items: nextItems } as ListBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleListAddItem = useCallback(() => {
+    if (block?.type === "list" && onBlockChange) {
+      const { items: nextItems } = addListItem((block as ListBlock).items);
+      onBlockChange({ ...block, items: nextItems } as ListBlock);
+    }
+  }, [block, onBlockChange]);
+
+  const handleListToggleCheck = useCallback(
+    (itemId: string, checked: boolean) => {
+      if (block?.type === "list" && onBlockChange) {
+        const toggleInItems = (items: ListItem[]): ListItem[] => {
+          return items.map((it) => {
+            if (it.id === itemId) {
+              return { ...it, checked };
+            }
+            if (it.children && it.children.length > 0) {
+              return { ...it, children: toggleInItems(it.children) };
+            }
+            return it;
+          });
+        };
+        const nextItems = toggleInItems((block as ListBlock).items);
+        onBlockChange({ ...block, items: nextItems } as ListBlock);
       }
     },
     [block, onBlockChange],
@@ -605,6 +929,815 @@ export function PropertyPanel({
             />
           </div>
         )}
+
+        {/* List Block Settings */}
+        {block.type === "list" && (() => {
+          const listBlock = block as ListBlock;
+          const currentListType: ListType = listBlock.listType ?? "bullet";
+          const currentListStyle: ListStyle =
+            listBlock.listStyle ??
+            (currentListType === "ordered" ? "decimal" : currentListType === "checklist" ? "checklist" : "disc");
+          const normalized = normalizeListItems(listBlock.items);
+          const flatItems = flattenListItems(normalized);
+
+          return (
+            <div className="space-y-4 border-t border-border/50 pt-3">
+              {/* 0. Phạm vi cài đặt Style (Level Scoping) */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    Phạm vi áp dụng Style
+                  </label>
+                  {activeListLevel !== "all" && listBlock.style?.levelStyles?.[activeListLevel] && (
+                    <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      Đang có tùy biến
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveListLevel("all")}
+                    className={`rounded-md border px-1.5 py-1 text-center text-xs font-medium transition-all ${
+                      activeListLevel === "all"
+                        ? "border-primary bg-primary/10 text-primary font-bold"
+                        : "border-border text-text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    Tất cả cấp
+                  </button>
+                  {([1, 2, 3] as const).map((lvl) => {
+                    const hasCustom = !!listBlock.style?.levelStyles?.[lvl];
+                    return (
+                      <button
+                        key={`lvl-${lvl}`}
+                        type="button"
+                        onClick={() => setActiveListLevel(lvl)}
+                        className={`relative rounded-md border px-1.5 py-1 text-center text-xs font-medium transition-all ${
+                          activeListLevel === lvl
+                            ? "border-primary bg-primary/10 text-primary font-bold"
+                            : "border-border text-text-muted hover:border-primary/40"
+                        }`}
+                      >
+                        Cấp {lvl}
+                        {hasCustom && (
+                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION A: CÀI ĐẶT CHUNG (TẤT CẢ CẤP) */}
+              {activeListLevel === "all" ? (
+                <>
+                  {/* 1. Kiểu danh sách (List Type) */}
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      Kiểu danh sách
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleListTypeChange("bullet")}
+                        className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-all ${
+                          currentListType === "bullet"
+                            ? "border-primary bg-primary/10 text-primary font-bold"
+                            : "border-border text-text-muted hover:border-primary/40"
+                        }`}
+                      >
+                        • Chấm tròn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleListTypeChange("ordered")}
+                        className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-all ${
+                          currentListType === "ordered"
+                            ? "border-primary bg-primary/10 text-primary font-bold"
+                            : "border-border text-text-muted hover:border-primary/40"
+                        }`}
+                      >
+                        1. Thứ tự
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleListTypeChange("checklist")}
+                        className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-all ${
+                          currentListType === "checklist"
+                            ? "border-primary bg-primary/10 text-primary font-bold"
+                            : "border-border text-text-muted hover:border-primary/40"
+                        }`}
+                      >
+                        ☑ Hộp kiểm
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Ký hiệu đầu mục (List Style / Marker) */}
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      Ký hiệu đầu mục (Style)
+                    </label>
+                    <select
+                      value={currentListStyle}
+                      onChange={(e) => handleListStyleChange(e.target.value as ListStyle)}
+                      aria-label="Ký hiệu đầu mục"
+                      className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+                    >
+                      {currentListType === "bullet" && (
+                        <>
+                          <option value="disc">Chấm tròn đặc (Disc •)</option>
+                          <option value="circle">Chấm tròn rỗng (Circle ◦)</option>
+                          <option value="square">Hình vuông (Square ▪)</option>
+                        </>
+                      )}
+                      {currentListType === "ordered" && (
+                        <>
+                          <option value="decimal">Số thập phân (1, 2, 3)</option>
+                          <option value="lower-alpha">Chữ thường (a, b, c)</option>
+                          <option value="upper-alpha">Chữ in hoa (A, B, C)</option>
+                        </>
+                      )}
+                      {currentListType === "checklist" && (
+                        <option value="checklist">Hộp kiểm việc cần làm (☑ Tasklist)</option>
+                      )}
+                    </select>
+                    <p className="mt-1 text-[10px] text-text-muted">
+                      * Danh sách nhiều cấp sẽ tự động luân phiên ký hiệu cấp độ (Level 1 → Level 2 → Level 3).
+                    </p>
+                  </div>
+
+                  {/* 3. Phông chữ (Font Family) */}
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      Phông chữ (Font Family)
+                    </label>
+                    <select
+                      value={listBlock.style?.fontFamily ?? ""}
+                      onChange={(e) =>
+                        handleListStyleUpdate((prev) => ({
+                          ...prev,
+                          fontFamily: e.target.value || undefined,
+                        }))
+                      }
+                      className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+                    >
+                      {FONT_FAMILY_OPTIONS.map((opt) => (
+                        <option key={opt.label} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 4. Cỡ chữ & Độ đậm (Typography) */}
+                  <div className="space-y-2 rounded-lg border border-border/60 bg-surface-muted/20 p-2.5">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-text-muted">
+                          Cỡ chữ (Font Size)
+                        </label>
+                        <span className="text-[11px] font-bold text-text">
+                          {listBlock.style?.fontSize ?? listBlock.fontSize ?? 16}px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={12}
+                        max={36}
+                        step={1}
+                        value={listBlock.style?.fontSize ?? listBlock.fontSize ?? 16}
+                        onChange={(e) => {
+                          const fs = parseInt(e.target.value, 10);
+                          handleListStyleUpdate((prev) => ({ ...prev, fontSize: fs }));
+                        }}
+                        className="w-full cursor-pointer accent-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold text-text-muted">
+                        Độ đậm chữ (Font Weight)
+                      </label>
+                      <div className="grid grid-cols-4 gap-1">
+                        {(
+                          [
+                            { label: "Thường", value: "normal" },
+                            { label: "Vừa", value: "medium" },
+                            { label: "Bán đậm", value: "semibold" },
+                            { label: "Đậm", value: "bold" },
+                          ] as const
+                        ).map((fw) => {
+                          const active =
+                            (listBlock.style?.fontWeight ?? "normal") === fw.value;
+                          return (
+                            <button
+                              key={fw.value}
+                              type="button"
+                              onClick={() =>
+                                handleListStyleUpdate((prev) => ({
+                                  ...prev,
+                                  fontWeight: fw.value as ListFontWeight,
+                                }))
+                              }
+                              className={`rounded border py-1 text-[10px] font-medium transition-all ${
+                                active
+                                  ? "border-primary bg-primary/10 font-bold text-primary"
+                                  : "border-border text-text-muted hover:border-primary/40"
+                              }`}
+                            >
+                              {fw.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Màu chữ (Text Color) */}
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-text-muted">Màu chữ</label>
+                        {listBlock.style?.color && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleListStyleUpdate((prev) => {
+                                const next = { ...prev };
+                                delete next.color;
+                                return next;
+                              })
+                            }
+                            className="text-[10px] text-primary hover:underline"
+                          >
+                            Đặt lại
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {COLOR_PALETTE.map((c) => (
+                          <button
+                            key={c.label}
+                            type="button"
+                            title={c.label}
+                            onClick={() =>
+                              handleListStyleUpdate((prev) => ({
+                                ...prev,
+                                color: c.value || undefined,
+                              }))
+                            }
+                            className={`h-5 w-5 rounded-full border transition-all ${
+                              (listBlock.style?.color ?? "") === c.value
+                                ? "scale-110 border-primary ring-2 ring-primary/30"
+                                : "border-border hover:scale-105"
+                            }`}
+                            style={{ backgroundColor: c.value || "#333333" }}
+                          />
+                        ))}
+                        <input
+                          type="text"
+                          value={listBlock.style?.color ?? ""}
+                          onChange={(e) =>
+                            handleListStyleUpdate((prev) => ({
+                              ...prev,
+                              color: e.target.value || undefined,
+                            }))
+                          }
+                          placeholder="#011A42"
+                          className="w-20 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-text"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. Typography & Spacing & Indentation */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-[11px] font-medium text-text-muted">
+                          Độ cao dòng
+                        </label>
+                        <span className="text-[11px] font-semibold text-text">
+                          {listBlock.lineHeight ?? listBlock.style?.lineHeight ?? 1.75}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1.2}
+                        max={2.4}
+                        step={0.05}
+                        value={listBlock.lineHeight ?? listBlock.style?.lineHeight ?? 1.75}
+                        onChange={(e) => handleListLineHeightChange(parseFloat(e.target.value))}
+                        className="w-full cursor-pointer accent-primary"
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-[11px] font-medium text-text-muted">
+                          Khoảng cách mục
+                        </label>
+                        <span className="text-[11px] font-semibold text-text">
+                          {listBlock.itemSpacing ?? listBlock.style?.itemSpacing ?? 6}px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={24}
+                        step={1}
+                        value={listBlock.itemSpacing ?? listBlock.style?.itemSpacing ?? 6}
+                        onChange={(e) => handleListItemSpacingChange(parseInt(e.target.value, 10))}
+                        className="w-full cursor-pointer accent-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Indentation per depth */}
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[11px] font-medium text-text-muted">
+                        Độ thụt lề cấp con
+                      </label>
+                      <span className="text-[11px] font-semibold text-text">
+                        {listBlock.style?.indentation ?? 24}px / cấp
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={12}
+                      max={48}
+                      step={2}
+                      value={listBlock.style?.indentation ?? 24}
+                      onChange={(e) => {
+                        const ind = parseInt(e.target.value, 10);
+                        handleListStyleUpdate((prev) => ({ ...prev, indentation: ind }));
+                      }}
+                      className="w-full cursor-pointer accent-primary"
+                    />
+                  </div>
+
+                  {/* 6. Khung viền & Nền (Container Border & Background) */}
+                  <div className="space-y-2 rounded-lg border border-border/60 bg-surface-muted/20 p-2.5">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      Khung viền & Nền khối
+                    </span>
+
+                    {/* Background color */}
+                    <div>
+                      <label className="mb-1 block text-[10px] text-text-muted">Màu nền khối</label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {BG_PALETTE.map((bg) => (
+                          <button
+                            key={bg.label}
+                            type="button"
+                            title={bg.label}
+                            onClick={() =>
+                              handleListStyleUpdate((prev) => ({
+                                ...prev,
+                                backgroundColor: bg.value || undefined,
+                              }))
+                            }
+                            className={`h-5 w-5 rounded border transition-all ${
+                              (listBlock.style?.backgroundColor ?? "") === bg.value
+                                ? "scale-110 border-primary ring-2 ring-primary/30"
+                                : "border-border hover:scale-105"
+                            }`}
+                            style={{ backgroundColor: bg.value || "transparent" }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Border Width & Radius & Padding */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      <div>
+                        <label className="block text-[10px] text-text-muted">
+                          Độ dày viền ({listBlock.style?.borderWidth ?? 0}px)
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={6}
+                          step={1}
+                          value={listBlock.style?.borderWidth ?? 0}
+                          onChange={(e) => {
+                            const bw = parseInt(e.target.value, 10);
+                            handleListStyleUpdate((prev) => ({
+                              ...prev,
+                              borderWidth: bw,
+                              borderColor: bw > 0 ? prev.borderColor ?? "#E2E8F0" : undefined,
+                            }));
+                          }}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-text-muted">
+                          Bo góc ({listBlock.style?.borderRadius ?? 0}px)
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={20}
+                          step={2}
+                          value={listBlock.style?.borderRadius ?? 0}
+                          onChange={(e) => {
+                            const br = parseInt(e.target.value, 10);
+                            handleListStyleUpdate((prev) => ({ ...prev, borderRadius: br }));
+                          }}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-text-muted">
+                          Đệm trong ({listBlock.style?.padding ?? 0}px)
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={24}
+                          step={2}
+                          value={listBlock.style?.padding ?? 0}
+                          onChange={(e) => {
+                            const pad = parseInt(e.target.value, 10);
+                            handleListStyleUpdate((prev) => ({ ...prev, padding: pad }));
+                          }}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* SECTION B: CÀI ĐẶT RIÊNG CHO TỪNG CẤP (CẤP 1, 2, HOẶC 3) */
+                (() => {
+                  const level = activeListLevel;
+                  const levelOverride = listBlock.style?.levelStyles?.[level];
+                  const resolved = resolveListLevelStyle(listBlock, level - 1);
+
+                  return (
+                    <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between border-b border-primary/10 pb-2">
+                        <div>
+                          <span className="text-xs font-bold text-primary">Tùy biến Cấp {level}</span>
+                          <p className="text-[10px] text-text-muted">
+                            Áp dụng độc lập cho tất cả các mục thuộc cấp độ {level}
+                          </p>
+                        </div>
+                        {levelOverride && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetLevelOverride(level)}
+                            className="rounded border border-danger/30 bg-surface px-2 py-1 text-[10px] font-semibold text-danger hover:bg-danger/10"
+                          >
+                            Xóa tùy biến
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Marker override */}
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-text-muted">
+                          Ký hiệu đầu mục Cấp {level}
+                        </label>
+                        <select
+                          value={levelOverride?.marker ?? resolved.marker}
+                          onChange={(e) =>
+                            handleListLevelOverrideUpdate(level, (prev) => ({
+                              ...prev,
+                              marker: e.target.value as ListStyle,
+                            }))
+                          }
+                          className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+                        >
+                          <option value="disc">Chấm tròn đặc (Disc •)</option>
+                          <option value="circle">Chấm tròn rỗng (Circle ◦)</option>
+                          <option value="square">Hình vuông (Square ▪)</option>
+                          <option value="decimal">Số thập phân (1, 2, 3)</option>
+                          <option value="lower-alpha">Chữ thường (a, b, c)</option>
+                          <option value="upper-alpha">Chữ in hoa (A, B, C)</option>
+                          <option value="checklist">Hộp kiểm (☑ Tasklist)</option>
+                        </select>
+                      </div>
+
+                      {/* Cỡ chữ Cấp {level} */}
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <label className="text-[11px] font-semibold text-text-muted">
+                            Cỡ chữ Cấp {level}
+                          </label>
+                          <span className="text-[11px] font-bold text-text">
+                            {levelOverride?.fontSize ?? resolved.fontSize ?? 16}px
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={12}
+                          max={32}
+                          step={1}
+                          value={levelOverride?.fontSize ?? resolved.fontSize ?? 16}
+                          onChange={(e) => {
+                            const fs = parseInt(e.target.value, 10);
+                            handleListLevelOverrideUpdate(level, (prev) => ({
+                              ...prev,
+                              fontSize: fs,
+                            }));
+                          }}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+
+                      {/* Độ đậm chữ Cấp {level} */}
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-text-muted">
+                          Độ đậm Cấp {level}
+                        </label>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(
+                            [
+                              { label: "Thường", value: "normal" },
+                              { label: "Vừa", value: "medium" },
+                              { label: "Bán đậm", value: "semibold" },
+                              { label: "Đậm", value: "bold" },
+                            ] as const
+                          ).map((fw) => {
+                            const active =
+                              (levelOverride?.fontWeight ?? resolved.fontWeight ?? "normal") ===
+                              fw.value;
+                            return (
+                              <button
+                                key={fw.value}
+                                type="button"
+                                onClick={() =>
+                                  handleListLevelOverrideUpdate(level, (prev) => ({
+                                    ...prev,
+                                    fontWeight: fw.value as ListFontWeight,
+                                  }))
+                                }
+                                className={`rounded border py-1 text-[10px] font-medium transition-all ${
+                                  active
+                                    ? "border-primary bg-primary/10 font-bold text-primary"
+                                    : "border-border bg-surface text-text-muted hover:border-primary/40"
+                                }`}
+                              >
+                                {fw.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Màu chữ Cấp {level} */}
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <label className="text-[11px] font-semibold text-text-muted">
+                            Màu chữ Cấp {level}
+                          </label>
+                          {levelOverride?.color && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleListLevelOverrideUpdate(level, (prev) => {
+                                  const next = { ...prev };
+                                  delete next.color;
+                                  return next;
+                                })
+                              }
+                              className="text-[10px] text-primary hover:underline"
+                            >
+                              Theo cấp cha
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {COLOR_PALETTE.map((c) => (
+                            <button
+                              key={c.label}
+                              type="button"
+                              title={c.label}
+                              onClick={() =>
+                                handleListLevelOverrideUpdate(level, (prev) => ({
+                                  ...prev,
+                                  color: c.value || undefined,
+                                }))
+                              }
+                              className={`h-5 w-5 rounded-full border transition-all ${
+                                (levelOverride?.color ?? resolved.color ?? "") === c.value
+                                  ? "scale-110 border-primary ring-2 ring-primary/30"
+                                  : "border-border hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: c.value || "#333333" }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Khoảng cách mục Cấp {level} */}
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <label className="text-[11px] font-semibold text-text-muted">
+                            Khoảng cách mục Cấp {level}
+                          </label>
+                          <span className="text-[11px] font-bold text-text">
+                            {levelOverride?.itemSpacing ?? resolved.itemSpacing ?? 6}px
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={20}
+                          step={1}
+                          value={levelOverride?.itemSpacing ?? resolved.itemSpacing ?? 6}
+                          onChange={(e) => {
+                            const sp = parseInt(e.target.value, 10);
+                            handleListLevelOverrideUpdate(level, (prev) => ({
+                              ...prev,
+                              itemSpacing: sp,
+                            }));
+                          }}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+
+              {/* 4. Dán nhanh danh sách dài (Bulk Paste / Import) */}
+              <div className="rounded-lg border border-border bg-surface-muted/30 p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text">Dán danh sách dài</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkPasteArea((prev) => !prev)}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    {showBulkPasteArea ? "Thu gọn" : "Mở khung dán"}
+                  </button>
+                </div>
+                {showBulkPasteArea && (
+                  <div className="mt-2 space-y-2">
+                    <textarea
+                      rows={4}
+                      value={bulkPasteText}
+                      onChange={(e) => setBulkPasteText(e.target.value)}
+                      placeholder={`Dán văn bản nhiều dòng từ Word, Excel, Docs...\nVí dụ:\n- Thửa đất 1\n    - Chi tiết A\n- Thửa đất 2`}
+                      className="w-full rounded border border-border bg-surface p-2 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkPasteText("");
+                          setShowBulkPasteArea(false);
+                        }}
+                        className="rounded px-2 py-1 text-[11px] text-text-muted hover:bg-surface-muted"
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleListApplyBulkPaste}
+                        disabled={!bulkPasteText.trim()}
+                        className="rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-white hover:bg-primary-dark disabled:opacity-50"
+                      >
+                        Chuyển thành danh sách
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Quản lý từng mục (Items hierarchy tree) */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    Các mục ({flatItems.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleListAddItem}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    + Thêm mục
+                  </button>
+                </div>
+
+                <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
+                  {flatItems.map((flat, idx) => {
+                    const loc = findItemLocation(normalized, flat.item.id);
+                    const canMoveUp = loc ? loc.index > 0 : false;
+                    const canMoveDown = loc ? loc.index < loc.siblings.length - 1 : false;
+
+                    return (
+                      <div
+                        key={flat.item.id}
+                        className="flex items-center gap-1.5 rounded-md border border-border/70 bg-surface p-1.5 transition-all hover:border-border"
+                        style={{ marginLeft: `${Math.min(flat.depth * 14, 56)}px` }}
+                      >
+                        {/* Marker / Checkbox */}
+                        {currentListType === "checklist" ? (
+                          <input
+                            type="checkbox"
+                            checked={!!flat.item.checked}
+                            onChange={(e) => handleListToggleCheck(flat.item.id, e.target.checked)}
+                            className="h-3.5 w-3.5 cursor-pointer rounded border-border text-primary accent-primary"
+                            title={flat.item.checked ? "Đã xong" : "Chưa hoàn thành"}
+                          />
+                        ) : (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-muted text-[10px] font-bold text-text-muted select-none">
+                            {getListMarker(idx, flat.depth, currentListType, currentListStyle)}
+                          </span>
+                        )}
+
+                        {/* Inline Content Input */}
+                        <input
+                          type="text"
+                          value={flat.item.content}
+                          onChange={(e) => handleListItemContentChange(flat.item.id, e.target.value)}
+                          placeholder={`Mục cấp ${flat.depth + 1}...`}
+                          className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-xs text-text placeholder:text-text-muted/40 focus:outline-none"
+                        />
+
+                        {/* Actions */}
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          {/* Move up */}
+                          <button
+                            type="button"
+                            onClick={() => handleListMoveItem(flat.item.id, "up")}
+                            disabled={!canMoveUp}
+                            title="Di chuyển lên"
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:bg-surface-muted hover:text-text disabled:opacity-20"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+
+                          {/* Move down */}
+                          <button
+                            type="button"
+                            onClick={() => handleListMoveItem(flat.item.id, "down")}
+                            disabled={!canMoveDown}
+                            title="Di chuyển xuống"
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:bg-surface-muted hover:text-text disabled:opacity-20"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+
+                          {/* Outdent */}
+                          <button
+                            type="button"
+                            onClick={() => handleListOutdentItem(flat.item.id)}
+                            disabled={!flat.canOutdent}
+                            title="Lùi một cấp (Giảm thụt lề)"
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:bg-surface-muted hover:text-text disabled:opacity-20"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                          </button>
+
+                          {/* Indent */}
+                          <button
+                            type="button"
+                            onClick={() => handleListIndentItem(flat.item.id)}
+                            disabled={!flat.canIndent}
+                            title="Thụt vào một cấp (Tăng thụt lề)"
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:bg-surface-muted hover:text-text disabled:opacity-20"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                          </button>
+
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={() => handleListDeleteItem(flat.item.id)}
+                            disabled={flatItems.length <= 1}
+                            title="Xóa mục này"
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:bg-danger/10 hover:text-danger disabled:opacity-20"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Spacing (all block types) ── */}
         <div>

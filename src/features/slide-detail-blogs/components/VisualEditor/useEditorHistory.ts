@@ -30,37 +30,31 @@ export function useEditorHistory(
 
   /** Undo: restore previous state */
   const undo = useCallback(() => {
-    setPast((prevPast) => {
-      if (prevPast.length === 0) return prevPast;
+    if (past.length === 0) return;
 
-      const currentSnapshot = JSON.stringify(content);
-      setFuture((prevFuture) => [...prevFuture, currentSnapshot]);
+    const currentSnapshot = JSON.stringify(content);
+    const newPast = [...past];
+    const previous = newPast.pop()!;
+    const parsed = JSON.parse(previous) as SlideDetailBlogContent;
 
-      const newPast = [...prevPast];
-      const previous = newPast.pop()!;
-      const parsed = JSON.parse(previous) as SlideDetailBlogContent;
-      onChange(parsed);
-
-      return newPast;
-    });
-  }, [content, onChange]);
+    setPast(newPast);
+    setFuture((prev) => [...prev, currentSnapshot]);
+    onChange(parsed);
+  }, [content, onChange, past]);
 
   /** Redo: restore next state */
   const redo = useCallback(() => {
-    setFuture((prevFuture) => {
-      if (prevFuture.length === 0) return prevFuture;
+    if (future.length === 0) return;
 
-      const currentSnapshot = JSON.stringify(content);
-      setPast((prevPast) => [...prevPast, currentSnapshot]);
+    const currentSnapshot = JSON.stringify(content);
+    const newFuture = [...future];
+    const next = newFuture.pop()!;
+    const parsed = JSON.parse(next) as SlideDetailBlogContent;
 
-      const newFuture = [...prevFuture];
-      const next = newFuture.pop()!;
-      const parsed = JSON.parse(next) as SlideDetailBlogContent;
-      onChange(parsed);
-
-      return newFuture;
-    });
-  }, [content, onChange]);
+    setFuture(newFuture);
+    setPast((prev) => [...prev, currentSnapshot]);
+    onChange(parsed);
+  }, [content, future, onChange]);
 
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;

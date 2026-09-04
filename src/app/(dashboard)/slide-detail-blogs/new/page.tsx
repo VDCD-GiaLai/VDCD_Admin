@@ -25,6 +25,7 @@ import {
 import { BlockEditor } from "@/features/slide-detail-blogs/components/BlockEditor";
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
+import { BlogExportModal } from "@/features/slide-detail-blogs/components/ExportModal";
 import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
@@ -53,6 +54,7 @@ function NewSlideDetailBlogContent() {
 
   type TabMode = "editor" | "reader" | "visual";
   const [activeTab, setActiveTab] = useState<TabMode>("editor");
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const {
     register,
@@ -285,9 +287,32 @@ function NewSlideDetailBlogContent() {
             Tạo bài viết chi tiết liên kết trực tiếp với slide trên trang chủ.
           </p>
         </div>
-        <AppButton variant="ghost" onClick={() => router.back()}>
-          ← Quay lại
-        </AppButton>
+        <div className="flex items-center gap-2">
+          <AppButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowExportModal(true)}
+            className="border-border text-text hover:border-primary hover:text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="mr-1 h-4 w-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 6.75a.75.75 0 011.5 0v3.69l1.22-1.22a.75.75 0 111.06 1.06l-2.5 2.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 111.06-1.06l1.22 1.22V8.75z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Xuất bài viết
+          </AppButton>
+          <AppButton variant="ghost" onClick={() => router.back()}>
+            ← Quay lại
+          </AppButton>
+        </div>
       </div>
 
       {/* Tab Switcher: 1. Nội dung / 2. Đọc bài / 3. Trình chỉnh sửa trực quan */}
@@ -727,6 +752,16 @@ function NewSlideDetailBlogContent() {
           </AppButton>
         </div>
       )}
+
+        <BlogExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          title={previewTitle}
+          subtitle={previewSubtitle}
+          slug={watchedSlug}
+          content={(previewContent as SlideDetailBlogContent) ?? { version: 1, blocks: [] }}
+          heroImageUrl={currentPreview}
+        />
       </div>
     </SlideDetailBlogUploadProvider>
   );

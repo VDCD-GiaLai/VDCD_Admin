@@ -268,6 +268,22 @@ Khi biên tập viên chỉnh sửa khoảng cách trong Admin Visual Editor:
 
 ---
 
+### 4.5. Quy Tắc Hiển Thị Khối Danh Sách & Style Đa Cấp (`ListBlock` & `style: ListStyleConfig`)
+* Khối List (`type: "list"`):
+  * Cấu trúc dữ liệu cây đệ quy: `ListItem { id, content, children: ListItem[], checked?: boolean }`.
+  * Kiểu danh sách (`listType`):
+    * `"bullet"`: Thẻ `<ul>` với ký hiệu đầu mục (`disc`, `circle`, `square`).
+    * `"ordered"`: Thẻ `<ol>` với số thứ tự (`decimal`, `lower-alpha`, `upper-alpha`).
+    * `"checklist"`: Danh sách việc cần làm với checkbox tương tác (`checked: boolean`).
+  * Khung viền và nền (`block.style`):
+    * Hỗ trợ `backgroundColor`, `borderColor`, `borderWidth`, `borderRadius`, `padding`.
+  * Style phân tầng (Level Cascading):
+    * Mỗi cấp độ phân cấp (`depth`) hỗ trợ ghi đè độc lập: `style.levelStyles[depth + 1]`.
+    * Độ thụt lề: `depth * (style.indentation ?? 24)px`.
+    * Khoảng cách mục: `itemSpacing` (pixel).
+
+---
+
 ## 5. MÃ NGUỒN TÍCH HỢP MẪU CHO REPO FRONTEND
 
 ### 5.1. File Service: `src/services/slide-detail-blog.service.ts`
@@ -417,7 +433,13 @@ export function BlogDetailRenderer({ blog }: BlogDetailRendererProps) {
               return (
                 <ul className="list-disc list-inside space-y-2 my-4 pl-2 text-base leading-relaxed text-[#2D3748]">
                   {block.items.map((item, idx) => (
-                    <li key={idx}>{item}</li>
+                    <li key={typeof item === "object" ? item.id : idx}>
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: typeof item === "object" ? item.content : item,
+                        }}
+                      />
+                    </li>
                   ))}
                 </ul>
               );

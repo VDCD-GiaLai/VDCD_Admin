@@ -32,6 +32,7 @@ import type {
   HeroMeta,
   HeroPlacement,
 } from "@/types/slide-detail-blog";
+import { createListBlock } from "../../utils/list-helpers";
 
 type ViewportMode = "desktop" | "tablet" | "mobile";
 
@@ -101,7 +102,7 @@ function createDefaultBlock(
     case "image":
       return { id, type: "image", url: "", fileId: null, alt: "", caption: null };
     case "list":
-      return { id, type: "list", items: [""] };
+      return createListBlock({ id });
     case "section": {
       const sectionCount = existingBlocks.filter((b) => b.type === "section").length;
       return {

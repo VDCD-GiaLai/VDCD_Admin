@@ -31,17 +31,67 @@ export interface ImageBlock {
   id: string;
   type: "image";
   url: string;
-  fileId: string | null;
-  alt: string;
-  caption: string | null;
+  fileId?: string | null;
+  alt?: string;
+  caption?: string | null;
   spacing?: BlockSpacing;
+}
+
+export interface ListItem {
+  id: string;
+  content: string;
+  children: ListItem[];
+  checked?: boolean;
+}
+
+export type ListType = "bullet" | "ordered" | "checklist";
+
+export type ListStyle =
+  | "disc"
+  | "circle"
+  | "square"
+  | "decimal"
+  | "lower-alpha"
+  | "upper-alpha"
+  | "checklist";
+
+export type ListFontWeight = "normal" | "medium" | "semibold" | "bold";
+
+export interface ListLevelStyle {
+  marker?: ListStyle;
+  fontSize?: number;
+  fontWeight?: ListFontWeight;
+  color?: string;
+  itemSpacing?: number;
+}
+
+export interface ListStyleConfig {
+  marker?: ListStyle;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: ListFontWeight;
+  color?: string;
+  lineHeight?: number;
+  itemSpacing?: number;
+  indentation?: number;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  padding?: number;
+  levelStyles?: Record<number, ListLevelStyle>;
 }
 
 export interface ListBlock {
   id: string;
   type: "list";
-  items: string[];
+  items: ListItem[];
+  listType?: ListType;
+  listStyle?: ListStyle;
   fontSize?: number;
+  lineHeight?: number;
+  itemSpacing?: number;
+  style?: ListStyleConfig;
   spacing?: BlockSpacing;
 }
 

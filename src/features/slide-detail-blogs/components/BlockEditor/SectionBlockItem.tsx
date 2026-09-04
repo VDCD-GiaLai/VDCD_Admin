@@ -12,6 +12,7 @@ import type {
   ImageBlock,
   ListBlock,
 } from "@/types/slide-detail-blog";
+import { createListBlock } from "../../utils/list-helpers";
 
 interface SectionBlockItemProps {
   block: SectionBlock;
@@ -49,11 +50,7 @@ export function SectionBlockItem({ block, onChange }: SectionBlockItemProps) {
         caption: null,
       };
     } else {
-      newChild = {
-        id: generateId("ls"),
-        type: "list",
-        items: [""],
-      };
+      newChild = createListBlock({ id: generateId("ls") });
     }
 
     onChange({
