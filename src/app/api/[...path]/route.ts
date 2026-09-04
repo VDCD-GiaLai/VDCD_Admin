@@ -47,9 +47,11 @@ async function handler(
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       if (isMultipart) {
-        // Passthrough FormData (file uploads) — don't set Content-Type,
-        // let fetch set it with the correct boundary
-        body = await request.formData();
+        // Stream raw body directly to backend — avoids Next.js body-size limit
+        // by not calling request.formData() which buffers the entire payload.
+        body = request.body as ReadableStream<Uint8Array>;
+        // Preserve the original Content-Type (with boundary) for multipart
+        headers["Content-Type"] = contentType;
       } else {
         // JSON body
         headers["Content-Type"] = "application/json";
@@ -73,6 +75,8 @@ async function handler(
       headers,
       body,
       cache: "no-store",
+      // @ts-expect-error -- Node.js fetch requires duplex for streaming body
+      duplex: "half",
     });
 
     // ── Return response ────────────────────────────────────
