@@ -162,7 +162,7 @@
 **Main Flow**
 
 1. Go to Admin → Settings → Organization Info
-2. Edit fields: name, tagline, description, mission, vision, core values, year founded, statistics, social networks
+2. Edit fields: name, tagline, business license number, description, mission, vision, core values, year founded, address, statistics, social networks, operation fields, ecosystem capabilities, development orientations
 3. Save changes
 4. Website updates immediately
 
@@ -180,6 +180,7 @@
 1. Guest visits the homepage
 2. System fetches active slides, sorted by `order`
 3. Displays auto-rotating slideshow + manual navigation
+4. Clicks CTA to visit link or open connected Slide Detail Blog
 
 ### UC-SLD-02: View slide list in admin
 
@@ -188,7 +189,7 @@
 **Main Flow**
 
 1. Go to Admin → Slideshow
-2. Display all slides including inactive ones, with image preview
+2. Display all slides including inactive ones, with image preview and detail blog connection status
 
 ### UC-SLD-03: Add new slide
 
@@ -197,7 +198,8 @@
 **Main Flow**
 
 1. Click "Add Slide"
-2. Enter: title, description, CTA button text, CTA link
+2. Enter: title, subtitle, description, CTA button text, CTA link, background image
+3. Can create and link a Slide Detail Blog for in-depth presentation
 3. Upload background image
 4. Set order, enable/disable status
 5. Save
@@ -563,9 +565,13 @@
 
 1. Guest clicks on a project
 2. Displays:
-    - **Hero:** image/video + name + location + year + operation field
+    - **Hero:** image/video + name + location + year + operation field + discipline + services list
     - **Overview:** rich text content
-    - **Gallery:** project image lightbox
+    - **Challenge:** real-world problem statement & challenge illustration image
+    - **Transformation:** Before & After interactive visual comparison
+    - **Technical Highlights:** key metrics (e.g. Area, LiDAR technology, speed)
+    - **Gallery:** project image showcase (flexible small & large grid layouts)
+    - **Next Project:** one-click navigation to next case study
     - **Related articles** linked to the project (SEO)
     - **Suggestions:** 3 other projects
 
@@ -586,10 +592,11 @@
 
 1. Click "Add Project"
 2. Enter: title, slug, overview (rich text), thumbnail
-3. Select operation field, province/city, year
-4. Upload gallery images (multiple images, with captions)
-5. Enter SEO meta
-6. Save as draft or publish
+3. Enter case-study details: challenge description & illustration, services list, discipline, transformation before/after images, technical highlights, next project slug
+4. Select operation field, province/city, year
+5. Upload gallery images (multiple images, with captions and size tags `small` or `large`)
+6. Enter SEO meta (title & description up to 255 chars)
+7. Save as draft or publish
 
 **Alternative Flow**
 
@@ -759,9 +766,9 @@
 
 **Main Flow**
 
-1. Guest fills in the form: full name, email, phone, upload CV
-2. System records it in the lead table (or sends email directly)
-3. Displays success message
+1. Guest fills in the application form: full name (*), email (*), phone, date of birth, address, years of experience, expected salary, portfolio/GitHub/LinkedIn URL, cover letter, and upload CV attachment (PDF/DOC/DOCX)
+2. System uploads CV and saves application to the `lead` table with `source = 'career_form'`
+3. Displays success message to applicant and alerts recruitment team
 
 ### UC-JOB-04: View position list (admin)
 
@@ -779,7 +786,7 @@
 **Main Flow**
 
 1. Click "Add Position"
-2. Enter: position title, slug, department, location, type, salary range, deadline
+2. Enter: position title, slug, department, location, type (`full-time`, `part-time`, `intern`, `contract`), salary range, deadline, experience requirement (e.g. "1 - 3 năm"), skills tags (e.g. `NestJS`, `React`)
 3. Compose description, requirements, benefits with rich text
 4. Mark as "Urgent" if needed
 5. Save and activate
@@ -814,18 +821,18 @@
 
 ## Module 13 – Contact Form Management (Lead)
 
-### UC-LED-01: Submit contact form (website)
+### UC-LED-01: Submit contact or application form (website)
 
 - **Actor:** Guest
-- **Description:** Visitor leaves information for consultation / collaboration
+- **Description:** Visitor leaves contact inquiry or candidate submits recruitment application
 - **Precondition:** Must pass CAPTCHA / Honeypot anti-spam
 
 **Main Flow**
 
-1. Guest fills in the form: full name (*), email (*), phone (*), subject, message, attachment
+1. Guest fills in the form: full name (*), email (*), phone, subject, message, applicant details (DOB, address, experience, expected salary, portfolio link, cover letter), attachment (CV/proposal)
 2. Clicks submit
 3. System validates on client + server side
-4. Saves lead to DB
+4. Saves lead to DB with appropriate `source` tag
 5. Sends notification email to admin
 6. Displays success message to Guest
 
@@ -943,7 +950,7 @@
 - **Actor:** Guest
 
 ### UC-CNT-02: View contact list (admin)
-- **Actor:** Superadmin, Editor
+- **Actor:** Superadmin, Editor, Viewer
 
 ### UC-CNT-03: Mark contact as read/unread
 - **Actor:** Superadmin, Editor
@@ -956,24 +963,76 @@
 
 ---
 
+## Module 17 – Slide Detail Blog Management
+
+### UC-SDB-01: View list of slide detail blogs (admin)
+- **Actor:** Superadmin, Editor
+- **Description:** View paginated list of detail blogs, search by title/subtitle/excerpt, filter by linked slide or publication status. Excludes heavy document blocks for fast display.
+
+### UC-SDB-02: View published slide detail blog by slug (website)
+- **Actor:** Guest
+- **Description:** Visitor reads full structured article at `/slides/[slug]`. Renders rich blocks (hero meta, sections, text, images, callouts, multi-level lists, accordions, comparisons) pixel-perfect with Admin Visual Editor.
+
+### UC-SDB-03: View published slide detail blog by slide ID (website)
+- **Actor:** Guest
+- **Description:** When visitor clicks a homepage slide CTA, system resolves the linked detail blog via slide ID.
+
+### UC-SDB-04: Create slide detail blog
+- **Actor:** Superadmin, Editor
+- **Description:** Link an in-depth story blog to an existing homepage slide (1-to-1). Sets title, subtitle, slug, excerpt, hero image, and SEO meta.
+
+### UC-SDB-05: Edit blog content via Visual Block Editor
+- **Actor:** Superadmin, Editor
+- **Description:** Compose rich content using interactive Visual Editor with 3 synchronized tabs (Block Form Editor, Read-Only Article View, Visual Editor). Supports multi-level lists, typography, color, spacing, callouts, before/after comparisons, and undo/redo history.
+
+### UC-SDB-06: Publish / Unpublish slide detail blog
+- **Actor:** Superadmin, Editor
+- **Description:** Toggle public visibility of the blog. Validates content blocks before allowing publish. Sets `publishedAt` on first release.
+
+### UC-SDB-07: Delete slide detail blog
+- **Actor:** Superadmin
+- **Description:** Permanently delete a blog and automatically purge associated image files from ImageKit CDN.
+
+---
+
+## Module 18 – Dashboard & Global Search
+
+### UC-DSH-01: View aggregate CMS statistics
+- **Actor:** Superadmin
+- **Description:** Real-time overview of content metrics: published/draft counts of articles, projects, programs, solutions, active jobs, unread leads, and unread contacts.
+
+### UC-DSH-02: View lead submission trends
+- **Actor:** Superadmin
+- **Description:** View timeline chart of contact and job application trends over the last 7 or 30 days.
+
+### UC-DSH-03: View and resume draft content
+- **Actor:** Superadmin
+- **Description:** Quick-access list of recent unpublished drafts across all modules for immediate editing resumption.
+
+### UC-SCH-01: Global multi-entity search
+- **Actor:** Superadmin, Editor
+- **Description:** Search instantly across articles, projects, programs, solutions, jobs, and slides from a unified search bar.
+
+---
+
 ## Use Case Summary by Actor
 
 ### Guest
 
-UC-ORG-01, UC-MAP-01, UC-PTN-01, UC-FLD-01, UC-PRG-01, UC-PRG-02, UC-SLT-01, UC-SLT-02, UC-PRJ-01, UC-PRJ-02, UC-ART-01, UC-ART-02, UC-ART-03, UC-JOB-01, UC-JOB-02, UC-JOB-03, UC-LED-01, UC-UPL-02
+UC-ORG-01, UC-MAP-01, UC-PTN-01, UC-FLD-01, UC-PRG-01, UC-PRG-02, UC-SLT-01, UC-SLT-02, UC-PRJ-01, UC-PRJ-02, UC-ART-01, UC-ART-02, UC-ART-03, UC-JOB-01, UC-JOB-02, UC-JOB-03, UC-LED-01, UC-UPL-02, UC-CNT-01, UC-SDB-02, UC-SDB-03
 
 ### Viewer (in addition to Guest)
 
-UC-AUTH-01~04, UC-LED-02, UC-LED-03, UC-LED-04
+UC-AUTH-01~04, UC-LED-02, UC-LED-03, UC-LED-04, UC-CNT-02, UC-CNT-03
 
 ### Editor (all Viewer +)
 
-UC-ADM-04 (change own password), UC-ORG-02, UC-SLD-02~06, UC-PTN-02~06, UC-FLD-02~03, UC-PRG-03~06, UC-SLT-03~06, UC-PRJ-03~07, UC-PRJ-06, UC-ART-04~07, UC-JOB-04~07, UC-UPL-01
+UC-ADM-04 (change own password), UC-ORG-02, UC-SLD-02~06, UC-PTN-02~06, UC-FLD-02~03, UC-PRG-03~06, UC-SLT-03~06, UC-PRJ-03~07, UC-ART-04~07, UC-JOB-04~07, UC-UPL-01, UC-BNR-01~03, UC-SDB-01, UC-SDB-04~06, UC-SCH-01
 
 ### Superadmin (full access, additionally)
 
-UC-ADM-01~05, UC-SLD-07, UC-PTN-07, UC-FLD-04, UC-PRG-07, UC-SLT-07, UC-PRJ-08, UC-ART-08, UC-JOB-08, UC-LED-05, UC-LED-06
+UC-ADM-01~05, UC-SLD-07, UC-PTN-07, UC-FLD-04, UC-PRG-07, UC-SLT-07, UC-PRJ-08, UC-ART-08, UC-JOB-08, UC-LED-05, UC-LED-06, UC-BNR-04, UC-CNT-04, UC-CNT-05, UC-SDB-07, UC-DSH-01~03
 
 ---
 
-**Total:** 16 modules – 74 use cases
+**Total:** 18 modules – 85 use cases

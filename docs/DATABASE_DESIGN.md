@@ -19,21 +19,26 @@
 
 ## organization
 
-**Description:** Single-row config — stores VDCD organization information
+**Description:** Single-row config — stores VDCD organization metadata & profile
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | name | VARCHAR(255) | Not Null | Full organization name |
 | 3 | tagline | VARCHAR(255) | Nullable | Tagline / Slogan |
-| 4 | description | TEXT | Nullable | Organization description (rich text) |
-| 5 | mission | TEXT | Nullable | Mission |
-| 6 | vision | TEXT | Nullable | Vision |
-| 7 | core_values | TEXT | Nullable | Core values |
-| 8 | founded_year | INT | Nullable | Year founded |
-| 9 | stats | JSONB | Nullable | Statistics: `{ provinces, centers, projects, staff }` |
-| 10 | social_links | JSONB | Nullable | Social networks: `{ facebook, zalo, youtube, ... }` |
-| 11 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 4 | business_license_no | VARCHAR(50) | Nullable | Business license number (Giấy CNĐKKD) |
+| 5 | description | TEXT | Nullable | Organization description (rich text) |
+| 6 | mission | TEXT | Nullable | Mission statement |
+| 7 | vision | TEXT | Nullable | Vision |
+| 8 | core_values | TEXT | Nullable | Core values |
+| 9 | founded_year | INT | Nullable | Year founded |
+| 10 | address | TEXT | Nullable | Physical office / headquarters address |
+| 11 | stats | JSONB | Nullable | Statistics: `{ provinces, centers, projects, staff, experts, ... }` |
+| 12 | social_links | JSONB | Nullable | Social networks: `{ facebook, zalo, youtube, ... }` |
+| 13 | operation_fields | JSONB | Nullable | Operation fields on About page: `Array<{ title: string, description: string }>` |
+| 14 | ecosystem_capabilities | TEXT | Nullable | Inherited capabilities from VDCD ecosystem (Năng lực kế thừa) |
+| 15 | development_orientations | JSONB | Nullable | Development orientations: `Array<{ title: string, description: string }>` |
+| 16 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
@@ -45,19 +50,47 @@
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Slide title |
-| 3 | description | TEXT | Nullable | Short description on slide |
-| 4 | cta_text | VARCHAR(100) | Nullable | CTA button text (e.g.: "Learn more") |
-| 5 | cta_url | VARCHAR(500) | Nullable | CTA button link |
-| 6 | image_url | VARCHAR(500) | Not Null | Slide background image URL |
-| 7 | order | INT | Not Null, Default: 0 | Display order |
-| 8 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable slide |
-| 9 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 3 | subtitle | TEXT | Nullable | Secondary headline / subtitle |
+| 4 | description | TEXT | Nullable | Short description on slide |
+| 5 | cta_text | VARCHAR(100) | Nullable | CTA button text (e.g.: "Tìm hiểu thêm") |
+| 6 | cta_url | VARCHAR(500) | Nullable | CTA button link |
+| 7 | image_url | VARCHAR(500) | Not Null | Slide background image URL |
+| 8 | image_file_id | VARCHAR | Nullable | ImageKit file ID for image management |
+| 9 | order | INT | Not Null, Default: 0 | Display order |
+| 10 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable slide |
+| 11 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+
+*Relation:* Has a 1-to-1 relationship with `slide_detail_blog`.
+
+---
+
+## slide_detail_blog
+
+**Description:** In-depth blog/article attached 1-to-1 to a slide, edited via Visual Block Editor
+
+| No | Field | Data type | Constraints | Description |
+| ---: | --- | --- | --- | --- |
+| 1 | id | UUID | Primary Key, Not Null | Unique identifier |
+| 2 | slide_id | UUID | Not Null, Unique, FK → `slide.id`, On Delete CASCADE | Associated slide |
+| 3 | title | VARCHAR(255) | Not Null | Blog title |
+| 4 | subtitle | TEXT | Nullable | Blog subtitle |
+| 5 | slug | VARCHAR(255) | Not Null, Unique | SEO URL slug |
+| 6 | excerpt | TEXT | Nullable | Short excerpt / summary |
+| 7 | hero_image_url | VARCHAR(500) | Nullable | Hero cover image URL |
+| 8 | hero_image_file_id | VARCHAR | Nullable | ImageKit file ID for hero image |
+| 9 | seo_title | VARCHAR(255) | Nullable | SEO title |
+| 10 | meta_description | VARCHAR(500) | Nullable | SEO meta description |
+| 11 | content | JSONB | Not Null, Default: `'{"version":1,"blocks":[]}'` | Structured block content (Document Model) |
+| 12 | is_published | BOOLEAN | Not Null, Default: FALSE | Publication status |
+| 13 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
+| 14 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 15 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## province
 
-**Description:** List of Vietnamese provinces/cities used for the map
+**Description:** List of Vietnamese provinces/cities used for the interactive project map
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
@@ -71,16 +104,17 @@
 
 ## partner
 
-**Description:** Clients & partners (logo display)
+**Description:** Clients & partners (logo display carousel / grid)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | name | VARCHAR(255) | Not Null | Organization / company name |
-| 3 | logo | VARCHAR(500) | Not Null | Logo URL (transparent background PNG) |
-| 4 | website_url | VARCHAR(500) | Nullable | Partner website |
-| 5 | order | INT | Not Null, Default: 0 | Display order |
-| 6 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable display |
+| 3 | logo | VARCHAR(500) | Not Null | Logo URL (transparent background PNG / WebP) |
+| 4 | logo_file_id | VARCHAR | Nullable | ImageKit file ID for logo |
+| 5 | website_url | VARCHAR(500) | Nullable | Partner external website link |
+| 6 | order | INT | Not Null, Default: 0 | Display order |
+| 7 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable display |
 
 ---
 
@@ -91,9 +125,9 @@
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
-| 2 | name | VARCHAR(100) | Not Null | Field name (e.g.: Agriculture, Healthcare) |
+| 2 | name | VARCHAR(100) | Not Null | Field name (e.g.: Nông nghiệp công nghệ cao, Đô thị thông minh) |
 | 3 | slug | VARCHAR(100) | Not Null, Unique | SEO-friendly URL slug |
-| 4 | icon | VARCHAR(100) | Nullable | Representative icon |
+| 4 | icon | VARCHAR(100) | Nullable | Representative icon identifier / URL |
 | 5 | short_description | TEXT | Nullable | Short field description |
 | 6 | order | INT | Not Null, Default: 0 | Display order |
 
@@ -101,7 +135,7 @@
 
 ## program
 
-**Description:** Programs
+**Description:** Programs initiated or organized by VDCD
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
@@ -109,20 +143,21 @@
 | 2 | title | VARCHAR(255) | Not Null | Program name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
 | 4 | short_description | TEXT | Nullable | Short description (displayed on list page) |
-| 5 | content | TEXT | Nullable | Detailed content (rich text) |
+| 5 | content | TEXT | Nullable | Detailed content (rich text HTML) |
 | 6 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 7 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
-| 8 | meta_title | VARCHAR(60) | Nullable | SEO meta title (≤ 60 characters) |
-| 9 | meta_description | VARCHAR(160) | Nullable | SEO meta description (≤ 160 characters) |
-| 10 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 11 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 12 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 7 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 8 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
+| 9 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 10 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 11 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 12 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 13 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## solution
 
-**Description:** Solutions
+**Description:** Solutions and technological products provided by VDCD
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
@@ -130,42 +165,56 @@
 | 2 | title | VARCHAR(255) | Not Null | Solution name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
 | 4 | short_description | TEXT | Nullable | Short description (displayed on list page) |
-| 5 | content | TEXT | Nullable | Detailed content (rich text) |
+| 5 | content | TEXT | Nullable | Detailed content (rich text HTML) |
 | 6 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 7 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
-| 8 | meta_title | VARCHAR(60) | Nullable | SEO meta title (≤ 60 characters) |
-| 9 | meta_description | VARCHAR(160) | Nullable | SEO meta description (≤ 160 characters) |
-| 10 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 11 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 12 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 7 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 8 | website_url | VARCHAR(500) | Nullable | External product / demo website URL |
+| 9 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
+| 10 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 11 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 12 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 13 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 14 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## project
 
-**Description:** Projects
+**Description:** Projects executed by VDCD with extensive case-study and transformation details
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Project name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | overview | TEXT | Nullable | Project overview (rich text) |
+| 4 | overview | TEXT | Nullable | Project overview (rich text HTML) |
 | 5 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 6 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
-| 7 | province_id | UUID | Nullable, FK → `province.id`, On Delete SET NULL | Implementation province/city |
-| 8 | year | INT | Nullable | Project implementation year |
-| 9 | meta_title | VARCHAR(60) | Nullable | SEO meta title (≤ 60 characters) |
-| 10 | meta_description | VARCHAR(160) | Nullable | SEO meta description (≤ 160 characters) |
-| 11 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 12 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 13 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 6 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 7 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
+| 8 | province_id | UUID | Nullable, FK → `province.id`, On Delete SET NULL | Implementation province/city |
+| 9 | year | INT | Nullable | Project implementation year |
+| 10 | challenge | TEXT | Nullable | Detailed problem/challenge description (HTML) |
+| 11 | challenge_image | VARCHAR(500) | Nullable | Challenge section illustration URL |
+| 12 | challenge_image_file_id | VARCHAR | Nullable | ImageKit file ID for challenge image |
+| 13 | services | TEXT | Nullable | List of provided services (stored as simple-array: string[]) |
+| 14 | discipline | VARCHAR(255) | Nullable | Project discipline / engineering area |
+| 15 | transformation_before | VARCHAR(500) | Nullable | Transformation "Before" image URL |
+| 16 | transformation_before_file_id | VARCHAR | Nullable | ImageKit file ID for "Before" image |
+| 17 | transformation_after | VARCHAR(500) | Nullable | Transformation "After" image URL |
+| 18 | transformation_after_file_id | VARCHAR | Nullable | ImageKit file ID for "After" image |
+| 19 | technical_highlights | JSONB | Nullable | Key metrics / technical highlights: `Array<{ label: string, value: string }>` |
+| 20 | next_project_slug | VARCHAR(255) | Nullable | Slug of the next project for detail page navigation |
+| 21 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 22 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 23 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 24 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 25 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## project_image
 
-**Description:** Project gallery images
+**Description:** Project gallery and media showcase
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
@@ -173,107 +222,140 @@
 | 2 | project_id | UUID | Not Null, FK → `project.id`, On Delete CASCADE | Project that owns this image |
 | 3 | url | VARCHAR(500) | Not Null | Image URL |
 | 4 | caption | VARCHAR(255) | Nullable | Image caption |
-| 5 | order | INT | Not Null, Default: 0 | Order in gallery |
+| 5 | order | INT | Not Null, Default: 0 | Display order in gallery |
+| 6 | size | VARCHAR(20) | Not Null, Default: `'small'` · CHECK (`small`, `large`) | Display size in UI grid |
+| 7 | file_id | VARCHAR | Nullable | ImageKit file ID |
 
 ---
 
 ## article
 
-**Description:** Articles / News (can be linked to projects, programs, or solutions for SEO purposes)
+**Description:** Articles / News / Case-studies (linkable to projects, programs, or solutions for SEO)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Article title |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | content | TEXT | Nullable | Full content (rich text) |
+| 4 | content | TEXT | Nullable | Full content (rich text HTML) |
 | 5 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 6 | category | VARCHAR(100) | Nullable | Article category |
-| 7 | tags | VARCHAR(500) | Nullable | Comma-separated tags |
-| 8 | project_id | UUID | Nullable, FK → `project.id`, On Delete SET NULL | Linked to a project (SEO) |
-| 9 | program_id | UUID | Nullable, FK → `program.id`, On Delete SET NULL | Linked to a program (SEO) |
-| 10 | solution_id | UUID | Nullable, FK → `solution.id`, On Delete SET NULL | Linked to a solution (SEO) |
-| 11 | meta_title | VARCHAR(60) | Nullable | SEO meta title (≤ 60 characters) |
-| 12 | meta_description | VARCHAR(160) | Nullable | SEO meta description (≤ 160 characters) |
-| 13 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 14 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
-| 15 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 16 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 6 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 7 | category | VARCHAR(100) | Nullable | Article category |
+| 8 | tags | VARCHAR(500) | Nullable | Comma-separated tags |
+| 9 | project_id | UUID | Nullable, FK → `project.id`, On Delete SET NULL | Linked project |
+| 10 | program_id | UUID | Nullable, FK → `program.id`, On Delete SET NULL | Linked program |
+| 11 | solution_id | UUID | Nullable, FK → `solution.id`, On Delete SET NULL | Linked solution |
+| 12 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 13 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 14 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 15 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
+| 16 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 17 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## job
 
-**Description:** Job positions
+**Description:** Recruitment postings and job openings
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
-| 2 | title | VARCHAR(255) | Not Null | Job position title |
+| 2 | title | VARCHAR(255) | Not Null | Job opening title |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | department | VARCHAR(100) | Nullable | Department / division |
-| 5 | location | VARCHAR(255) | Nullable | Work location |
-| 6 | type | VARCHAR(50) | Not Null, CHECK (`full-time`, `part-time`, `intern`) | Employment type |
-| 7 | salary_range | VARCHAR(100) | Nullable | Salary range (e.g.: 10–15 million) |
+| 4 | department | VARCHAR(100) | Nullable | Department / Division |
+| 5 | location | VARCHAR(255) | Nullable | Work location (e.g. Gia Lai, Remote) |
+| 6 | type | VARCHAR(50) | Not Null, CHECK (`full-time`, `part-time`, `intern`, `contract`) | Employment contract type |
+| 7 | salary_range | VARCHAR(100) | Nullable | Salary range (e.g.: 15 - 25 triệu) |
 | 8 | deadline | DATE | Nullable | Application deadline |
-| 9 | description | TEXT | Nullable | Job description (rich text) |
-| 10 | requirements | TEXT | Nullable | Candidate requirements (rich text) |
-| 11 | benefits | TEXT | Nullable | Benefits (rich text) |
-| 12 | is_urgent | BOOLEAN | Not Null, Default: FALSE | Display "Urgent" badge |
-| 13 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable job position |
-| 14 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 15 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 9 | description | TEXT | Nullable | Job description (rich text HTML) |
+| 10 | requirements | TEXT | Nullable | Candidate requirements (rich text HTML) |
+| 11 | benefits | TEXT | Nullable | Benefits and perks (rich text HTML) |
+| 12 | experience | VARCHAR(100) | Nullable | Required experience (e.g.: "1 - 3 năm") |
+| 13 | tags | JSONB | Nullable | Required skill tags array (e.g.: `["NestJS", "React"]`) |
+| 14 | is_urgent | BOOLEAN | Not Null, Default: FALSE | Display "Tuyển gấp" badge |
+| 15 | is_active | BOOLEAN | Not Null, Default: TRUE | Active status |
+| 16 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 17 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## lead
 
-**Description:** Contact form submissions — managed by admin
+**Description:** Career applications and detailed lead submissions
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
-| 2 | full_name | VARCHAR(255) | Not Null | Contact person's full name |
+| 2 | full_name | VARCHAR(255) | Not Null | Applicant full name |
 | 3 | email | VARCHAR(255) | Not Null | Contact email |
-| 4 | phone | VARCHAR(20) | Nullable | Phone number |
-| 5 | subject | VARCHAR(255) | Nullable | Contact subject |
-| 6 | message | TEXT | Nullable | Message content |
-| 7 | attachment | VARCHAR(500) | Nullable | Attachment file URL (if any) |
-| 8 | is_read | BOOLEAN | Not Null, Default: FALSE | Whether admin has read it |
-| 9 | created_at | TIMESTAMP | Not Null, Default: NOW() | Form submission timestamp |
+| 4 | phone | VARCHAR(20) | Nullable | Contact phone number |
+| 5 | subject | VARCHAR(255) | Nullable | Applied position / Subject |
+| 6 | message | TEXT | Nullable | Introduction message / Note |
+| 7 | attachment | VARCHAR(500) | Nullable | CV / Resume attachment URL |
+| 8 | is_read | BOOLEAN | Not Null, Default: FALSE | Read/unread status by admin |
+| 9 | dob | DATE | Nullable | Date of birth |
+| 10 | address | VARCHAR(255) | Nullable | Current address |
+| 11 | experience_years | VARCHAR(100) | Nullable | Years of experience |
+| 12 | expected_salary | VARCHAR(100) | Nullable | Expected salary |
+| 13 | portfolio_url | VARCHAR(500) | Nullable | Portfolio / GitHub / LinkedIn URL |
+| 14 | cover_letter | TEXT | Nullable | Cover letter content |
+| 15 | source | VARCHAR(50) | Nullable | Source channel (`career_form`, `contact_form`, `landing_page`) |
+| 16 | created_at | TIMESTAMP | Not Null, Default: NOW() | Submission timestamp |
 
 ---
 
 ## page_banner
 
-**Description:** Manage banners for specific pages
+**Description:** Manage top banners and headers for specific pages
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
-| 2 | page_name | VARCHAR(100) | Not Null, Unique | The page where the banner is displayed (e.g., 'home', 'about') |
-| 3 | title | VARCHAR(255) | Nullable | Banner title |
-| 4 | description | TEXT | Nullable | Banner description |
-| 5 | image_url | VARCHAR(500) | Not Null | Banner background image URL |
-| 6 | is_active | BOOLEAN | Not Null, Default: TRUE | Enable/disable banner |
-| 7 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 8 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 2 | page_key | VARCHAR(50) | Not Null, Unique | Key identifying the page (e.g. `careers`, `projects`, `programs`, `news`, `contact`, `about`, `solutions`) |
+| 3 | title | VARCHAR(255) | Not Null | Banner title |
+| 4 | subtitle | TEXT | Nullable | Banner secondary text / subtitle |
+| 5 | tag | VARCHAR(100) | Nullable | Eyebrow tag / pill label |
+| 6 | image_url | VARCHAR(500) | Not Null | Banner background image URL |
+| 7 | image_file_id | VARCHAR | Nullable | ImageKit file ID |
+| 8 | cta_buttons | JSONB | Nullable | CTA buttons array: `Array<{ label: string, href: string, variant?: string, ariaLabel?: string }>` |
+| 9 | is_active | BOOLEAN | Not Null, Default: TRUE | Display toggle |
+| 10 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 11 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
 ## contact
 
-**Description:** General contact form submissions
+**Description:** General public contact inquiries
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
-| 2 | full_name | VARCHAR(255) | Not Null | Contact person's full name |
+| 2 | full_name | VARCHAR(255) | Not Null | Contact person full name |
 | 3 | email | VARCHAR(255) | Not Null | Contact email |
 | 4 | phone | VARCHAR(20) | Nullable | Phone number |
-| 5 | message | TEXT | Not Null | Message content |
-| 6 | is_read | BOOLEAN | Not Null, Default: FALSE | Whether admin has read it |
-| 7 | created_at | TIMESTAMP | Not Null, Default: NOW() | Form submission timestamp |
+| 5 | subject | VARCHAR(255) | Nullable | Inquiry subject |
+| 6 | message | TEXT | Nullable | Message content |
+| 7 | attachment | VARCHAR(500) | Nullable | Optional file attachment URL |
+| 8 | is_read | BOOLEAN | Not Null, Default: FALSE | Read/unread status |
+| 9 | created_at | TIMESTAMP | Not Null, Default: NOW() | Submission timestamp |
+
+---
+
+## upload_temp
+
+**Description:** Temporary log and confirmation registry for uploaded files before entity persistence
+
+| No | Field | Data type | Constraints | Description |
+| ---: | --- | --- | --- | --- |
+| 1 | id | UUID | Primary Key, Not Null | Unique identifier |
+| 2 | file_id | VARCHAR | Not Null | ImageKit file ID |
+| 3 | url | VARCHAR | Not Null | Uploaded file CDN URL |
+| 4 | file_path | VARCHAR | Not Null | Path/folder in storage |
+| 5 | confirmed | BOOLEAN | Not Null, Default: FALSE | Whether file has been linked to a permanent record |
+| 6 | uploaded_by | VARCHAR | Nullable | User ID or IP of uploader |
+| 7 | created_at | TIMESTAMP | Not Null, Default: NOW() | Upload timestamp |
 
 ---
 
@@ -281,24 +363,28 @@
 
 | Index Name | Table | Column(s) | Description |
 | --- | --- | --- | --- |
-| `idx_program_slug` | program | slug | Fast program lookup by slug |
-| `idx_program_field` | program | field_id | Filter programs by operation field |
-| `idx_solution_slug` | solution | slug | Fast solution lookup by slug |
-| `idx_solution_field` | solution | field_id | Filter solutions by operation field |
-| `idx_project_slug` | project | slug | Fast project lookup by slug |
-| `idx_project_field` | project | field_id | Filter projects by operation field |
-| `idx_project_province` | project | province_id | Filter projects by province/city |
-| `idx_project_year` | project | year | Filter projects by year |
-| `idx_project_image_proj` | project_image | project_id | Query images by project |
-| `idx_article_slug` | article | slug | Fast article lookup by slug |
-| `idx_article_project` | article | project_id | Filter articles by project |
-| `idx_article_program` | article | program_id | Filter articles by program |
-| `idx_article_solution` | article | solution_id | Filter articles by solution |
-| `idx_article_published` | article | published_at DESC | Sort articles by publication date |
-| `idx_lead_created` | lead | created_at DESC | Sort leads by submission date |
-| `idx_lead_is_read` | lead | is_read | Filter leads by read status |
-| `idx_contact_created` | contact | created_at DESC | Sort contacts by submission date |
-| `idx_contact_is_read` | contact | is_read | Filter contacts by read status |
+| `idx_program_slug` | program | `slug` | Fast program lookup by slug |
+| `idx_program_field` | program | `field_id` | Filter programs by operation field |
+| `idx_solution_slug` | solution | `slug` | Fast solution lookup by slug |
+| `idx_solution_field` | solution | `field_id` | Filter solutions by operation field |
+| `idx_project_slug` | project | `slug` | Fast project lookup by slug |
+| `idx_project_field` | project | `field_id` | Filter projects by operation field |
+| `idx_project_province` | project | `province_id` | Filter projects by province/city |
+| `idx_project_year` | project | `year` | Filter projects by year |
+| `idx_project_image_proj` | project_image | `project_id` | Query gallery images by project |
+| `idx_article_slug` | article | `slug` | Fast article lookup by slug |
+| `idx_article_project` | article | `project_id` | Filter articles by project |
+| `idx_article_program` | article | `program_id` | Filter articles by program |
+| `idx_article_solution` | article | `solution_id` | Filter articles by solution |
+| `idx_article_published` | article | `published_at DESC` | Sort published articles |
+| `idx_lead_created` | lead | `created_at DESC` | Sort leads by submission date |
+| `idx_lead_is_read` | lead | `is_read` | Filter leads by read status |
+| `idx_contact_created` | contact | `created_at DESC` | Sort contacts by submission date |
+| `idx_contact_is_read` | contact | `is_read` | Filter contacts by read status |
+| `UQ_ffbeb96e47682dd086b086cd6ec` | page_banner | `page_key` (UNIQUE) | Fast lookup by unique page key |
+| `IDX_slide_detail_blog_slide_id` | slide_detail_blog | `slide_id` (UNIQUE) | 1-to-1 lookup from slide to detail blog |
+| `IDX_slide_detail_blog_is_published` | slide_detail_blog | `is_published` | Filter published blogs |
+| `IDX_slide_detail_blog_published_at` | slide_detail_blog | `published_at DESC` | Sort blogs by publish date |
 
 ---
 
@@ -321,26 +407,51 @@ erDiagram
         UUID id PK
         VARCHAR name
         VARCHAR tagline
+        VARCHAR business_license_no
         TEXT description
         TEXT mission
         TEXT vision
         TEXT core_values
         INT founded_year
+        TEXT address
         JSONB stats
         JSONB social_links
+        JSONB operation_fields
+        TEXT ecosystem_capabilities
+        JSONB development_orientations
         TIMESTAMP updated_at
     }
 
     slide {
         UUID id PK
         VARCHAR title
+        TEXT subtitle
         TEXT description
         VARCHAR cta_text
         VARCHAR cta_url
         VARCHAR image_url
+        VARCHAR image_file_id
         INT order
         BOOLEAN is_active
         TIMESTAMP created_at
+    }
+
+    slide_detail_blog {
+        UUID id PK
+        UUID slide_id FK,UK
+        VARCHAR title
+        TEXT subtitle
+        VARCHAR slug UK
+        TEXT excerpt
+        VARCHAR hero_image_url
+        VARCHAR hero_image_file_id
+        VARCHAR seo_title
+        VARCHAR meta_description
+        JSONB content
+        BOOLEAN is_published
+        TIMESTAMP published_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     province {
@@ -355,6 +466,7 @@ erDiagram
         UUID id PK
         VARCHAR name
         VARCHAR logo
+        VARCHAR logo_file_id
         VARCHAR website_url
         INT order
         BOOLEAN is_active
@@ -373,6 +485,7 @@ erDiagram
         UUID id PK
         VARCHAR title
         VARCHAR slug UK
+        VARCHAR thumbnail_file_id
         TEXT short_description
         TEXT content
         VARCHAR thumbnail
@@ -391,6 +504,8 @@ erDiagram
         TEXT short_description
         TEXT content
         VARCHAR thumbnail
+        VARCHAR thumbnail_file_id
+        VARCHAR website_url
         UUID field_id FK
         VARCHAR meta_title
         VARCHAR meta_description
@@ -405,9 +520,21 @@ erDiagram
         VARCHAR slug UK
         TEXT overview
         VARCHAR thumbnail
+        VARCHAR thumbnail_file_id
         UUID field_id FK
         UUID province_id FK
         INT year
+        TEXT challenge
+        VARCHAR challenge_image
+        VARCHAR challenge_image_file_id
+        TEXT services
+        VARCHAR discipline
+        VARCHAR transformation_before
+        VARCHAR transformation_before_file_id
+        VARCHAR transformation_after
+        VARCHAR transformation_after_file_id
+        JSONB technical_highlights
+        VARCHAR next_project_slug
         VARCHAR meta_title
         VARCHAR meta_description
         BOOLEAN is_published
@@ -421,6 +548,8 @@ erDiagram
         VARCHAR url
         VARCHAR caption
         INT order
+        VARCHAR size
+        VARCHAR file_id
     }
 
     article {
@@ -429,6 +558,7 @@ erDiagram
         VARCHAR slug UK
         TEXT content
         VARCHAR thumbnail
+        VARCHAR thumbnail_file_id
         VARCHAR category
         VARCHAR tags
         UUID project_id FK
@@ -454,6 +584,8 @@ erDiagram
         TEXT description
         TEXT requirements
         TEXT benefits
+        VARCHAR experience
+        JSONB tags
         BOOLEAN is_urgent
         BOOLEAN is_active
         TIMESTAMP created_at
@@ -469,7 +601,28 @@ erDiagram
         TEXT message
         VARCHAR attachment
         BOOLEAN is_read
+        DATE dob
+        VARCHAR address
+        VARCHAR experience_years
+        VARCHAR expected_salary
+        VARCHAR portfolio_url
+        TEXT cover_letter
+        VARCHAR source
         TIMESTAMP created_at
+    }
+
+    page_banner {
+        UUID id PK
+        VARCHAR page_key UK
+        VARCHAR title
+        TEXT subtitle
+        VARCHAR tag
+        VARCHAR image_url
+        VARCHAR image_file_id
+        JSONB cta_buttons
+        BOOLEAN is_active
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     contact {
@@ -477,22 +630,24 @@ erDiagram
         VARCHAR full_name
         VARCHAR email
         VARCHAR phone
+        VARCHAR subject
         TEXT message
+        VARCHAR attachment
         BOOLEAN is_read
         TIMESTAMP created_at
     }
 
-    page_banner {
+    upload_temp {
         UUID id PK
-        VARCHAR page_name UK
-        VARCHAR title
-        TEXT description
-        VARCHAR image_url
-        BOOLEAN is_active
+        VARCHAR file_id
+        VARCHAR url
+        VARCHAR file_path
+        BOOLEAN confirmed
+        VARCHAR uploaded_by
         TIMESTAMP created_at
-        TIMESTAMP updated_at
     }
 
+    slide ||--|| slide_detail_blog : "has one"
     operation_field ||--o{ program : "has many"
     operation_field ||--o{ solution : "has many"
     operation_field ||--o{ project : "has many"

@@ -3,6 +3,7 @@ import { clientFetch, ApiError } from "@/lib/api-client";
 import type { Article } from "@/types/article";
 import type { PaginatedData } from "@/types/api";
 import type { ArticleFormData } from "./schema";
+import { serializeArticlePayload } from "./utils/article-content";
 
 export const articleKeys = {
   all: ["articles"] as const,
@@ -49,12 +50,13 @@ export function useArticle(id: string) {
 }
 
 export function useCreateArticle() {
+
   const queryClient = useQueryClient();
   return useMutation<Article, ApiError, ArticleFormData>({
     mutationFn: (data) =>
       clientFetch<Article>("/api/articles", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(serializeArticlePayload(data)),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
@@ -68,13 +70,18 @@ export function useUpdateArticle(id: string) {
     mutationFn: (data) =>
       clientFetch<Article>(`/api/articles/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: JSON.stringify(
+          data.content
+            ? serializeArticlePayload(data as ArticleFormData)
+            : data,
+        ),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
     },
   });
 }
+
 
 export function usePublishArticle() {
   const queryClient = useQueryClient();

@@ -1,12 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useMemo } from "react";
-import { uploadImage, type UploadResult } from "@/lib/upload";
+import { uploadImage, type UploadResult, type UploadFolder } from "@/lib/upload";
 
 interface SlideDetailBlogUploadContextValue {
-  /** The target subfolder under /vdcd/slides (e.g. "bai-viet", "so-hoa-du-lieu") */
+  /** The target subfolder (e.g. slug of the article or slide) */
   subfolder: string;
-  /** Uploads an image to the specific slide detail blog subfolder */
+  /** Uploads an image to the specific subfolder */
   uploadBlogImage: (file: File) => Promise<UploadResult>;
 }
 
@@ -15,32 +15,37 @@ const SlideDetailBlogUploadContext = createContext<
 >(undefined);
 
 export interface SlideDetailBlogUploadProviderProps {
-  /** Target subfolder under /vdcd/slides (e.g. slug of the article) */
+  /** Target subfolder (e.g. slug of the article) */
   subfolder?: string;
+  /** Target upload folder (default: "slide-detail-blog", or "article") */
+  folder?: UploadFolder;
   children: React.ReactNode;
 }
 
 /**
- * Provides context for slide detail blog image uploads so child components
+ * Provides context for blog / article image uploads so child components
  * (VisualEditor, PropertyPanel, BlockEditor) automatically upload images to
- * `/vdcd/slides/${subfolder}` without prop-drilling.
+ * the correct subfolder without prop-drilling.
  */
 export function SlideDetailBlogUploadProvider({
   subfolder = "detail-blogs",
+  folder = "slide-detail-blog",
   children,
 }: SlideDetailBlogUploadProviderProps) {
   const cleanSubfolder = useMemo(() => {
-    const trimmed = subfolder.trim();
-    return trimmed || "detail-blogs";
-  }, [subfolder]);
+    const trimmed = subfolder?.trim() ?? "";
+    if (trimmed) return trimmed;
+    return folder === "article" ? "" : "detail-blogs";
+  }, [subfolder, folder]);
 
   const uploadBlogImage = useCallback(
     (file: File) => {
-      return uploadImage(file, "slide-detail-blog", {
-        subfolder: cleanSubfolder,
+      return uploadImage(file, folder, {
+        subfolder: cleanSubfolder || undefined,
+        slug: cleanSubfolder || undefined,
       });
     },
-    [cleanSubfolder],
+    [cleanSubfolder, folder],
   );
 
   const value = useMemo(

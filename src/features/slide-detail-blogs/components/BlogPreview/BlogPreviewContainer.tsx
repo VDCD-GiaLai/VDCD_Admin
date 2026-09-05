@@ -12,6 +12,8 @@ interface BlogPreviewContainerProps {
   excerpt?: string | null;
   heroImageUrl?: string | null;
   content: SlideDetailBlogContent;
+  slug?: string | null;
+  urlPrefix?: string;
 }
 
 const VIEWPORT_CONFIG: Record<
@@ -88,10 +90,18 @@ export function BlogPreviewContainer({
   excerpt,
   heroImageUrl,
   content,
+  slug,
+  urlPrefix,
 }: BlogPreviewContainerProps) {
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
   const currentConfig = VIEWPORT_CONFIG[viewport];
   const blocks = content?.blocks ?? [];
+
+  const simulatedUrl = urlPrefix
+    ? `${urlPrefix}${slug || "..."}`
+    : slug
+      ? `vdcd.vn/bai-viet/${slug}`
+      : "vdcd.vn/slide-detail-blogs/...";
 
   return (
     <div className="space-y-4">
@@ -136,7 +146,7 @@ export function BlogPreviewContainer({
           <div className="h-2.5 w-2.5 rounded-full bg-success/40" />
           <div className="ml-3 flex-1 rounded-md bg-surface-muted px-3 py-1">
             <span className="text-[10px] text-text-muted/60">
-              vdcd.vn/slide-detail-blogs/...
+              {simulatedUrl}
             </span>
           </div>
         </div>

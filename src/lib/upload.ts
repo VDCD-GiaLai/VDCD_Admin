@@ -35,6 +35,7 @@ export interface UploadResult {
  * - "slide-detail-blog" → POST /upload/image/slide-detail-blog
  * - "partner" → POST /upload/image/partner
  * - "project" → POST /upload/image/project
+ * - "article" → POST /upload/image/article (under vdcd/articles/<slug>)
  */
 export type UploadFolder =
   | "image"
@@ -42,15 +43,21 @@ export type UploadFolder =
   | "slide"
   | "slide-detail-blog"
   | "partner"
-  | "project";
+  | "project"
+  | "article";
 
 /** Options for uploading an image */
 export interface UploadImageOptions {
   /**
    * Optional subfolder name under the main folder (e.g. "bai-viet", "so-hoa-du-lieu").
-   * Supported by "slide" and "slide-detail-blog" endpoints.
+   * Supported by "slide", "slide-detail-blog", and "article" endpoints.
    */
   subfolder?: string;
+  /**
+   * Optional article slug.
+   * Supported by the "article" endpoint.
+   */
+  slug?: string;
 }
 
 // ─── Utilities ───────────────────────────────────────────────
@@ -104,21 +111,28 @@ export async function uploadImage(
   formData.append("file", file);
 
   const subfolder = options?.subfolder?.trim();
+  const slug = options?.slug?.trim() || (folder === "article" ? subfolder : undefined);
   if (subfolder) {
     formData.append("subfolder", subfolder);
   }
+  if (slug) {
+    formData.append("slug", slug);
+  }
 
-  const params = subfolder ? { subfolder } : undefined;
+  const params: Record<string, string> = {};
+  if (subfolder) params.subfolder = subfolder;
+  if (slug) params.slug = slug;
+  const queryParams = Object.keys(params).length > 0 ? params : undefined;
 
   try {
     // Large files → direct to backend API (bypass Vercel 4.5 MB limit)
     if (file.size >= DIRECT_UPLOAD_THRESHOLD) {
-      return await uploadDirect(apiPath, formData, params);
+      return await uploadDirect(apiPath, formData, queryParams);
     }
 
     // Small files → through BFF proxy
     const res = await axios.post(`/api${apiPath}`, formData, {
-      params,
+      params: queryParams,
       headers: { "Content-Type": "multipart/form-data" },
     });
 

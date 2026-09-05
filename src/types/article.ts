@@ -1,3 +1,5 @@
+import type { SlideDetailBlogContent } from "./slide-detail-blog";
+
 /**
  * Article — content module linked to Project/Program/Solution.
  * Maps to DB `article` table + /articles API.
@@ -5,8 +7,10 @@
 export interface Article {
   id: string;
   title: string;
+  subtitle?: string | null;
   slug: string;
-  content: string | null;
+  excerpt?: string | null;
+  content: SlideDetailBlogContent | string | null;
   thumbnail: string | null;
   thumbnailFileId: string | null;
   category: string | null;
@@ -21,3 +25,4 @@ export interface Article {
   createdAt: string;
   updatedAt: string;
 }
+

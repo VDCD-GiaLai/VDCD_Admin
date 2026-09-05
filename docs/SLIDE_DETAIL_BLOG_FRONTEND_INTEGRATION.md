@@ -24,7 +24,7 @@ Tài liệu này hướng dẫn chi tiết cho đội ngũ phát triển **Front
 │  - Lưu trữ cột JSON `content` (Single Source of Truth) │
 │  - Upload media lên ImageKit (thư mục /slide/)         │
 └───────────────────────────┬────────────────────────────┘
-                            │ GET /api/v1/slide-detail-blogs/slug/:slug
+                            │ GET /api/v1/slide-detail-blogs/:slug
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │               PUBLIC FRONTEND (Repo Frontend)          │
@@ -43,7 +43,7 @@ Backend cung cấp các API công khai (Public API — Không yêu cầu Access 
 Dùng cho Server Component hoặc Page Router trên Frontend tại đường dẫn `/slides/[slug]`.
 
 * **HTTP Method:** `GET`
-* **Endpoint:** `/api/v1/slide-detail-blogs/slug/:slug` (hoặc `/api/v1/slide-detail-blogs/by-slide-slug/:slug`)
+* **Endpoint:** `/api/v1/slide-detail-blogs/:slug`
 * **Path Parameter:**
   * `slug` (string): Slug của bài viết/slide (ví dụ: `do-thi-thong-minh-gia-lai`).
 * **Headers:**
@@ -298,7 +298,7 @@ import type { SlideDetailBlog } from "@/types/slide-detail-blog";
 export async function getSlideDetailBlogBySlug(slug: string): Promise<SlideDetailBlog | null> {
   try {
     const res = await apiClient.get<{ statusCode: number; data: SlideDetailBlog }>(
-      `/api/v1/slide-detail-blogs/slug/${slug}`,
+      `/api/v1/slide-detail-blogs/${slug}`,
       {
         next: { tags: [`slide-blog-${slug}`], revalidate: 60 }, // ISR 60s
       }
