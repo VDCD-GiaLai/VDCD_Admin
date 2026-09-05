@@ -623,19 +623,88 @@ export function ArticleDetailRenderer({ article }: ArticleDetailRendererProps) {
                 </section>
               );
 
-            case "cta":
+            case "cta": {
+              const currentShape = block.shape ?? "square";
+              const currentAlign = block.align ?? "center";
+              const currentGap = block.gap ?? (block.layout === "flex" ? 8 : 16);
+              const isSpaceBetween = block.layout === "between" || currentAlign === "between";
+              const shapeClass = currentShape === "pill" ? "rounded-full" : "rounded-lg";
+
+              // Chuẩn hóa danh sách nút (hỗ trợ cả mảng items mới và dữ liệu cũ)
+              const buttons =
+                block.items && block.items.length > 0
+                  ? block.items
+                  : [
+                      ...(block.label || block.url
+                        ? [{ id: "btn_1", label: block.label || "Tìm hiểu thêm", url: block.url || "#", variant: "solid" as const }]
+                        : []),
+                      ...(block.secondaryLabel
+                        ? [{ id: "btn_2", label: block.secondaryLabel, url: block.secondaryUrl || "#", variant: (block.variant || "outline") as const }]
+                        : []),
+                    ];
+
+              const alignClass = (() => {
+                switch (currentAlign) {
+                  case "start":
+                    return "justify-start";
+                  case "end":
+                    return "justify-end";
+                  case "center":
+                  default:
+                    return "justify-center";
+                }
+              })();
+
               return (
-                <div className="my-8 text-center">
-                  <a
-                    href={block.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl bg-[#ca2a30] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b02227] hover:shadow-md"
+                <div className="my-8 w-full">
+                  <div
+                    className={`flex items-center flex-wrap max-w-full py-1 ${
+                      isSpaceBetween ? "justify-between w-full" : alignClass
+                    }`}
+                    style={{ gap: `${currentGap}px` }}
                   >
-                    {block.label}
-                  </a>
+                    {buttons.map((btn, index) => {
+                      const isOutline = btn.variant === "outline";
+                      return (
+                        <a
+                          key={btn.id || `btn_${index}`}
+                          href={btn.url || "#"}
+                          target={btn.url?.startsWith("http") ? "_blank" : undefined}
+                          rel="noopener noreferrer"
+                          className={`group inline-flex flex-shrink-0 whitespace-nowrap items-center justify-center gap-2.5 px-6 py-2.5 text-sm font-semibold transition-all hover:-translate-y-0.5 ${shapeClass} ${
+                            isOutline
+                              ? "border-2 border-[#ca2a30] bg-white text-[#ca2a30] shadow-xs hover:bg-[#ca2a30] hover:text-white"
+                              : "bg-gradient-to-r from-[#d32f2f] via-[#ca2a30] to-[#b82228] text-white shadow-md shadow-[#ca2a30]/20 hover:shadow-lg hover:shadow-[#ca2a30]/30"
+                          }`}
+                        >
+                          <span>{btn.label || `Nút ${index + 1}`}</span>
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5 ${
+                              isOutline
+                                ? "bg-[#ca2a30]/10 text-[#ca2a30] group-hover:bg-white/20 group-hover:text-white"
+                                : "bg-white/20 text-white"
+                            }`}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               );
+            }
 
             default:
               return null;

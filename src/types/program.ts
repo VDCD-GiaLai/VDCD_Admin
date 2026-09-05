@@ -1,3 +1,5 @@
+import type { DocumentContent } from "@/shared/content-editor";
+
 /**
  * Program — content module.
  * Maps to DB `program` table + /programs API.
@@ -7,7 +9,7 @@ export interface Program {
   title: string;
   slug: string;
   shortDescription: string | null;
-  content: string | null;
+  content: DocumentContent | string | null;
   thumbnail: string | null;
   thumbnailFileId: string | null;
   field: { id: string; name: string; slug: string } | null;

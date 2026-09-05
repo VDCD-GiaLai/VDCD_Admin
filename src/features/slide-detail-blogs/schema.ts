@@ -59,6 +59,8 @@ export const listStyleSchema = z.enum([
   "decimal",
   "lower-alpha",
   "upper-alpha",
+  "lower-roman",
+  "upper-roman",
   "checklist",
 ]);
 
@@ -120,13 +122,56 @@ export const sectionBlockSchema = z.object({
   spacing: blockSpacingSchema,
 });
 
+export const ctaAlignSchema = z.enum(["center", "between", "start", "end"]);
+export const ctaShapeSchema = z.enum(["square", "pill"]);
+export const ctaVariantSchema = z.enum(["solid", "outline"]);
+export const ctaLayoutSchema = z.enum(["flex", "between"]);
+
+export const ctaButtonItemSchema = z.object({
+  id: z.string(),
+  label: z.string().min(1, "Nhãn nút không được để trống"),
+  url: z.string().min(1, "Đường dẫn liên kết không được để trống"),
+  variant: ctaVariantSchema.optional(),
+});
+
 export const ctaBlockSchema = z.object({
   id: z.string(),
   type: z.literal("cta"),
-  label: z.string().min(1, "Nhãn nút không được để trống"),
-  url: z.string().min(1, "Đường dẫn liên kết không được để trống"),
+  label: z.string().optional(),
+  url: z.string().optional(),
+  secondaryLabel: z.string().optional(),
+  secondaryUrl: z.string().optional(),
+  items: z.array(ctaButtonItemSchema).optional(),
+  layout: ctaLayoutSchema.optional(),
+  align: ctaAlignSchema.optional(),
+  gap: z.number().min(0).max(64).optional(),
+  shape: ctaShapeSchema.optional(),
+  variant: ctaVariantSchema.optional(),
   fontSize: z.number().min(10).max(96).optional(),
   spacing: blockSpacingSchema,
+});
+
+export const quoteBlockSchema = z.object({
+  id: z.string(),
+  type: z.literal("quote"),
+  text: z.string().min(1, "Nội dung trích dẫn không được để trống"),
+  author: z.string().nullable().optional(),
+  citation: z.string().nullable().optional(),
+  fontSize: z.number().min(10).max(96).optional(),
+  spacing: blockSpacingSchema,
+});
+
+export const highlightBlockSchema = z.object({
+  id: z.string(),
+  type: z.literal("highlight"),
+  text: z.string().min(1, "Nội dung điểm nhấn không được để trống"),
+  style: z.string().optional(),
+  fontSize: z.number().min(10).max(96).optional(),
+  spacing: blockSpacingSchema,
+});
+
+export const orderedListBlockSchema = listBlockSchema.extend({
+  type: z.literal("ordered_list"),
 });
 
 export const slideDetailBlogBlockSchema = z.discriminatedUnion("type", [
@@ -134,8 +179,11 @@ export const slideDetailBlogBlockSchema = z.discriminatedUnion("type", [
   paragraphBlockSchema,
   imageBlockSchema,
   listBlockSchema,
+  orderedListBlockSchema,
   sectionBlockSchema,
   ctaBlockSchema,
+  quoteBlockSchema,
+  highlightBlockSchema,
 ]);
 
 export const heroMetaSchema = z

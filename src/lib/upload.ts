@@ -44,20 +44,25 @@ export type UploadFolder =
   | "slide-detail-blog"
   | "partner"
   | "project"
-  | "article";
+  | "article"
+  | "program";
 
 /** Options for uploading an image */
 export interface UploadImageOptions {
   /**
    * Optional subfolder name under the main folder (e.g. "bai-viet", "so-hoa-du-lieu").
-   * Supported by "slide", "slide-detail-blog", and "article" endpoints.
+   * Supported by "slide", "slide-detail-blog", "article", and "program" endpoints.
    */
   subfolder?: string;
   /**
-   * Optional article slug.
-   * Supported by the "article" endpoint.
+   * Optional article or program slug.
+   * Supported by "article" and "program" endpoints.
    */
   slug?: string;
+  /**
+   * Optional program or article title to be slugified if slug is not provided.
+   */
+  title?: string;
 }
 
 // ─── Utilities ───────────────────────────────────────────────
@@ -111,17 +116,24 @@ export async function uploadImage(
   formData.append("file", file);
 
   const subfolder = options?.subfolder?.trim();
-  const slug = options?.slug?.trim() || (folder === "article" ? subfolder : undefined);
+  const slug =
+    options?.slug?.trim() ||
+    (folder === "article" || folder === "program" ? subfolder : undefined);
+  const title = options?.title?.trim();
   if (subfolder) {
     formData.append("subfolder", subfolder);
   }
   if (slug) {
     formData.append("slug", slug);
   }
+  if (title) {
+    formData.append("title", title);
+  }
 
   const params: Record<string, string> = {};
   if (subfolder) params.subfolder = subfolder;
   if (slug) params.slug = slug;
+  if (title) params.title = title;
   const queryParams = Object.keys(params).length > 0 ? params : undefined;
 
   try {

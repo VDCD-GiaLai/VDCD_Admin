@@ -53,6 +53,8 @@ export type ListStyle =
   | "decimal"
   | "lower-alpha"
   | "upper-alpha"
+  | "lower-roman"
+  | "upper-roman"
   | "checklist";
 
 export type ListFontWeight = "normal" | "medium" | "semibold" | "bold";
@@ -110,13 +112,82 @@ export interface SectionBlock {
   spacing?: BlockSpacing;
 }
 
+export type CtaAlign = "center" | "between" | "start" | "end";
+export type CtaShape = "square" | "pill";
+export type CtaVariant = "solid" | "outline";
+export type CtaLayout = "flex" | "between";
+
+export interface CtaButtonItem {
+  id: string;
+  label: string;
+  url: string;
+  variant?: CtaVariant;
+}
+
 export interface CtaBlock {
   id: string;
   type: "cta";
   label: string;
   url: string;
+  secondaryLabel?: string;
+  secondaryUrl?: string;
+  items?: CtaButtonItem[];
+  layout?: CtaLayout;
+  align?: CtaAlign;
+  gap?: number;
+  shape?: CtaShape;
+  variant?: CtaVariant;
   fontSize?: number;
   spacing?: BlockSpacing;
+}
+
+export function getCtaButtons(block: CtaBlock): CtaButtonItem[] {
+  if (block.items && Array.isArray(block.items) && block.items.length > 0) {
+    return block.items;
+  }
+  const buttons: CtaButtonItem[] = [];
+  if (block.label || block.url) {
+    buttons.push({
+      id: "btn_1",
+      label: block.label || "Nút Call to Action",
+      url: block.url || "#",
+      variant: "solid",
+    });
+  }
+  if (block.secondaryLabel) {
+    buttons.push({
+      id: "btn_2",
+      label: block.secondaryLabel,
+      url: block.secondaryUrl || "#",
+      variant: block.variant || "outline",
+    });
+  }
+  return buttons.length > 0
+    ? buttons
+    : [{ id: "btn_1", label: "Nút Call to Action", url: "#", variant: "solid" }];
+}
+
+export interface QuoteBlock {
+  id: string;
+  type: "quote";
+  text: string;
+  author?: string | null;
+  citation?: string | null;
+  fontSize?: number;
+  spacing?: BlockSpacing;
+}
+
+export interface HighlightBlock {
+  id: string;
+  type: "highlight";
+  text: string;
+  style?: string;
+  fontSize?: number;
+  spacing?: BlockSpacing;
+}
+
+export interface OrderedListBlock extends Omit<ListBlock, "type"> {
+  type: "ordered_list";
 }
 
 export type SlideDetailBlogBlock =
@@ -124,8 +195,11 @@ export type SlideDetailBlogBlock =
   | ParagraphBlock
   | ImageBlock
   | ListBlock
+  | OrderedListBlock
   | SectionBlock
-  | CtaBlock;
+  | CtaBlock
+  | QuoteBlock
+  | HighlightBlock;
 
 
 export type HeroPlacement = "above_title" | "between_title_desc" | "below_desc";

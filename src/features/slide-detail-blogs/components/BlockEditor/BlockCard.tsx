@@ -5,14 +5,15 @@ import { ImageBlockItem } from "./ImageBlockItem";
 import { ListBlockItem } from "./ListBlockItem";
 import { SectionBlockItem } from "./SectionBlockItem";
 import { CtaBlockItem } from "./CtaBlockItem";
-import type {
-  SlideDetailBlogBlock,
-  HeadingBlock,
-  ParagraphBlock,
-  ImageBlock,
-  ListBlock,
-  SectionBlock,
-  CtaBlock,
+import {
+  getCtaButtons,
+  type SlideDetailBlogBlock,
+  type HeadingBlock,
+  type ParagraphBlock,
+  type ImageBlock,
+  type ListBlock,
+  type SectionBlock,
+  type CtaBlock,
 } from "@/types/slide-detail-blog";
 
 interface BlockCardProps {
@@ -50,10 +51,19 @@ export function BlockCard({
         return { label: "Nhóm nội dung (Section)", badgeColor: "bg-purple-50 text-purple-700 border-purple-200" };
       case "cta":
         return { label: "Nút kêu gọi (CTA)", badgeColor: "bg-rose-50 text-rose-700 border-rose-200" };
+      case "quote":
+        return { label: "Trích dẫn (Quote)", badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+      case "highlight":
+        return { label: "Điểm nhấn (Highlight)", badgeColor: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+      case "ordered_list":
+        return { label: "Danh sách số (Ordered List)", badgeColor: "bg-amber-50 text-amber-700 border-amber-200" };
     }
   };
 
-  const info = getBlockInfo(block.type);
+  const info = getBlockInfo(block.type) ?? {
+    label: block.type,
+    badgeColor: "bg-gray-50 text-gray-700 border-gray-200",
+  };
 
   // Summary preview for collapsed state
   const getSummary = () => {
@@ -68,8 +78,20 @@ export function BlockCard({
         return `${block.items.length} mục`;
       case "section":
         return `[#${block.number}] ${block.title || "(Chưa có tiêu đề)"} • ${block.children.length} khối con`;
-      case "cta":
-        return `${block.label || "Nút"} → ${block.url || "Chưa có link"}`;
+      case "cta": {
+        const cta = block as CtaBlock;
+        const buttons = getCtaButtons(cta);
+        if (buttons.length > 1) {
+          return `${buttons.length} nút: ${buttons.map((b) => `[${b.label || "Nút"}]`).join(", ")} • ${cta.align ?? "center"}`;
+        }
+        return `${cta.label || buttons[0]?.label || "Nút"} → ${cta.url || buttons[0]?.url || "Chưa có link"}`;
+      }
+      case "quote":
+        return `"${block.text || "(Trống)"}"`;
+      case "highlight":
+        return block.text || "(Trống)";
+      case "ordered_list":
+        return `${block.items?.length ?? 0} mục`;
     }
   };
 
@@ -192,6 +214,54 @@ export function BlockCard({
               block={block as CtaBlock}
               onChange={onChange}
             />
+          )}
+          {block.type === "quote" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Nội dung trích dẫn</label>
+                <textarea
+                  value={block.text || ""}
+                  onChange={(e) => onChange({ ...block, text: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                  placeholder="Nhập nội dung trích dẫn..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Tác giả</label>
+                  <input
+                    type="text"
+                    value={block.author || ""}
+                    onChange={(e) => onChange({ ...block, author: e.target.value })}
+                    className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
+                    placeholder="Tên tác giả..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Nguồn / Chức vụ</label>
+                  <input
+                    type="text"
+                    value={block.citation || ""}
+                    onChange={(e) => onChange({ ...block, citation: e.target.value })}
+                    className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
+                    placeholder="Nguồn / chức vụ..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {block.type === "highlight" && (
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Nội dung điểm nhấn</label>
+              <textarea
+                value={block.text || ""}
+                onChange={(e) => onChange({ ...block, text: e.target.value })}
+                rows={2}
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                placeholder="Nhập nội dung điểm nhấn..."
+              />
+            </div>
           )}
         </div>
       )}

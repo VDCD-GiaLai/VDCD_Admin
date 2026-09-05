@@ -12,16 +12,17 @@ import {
   SectionBlockRenderer,
   CtaBlockRenderer,
 } from "../BlogPreview/renderers";
-import type {
-  SlideDetailBlogBlock,
-  HeadingBlock,
-  ParagraphBlock,
-  ImageBlock,
-  ListBlock,
-  ListItem,
-  SectionBlock,
-  SectionChildBlock,
-  CtaBlock,
+import {
+  getCtaButtons,
+  type SlideDetailBlogBlock,
+  type HeadingBlock,
+  type ParagraphBlock,
+  type ImageBlock,
+  type ListBlock,
+  type ListItem,
+  type SectionBlock,
+  type SectionChildBlock,
+  type CtaBlock,
 } from "@/types/slide-detail-blog";
 import { createListBlock } from "../../utils/list-helpers";
 
@@ -45,6 +46,9 @@ const BLOCK_TYPE_LABELS: Record<SlideDetailBlogBlock["type"], string> = {
   list: "Danh sách",
   section: "Nhóm nội dung",
   cta: "Nút CTA",
+  quote: "Trích dẫn",
+  highlight: "Điểm nhấn",
+  ordered_list: "Danh sách số",
 };
 
 function VisualEditorBlockInner({
@@ -151,7 +155,41 @@ function VisualEditorBlockInner({
   const handleCtaLabelChange = useCallback(
     (label: string) => {
       if (block.type === "cta") {
-        onBlockChange(index, { ...block, label } as CtaBlock);
+        const cta = block as CtaBlock;
+        const buttons = [...getCtaButtons(cta)];
+        if (buttons[0]) buttons[0] = { ...buttons[0], label };
+        onBlockChange(index, { ...cta, label, items: buttons } as CtaBlock);
+      }
+    },
+    [block, index, onBlockChange],
+  );
+
+  const handleCtaSecondaryLabelChange = useCallback(
+    (secondaryLabel: string) => {
+      if (block.type === "cta") {
+        const cta = block as CtaBlock;
+        const buttons = [...getCtaButtons(cta)];
+        if (buttons[1]) buttons[1] = { ...buttons[1], label: secondaryLabel };
+        onBlockChange(index, { ...cta, secondaryLabel, items: buttons } as CtaBlock);
+      }
+    },
+    [block, index, onBlockChange],
+  );
+
+  const handleCtaButtonLabelChange = useCallback(
+    (btnIndex: number, label: string) => {
+      if (block.type === "cta") {
+        const cta = block as CtaBlock;
+        const buttons = [...getCtaButtons(cta)];
+        if (buttons[btnIndex]) {
+          buttons[btnIndex] = { ...buttons[btnIndex], label };
+        }
+        onBlockChange(index, {
+          ...cta,
+          items: buttons,
+          label: buttons[0]?.label || "",
+          secondaryLabel: buttons[1]?.label || undefined,
+        } as CtaBlock);
       }
     },
     [block, index, onBlockChange],
@@ -306,6 +344,8 @@ function VisualEditorBlockInner({
             block={block as CtaBlock}
             editable
             onLabelChange={handleCtaLabelChange}
+            onSecondaryLabelChange={handleCtaSecondaryLabelChange}
+            onButtonLabelChange={handleCtaButtonLabelChange}
             onSelect={handleImageSelect}
           />
         );

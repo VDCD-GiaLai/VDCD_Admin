@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { documentContentSchema, type DocumentContent } from "@/shared/content-editor";
 
 /**
  * Program form validation schema.
  * Used for both create and edit forms.
+ * Accepts either serialized JSON string or structured DocumentContent object.
  */
 export const programSchema = z.object({
   title: z
@@ -11,7 +13,7 @@ export const programSchema = z.object({
     .max(255, "Tiêu đề tối đa 255 ký tự"),
   slug: z.string().optional(),
   shortDescription: z.string().optional(),
-  content: z.string().optional(),
+  content: z.union([z.string(), documentContentSchema]).optional(),
   thumbnail: z.string().optional(),
   thumbnailFileId: z.string().nullable().optional(),
   fieldId: z.string().nullable().optional(),
@@ -27,3 +29,4 @@ export const programSchema = z.object({
 });
 
 export type ProgramFormData = z.infer<typeof programSchema>;
+export type ProgramFormContent = string | DocumentContent | undefined;

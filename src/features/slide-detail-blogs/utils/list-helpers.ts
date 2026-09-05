@@ -7,6 +7,13 @@ import type {
   ListStyleConfig,
 } from "@/types/slide-detail-blog";
 
+export {
+  toRoman,
+  duplicateListItem,
+  MAX_LIST_DEPTH,
+} from "@/shared/content-editor";
+
+
 /**
  * Generates a unique, stable ID for a list item.
  * Uses crypto.randomUUID when available, falling back to timestamp + random string.

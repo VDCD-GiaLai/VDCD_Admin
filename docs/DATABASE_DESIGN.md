@@ -135,23 +135,25 @@
 
 ## program
 
-**Description:** Programs initiated or organized by VDCD
+**Description:** Programs initiated or organized by VDCD, edited via Visual Block Editor (Document Model)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Program name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | short_description | TEXT | Nullable | Short description (displayed on list page) |
-| 5 | content | TEXT | Nullable | Detailed content (rich text HTML) |
-| 6 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 7 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
-| 8 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
-| 9 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
-| 10 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
-| 11 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 12 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 13 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 4 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 5 | short_description | TEXT | Nullable | Short description (displayed on list page) |
+| 6 | content | JSONB | Not Null, Default: `'{"version":1,"blocks":[]}'` | Structured block content (Document Model) |
+| 7 | content_html_backup | TEXT | Nullable, `select: false` | Backup of legacy HTML content (100% data preservation) |
+| 8 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
+| 9 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
+| 10 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 11 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 12 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 13 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
+| 14 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 15 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
@@ -230,27 +232,30 @@
 
 ## article
 
-**Description:** Articles / News / Case-studies (linkable to projects, programs, or solutions for SEO)
+**Description:** Articles / News / Case-studies (linkable to projects, programs, or solutions for SEO), edited via Visual Block Editor (Document Model)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Article title |
-| 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | content | TEXT | Nullable | Full content (rich text HTML) |
-| 5 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 6 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
-| 7 | category | VARCHAR(100) | Nullable | Article category |
-| 8 | tags | VARCHAR(500) | Nullable | Comma-separated tags |
-| 9 | project_id | UUID | Nullable, FK → `project.id`, On Delete SET NULL | Linked project |
-| 10 | program_id | UUID | Nullable, FK → `program.id`, On Delete SET NULL | Linked program |
-| 11 | solution_id | UUID | Nullable, FK → `solution.id`, On Delete SET NULL | Linked solution |
-| 12 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
-| 13 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
-| 14 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 15 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
-| 16 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 17 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 3 | subtitle | TEXT | Nullable | Article subtitle / brand eyebrow text |
+| 4 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
+| 5 | excerpt | TEXT | Nullable | Lead excerpt / short summary |
+| 6 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
+| 7 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 8 | category | VARCHAR(100) | Nullable | Article category |
+| 9 | tags | VARCHAR(255) | Nullable | Comma-separated tags |
+| 10 | project_id | UUID | Nullable, FK → `project.id`, On Delete SET NULL | Linked project |
+| 11 | program_id | UUID | Nullable, FK → `program.id`, On Delete SET NULL | Linked program |
+| 12 | solution_id | UUID | Nullable, FK → `solution.id`, On Delete SET NULL | Linked solution |
+| 13 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 14 | meta_description | VARCHAR(500) | Nullable | SEO meta description |
+| 15 | content | JSONB | Not Null, Default: `'{"version":1,"blocks":[]}'` | Structured block content (Document Model) |
+| 16 | content_html_backup | TEXT | Nullable, `select: false` | Backup of legacy HTML content (100% data preservation) |
+| 17 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 18 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
+| 19 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 20 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 
@@ -363,20 +368,24 @@
 
 | Index Name | Table | Column(s) | Description |
 | --- | --- | --- | --- |
-| `idx_program_slug` | program | `slug` | Fast program lookup by slug |
-| `idx_program_field` | program | `field_id` | Filter programs by operation field |
-| `idx_solution_slug` | solution | `slug` | Fast solution lookup by slug |
+| `idx_program_slug` / `UQ` | program | `slug` (UNIQUE) | Fast program lookup by unique slug |
+| `IDX_program_field_id` | program | `field_id` | Filter programs by operation field |
+| `IDX_program_is_published` | program | `is_published` | Filter published programs |
+| `IDX_program_published_at` | program | `published_at DESC` | Sort programs by publication date |
+| `idx_solution_slug` / `UQ` | solution | `slug` (UNIQUE) | Fast solution lookup by unique slug |
 | `idx_solution_field` | solution | `field_id` | Filter solutions by operation field |
-| `idx_project_slug` | project | `slug` | Fast project lookup by slug |
+| `idx_project_slug` / `UQ` | project | `slug` (UNIQUE) | Fast project lookup by unique slug |
 | `idx_project_field` | project | `field_id` | Filter projects by operation field |
 | `idx_project_province` | project | `province_id` | Filter projects by province/city |
 | `idx_project_year` | project | `year` | Filter projects by year |
 | `idx_project_image_proj` | project_image | `project_id` | Query gallery images by project |
-| `idx_article_slug` | article | `slug` | Fast article lookup by slug |
-| `idx_article_project` | article | `project_id` | Filter articles by project |
-| `idx_article_program` | article | `program_id` | Filter articles by program |
-| `idx_article_solution` | article | `solution_id` | Filter articles by solution |
-| `idx_article_published` | article | `published_at DESC` | Sort published articles |
+| `idx_article_slug` / `UQ` | article | `slug` (UNIQUE) | Fast article lookup by unique slug |
+| `IDX_article_category` | article | `category` | Filter articles by category |
+| `IDX_article_is_published` | article | `is_published` | Filter published articles |
+| `IDX_article_published_at` | article | `published_at DESC` | Sort articles by publication date |
+| `IDX_article_project_id` | article | `project_id` | Filter articles by project |
+| `IDX_article_program_id` | article | `program_id` | Filter articles by program |
+| `IDX_article_solution_id` | article | `solution_id` | Filter articles by solution |
 | `idx_lead_created` | lead | `created_at DESC` | Sort leads by submission date |
 | `idx_lead_is_read` | lead | `is_read` | Filter leads by read status |
 | `idx_contact_created` | contact | `created_at DESC` | Sort contacts by submission date |
@@ -487,12 +496,14 @@ erDiagram
         VARCHAR slug UK
         VARCHAR thumbnail_file_id
         TEXT short_description
-        TEXT content
+        JSONB content
+        TEXT content_html_backup
         VARCHAR thumbnail
         UUID field_id FK
         VARCHAR meta_title
         VARCHAR meta_description
         BOOLEAN is_published
+        TIMESTAMP published_at
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -555,8 +566,9 @@ erDiagram
     article {
         UUID id PK
         VARCHAR title
+        TEXT subtitle
         VARCHAR slug UK
-        TEXT content
+        TEXT excerpt
         VARCHAR thumbnail
         VARCHAR thumbnail_file_id
         VARCHAR category
@@ -566,6 +578,8 @@ erDiagram
         UUID solution_id FK
         VARCHAR meta_title
         VARCHAR meta_description
+        JSONB content
+        TEXT content_html_backup
         BOOLEAN is_published
         TIMESTAMP published_at
         TIMESTAMP created_at
@@ -657,3 +671,220 @@ erDiagram
     program ||--o{ article : "has many"
     solution ||--o{ article : "has many"
 ```
+
+---
+
+# Block-based Document Model (`content` JSONB Specification)
+
+Three tables in the database store rich, structured editorial content as JSONB rather than legacy HTML text:
+1. `slide_detail_blog` (`content` JSONB)
+2. `article` (`content` JSONB)
+3. `program` (`content` JSONB)
+
+All three tables share the exact same standardized **Document Model** (`version: 1`), enabling unified validation, parsing, editing, and frontend rendering across the entire VDCD platform.
+
+### Document Root Schema
+
+```json
+{
+  "version": 1,
+  "heroMeta": {
+    "caption": "Optional caption for hero image/thumbnail",
+    "placement": "above_title",
+    "focalPoint": { "x": 50, "y": 50 }
+  },
+  "blocks": [
+    /* Array of block objects */
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `version` | `number` | Yes | Schema specification version (currently `1`) |
+| `heroMeta` | `object` | No | Metadata for hero media presentation |
+| `heroMeta.caption` | `string` | No | Caption text displayed underneath the hero image |
+| `heroMeta.placement` | `string` | No | Placement mode: `"above_title"`, `"below_title"`, `"bottom"`, `"hidden"` |
+| `heroMeta.focalPoint`| `object` | No | Visual crop anchor `{ x: number, y: number }` (0-100%) |
+| `blocks` | `Block[]` | Yes | Ordered array of content blocks |
+
+---
+
+### Standard Block Specifications
+
+Every block in `blocks` must include a unique `id` and a recognized `type`. Optional `spacing: { marginTop?: number, marginBottom?: number }` is supported on all block types.
+
+#### 1. Heading Block (`type: "heading"`)
+```json
+{
+  "id": "blk_h2_01",
+  "type": "heading",
+  "level": 2,
+  "text": "Mục tiêu chiến lược giai đoạn 2026 – 2030",
+  "spacing": { "marginTop": 24, "marginBottom": 16 }
+}
+```
+- `level`: `number` (1, 2, 3, 4, 5, 6). Typically `level: 2` (H2) or `level: 3` (H3) within article/program bodies.
+- `text`: `string` (plain text).
+
+#### 2. Paragraph Block (`type: "paragraph"`)
+```json
+{
+  "id": "blk_p_01",
+  "type": "paragraph",
+  "text": "Trung tâm Đổi mới Sáng tạo Gia Lai đóng vai trò là <strong>hạt nhân kết nối</strong> các nguồn lực...",
+  "spacing": { "marginTop": 0, "marginBottom": 16 }
+}
+```
+- `text`: `string` (supports sanitized inline HTML formatting: `<strong>`, `<em>`, `<u>`, `<s>`, `<code>`, `<mark>`, `<a href="...">`).
+
+#### 3. Image Block (`type: "image"`)
+```json
+{
+  "id": "blk_img_01",
+  "type": "image",
+  "url": "https://ik.imagekit.io/vdcd/programs/hoi-thao-ai-nong-nghiep.webp",
+  "fileId": "file_img_928172",
+  "alt": "Hội thảo ứng dụng AI trong nông nghiệp",
+  "caption": "Chuyên gia trao đổi cùng bà con nông dân tại Pleiku",
+  "spacing": { "marginTop": 24, "marginBottom": 24 }
+}
+```
+- `url`: `string` (ImageKit CDN URL).
+- `fileId`: `string` (optional ImageKit file ID for asset lifecycle management).
+- `alt`: `string` (optional accessibility description).
+- `caption`: `string` (optional caption displayed under image).
+
+#### 4. Quote Block (`type: "quote"`)
+```json
+{
+  "id": "blk_q_01",
+  "type": "quote",
+  "text": "Đổi mới sáng tạo không phải là khẩu hiệu, mà là hành động thực chất tại địa phương.",
+  "citation": "Chủ tịch VDCD Innovation Center",
+  "spacing": { "marginTop": 24, "marginBottom": 24 }
+}
+```
+- `text`: `string` (quote body).
+- `citation`: `string` (optional attribution / author).
+
+#### 5. Highlight / Callout Block (`type: "highlight"`)
+```json
+{
+  "id": "blk_hl_01",
+  "type": "highlight",
+  "text": "Hạn chót tiếp nhận hồ sơ đăng ký tham gia chương trình: ngày 30/10/2026.",
+  "accentColor": "#ca2a30",
+  "spacing": { "marginTop": 16, "marginBottom": 16 }
+}
+```
+- `text`: `string` (highlight box content).
+- `accentColor`: `string` (optional HEX accent color, defaults to brand red `#ca2a30`).
+
+#### 6. List Block (`type: "list"`)
+```json
+{
+  "id": "blk_li_01",
+  "type": "list",
+  "listType": "unordered",
+  "listStyle": "disc",
+  "items": [
+    "Hỗ trợ kinh phí chuyển giao công nghệ cho HTX nông nghiệp.",
+    {
+      "id": "item_sub_1",
+      "content": "Tổ chức chuỗi workshop đào tạo ứng dụng GIS.",
+      "level": 1,
+      "children": [
+        "Khóa 1: Nhập môn dữ liệu không gian.",
+        "Khóa 2: Vận hành thiết bị bay không người lái (UAV)."
+      ]
+    },
+    "Tư vấn đăng ký sở hữu trí tuệ và nhãn hiệu tập thể."
+  ],
+  "spacing": { "marginTop": 16, "marginBottom": 20 }
+}
+```
+- `listType`: `"unordered"` | `"ordered"`.
+- `listStyle`: Bullet/number style (e.g. `"disc"`, `"circle"`, `"square"`, `"decimal"`, `"alpha"`).
+- `items`: Array of strings or structured `ListItem` nodes with nested `children` support.
+
+#### 7. Call-to-Action (CTA) Block (`type: "cta"`)
+```json
+{
+  "id": "blk_cta_01",
+  "type": "cta",
+  "items": [
+    {
+      "id": "btn_1",
+      "label": "Đăng ký nhu cầu đào tạo",
+      "url": "https://vdcd.vn/contact",
+      "variant": "solid"
+    },
+    {
+      "id": "btn_2",
+      "label": "Trao đổi với trung tâm",
+      "url": "https://vdcd.vn/about",
+      "variant": "outline"
+    }
+  ],
+  "align": "center",
+  "gap": 16,
+  "shape": "square",
+  "label": "Đăng ký nhu cầu đào tạo",
+  "url": "https://vdcd.vn/contact",
+  "secondaryLabel": "Trao đổi với trung tâm",
+  "secondaryUrl": "https://vdcd.vn/about",
+  "variant": "solid",
+  "spacing": { "marginTop": 32, "marginBottom": 32 }
+}
+```
+- **Multi-button list (`items`)**: Array of `CtaButtonItem` objects (`1..N` buttons) supporting automatic flexbox row wrapping (`flex-wrap`).
+  - `id`: Unique button ID.
+  - `label`: Button text.
+  - `url`: Destination URL (internal path or external link).
+  - `variant`: `"solid"` (primary brand fill `#ca2a30`) or `"outline"` (bordered).
+- **Layout & Spacing**:
+  - `align`: `"center"` | `"between"` | `"start"` | `"end"`.
+  - `gap`: Inter-button and inter-row gap in pixels (`4`, `8`, `12`, `16`, `24`, `32`).
+  - `shape`: `"square"` (`rounded-lg`) | `"pill"` (`rounded-full`).
+- **Backward Compatibility**: `label`, `url`, `secondaryLabel`, `secondaryUrl` are preserved and automatically synchronized with the first two buttons for older clients.
+
+#### 8. Section Block (`type: "section"`)
+```json
+{
+  "id": "blk_sec_01",
+  "type": "section",
+  "number": "01",
+  "title": "HỆ SINH THÁI KHỞI NGHIỆP ĐỔI MỚI SÁNG TẠO",
+  "children": [
+    /* Nested array of blocks (Paragraphs, Lists, Images, CTAs, etc.) */
+  ],
+  "spacing": { "marginTop": 32, "marginBottom": 32 }
+}
+```
+- `number`: Section index string (e.g. `"01"`, `"02"`).
+- `title`: Section headline.
+- `children`: Array of child blocks rendered inside the container.
+
+---
+
+# Migration & Schema Evolution History
+
+| Migration Timestamp | Name | Impacted Tables | Summary of Changes |
+| :--- | :--- | :--- | :--- |
+| `1783514761293` | `add-admin-user` | `admin_user` | Initial admin user entity & RBAC roles |
+| `1783525126471` | `delete-refresh-hash` | `admin_user` | Removed raw refresh hash column |
+| `1783531399186` | `setup-db-entities` | All core tables | Initial database schema creation |
+| `1783745790226` | `add-subtitle-to-slide` | `slide` | Added `subtitle` to slideshow |
+| `1783771165183` | `add-file-id-columns` | `slide`, `partner`, `program`, `solution`, `project`, `article` | Added ImageKit `file_id` tracking columns |
+| `1783858550679` | `add-upload-temp` | `upload_temp` | Temporary upload tracking registry |
+| `1783871313571` | `UpdateMetaLengths` | `program`, `solution`, `project`, `article` | Expanded `meta_title` (255) and `meta_description` (500) lengths |
+| `1785553013934` | `add-contact-table` | `contact` | Public contact submissions table |
+| `1785643075814` | `add-organization-address` | `organization` | Added physical address column |
+| `1785671319054` | `add-project-detail-fields` | `project` | Added challenge, services, before/after transformation, and highlights |
+| `1786027792893` | `AddAboutUsFields` | `organization` | Added mission, vision, core values, ecosystem capabilities, orientations |
+| `1786056000000` | `AddJobLeadFields` | `job`, `lead` | Recruitment posting details and candidate profile submissions |
+| `1788254709454` | `AddSlideDetailBlog` | `slide_detail_blog` | Dedicated 1-to-1 slide detail article table with JSONB Document Model |
+| `1788300000000` | `RefactorArticleContentToJsonb` | `article` | Added `subtitle`, `excerpt`, `content_html_backup`; converted `content` to `JSONB`; added 6 performance indexes |
+| `1788400000000` | `RefactorProgramContentToJsonb` | `program` | Added `published_at`, `content_html_backup`; converted `content` to `JSONB`; added 3 performance indexes |
+

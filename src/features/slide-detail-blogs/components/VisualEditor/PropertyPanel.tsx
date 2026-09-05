@@ -12,6 +12,10 @@ import type {
   ListBlock,
   ImageBlock,
   CtaBlock,
+  CtaButtonItem,
+  CtaAlign,
+  CtaShape,
+  CtaLayout,
   SectionBlock,
   BlockSpacing,
   HeroMeta,
@@ -23,6 +27,7 @@ import type {
   ListStyleConfig,
   ListLevelStyle,
 } from "@/types/slide-detail-blog";
+import { getCtaButtons } from "@/types/slide-detail-blog";
 import {
   normalizeListItems,
   flattenListItems,
@@ -86,6 +91,9 @@ const BLOCK_TYPE_LABELS: Record<SlideDetailBlogBlock["type"], string> = {
   list: "Danh sách",
   section: "Nhóm nội dung",
   cta: "Nút CTA",
+  quote: "Trích dẫn",
+  highlight: "Điểm nhấn",
+  ordered_list: "Danh sách số",
 };
 
 function getListMarker(
@@ -283,10 +291,33 @@ export function PropertyPanel({
     [onHeroImageChange, toast, uploadBlogImage],
   );
 
-  const handleCtaUrlChange = useCallback(
-    (url: string) => {
+  const handleCtaUpdate = useCallback(
+    (updates: Partial<CtaBlock>) => {
       if (block?.type === "cta" && onBlockChange) {
-        onBlockChange({ ...block, url } as CtaBlock);
+        onBlockChange({ ...block, ...updates } as CtaBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleCtaButtonsUpdate = useCallback(
+    (newButtons: CtaButtonItem[]) => {
+      if (block?.type === "cta" && onBlockChange) {
+        const cta = block as CtaBlock;
+        const updated: CtaBlock = {
+          ...cta,
+          items: newButtons,
+          label: newButtons[0]?.label || "",
+          url: newButtons[0]?.url || "",
+          secondaryLabel: newButtons[1]?.label || undefined,
+          secondaryUrl: newButtons[1]?.url || undefined,
+          variant: newButtons[1]?.variant || newButtons[0]?.variant || "solid",
+        };
+        if (!newButtons[1]) {
+          delete updated.secondaryLabel;
+          delete updated.secondaryUrl;
+        }
+        onBlockChange(updated);
       }
     },
     [block, onBlockChange],
@@ -898,21 +929,7 @@ export function PropertyPanel({
           </>
         )}
 
-        {/* CTA: URL */}
-        {block.type === "cta" && (
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Đường dẫn liên kết
-            </label>
-            <input
-              type="url"
-              value={(block as CtaBlock).url}
-              onChange={(e) => handleCtaUrlChange(e.target.value)}
-              placeholder="https://..."
-              className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-            />
-          </div>
-        )}
+
 
         {/* Section: number */}
         {block.type === "section" && (
@@ -1734,6 +1751,353 @@ export function PropertyPanel({
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── CTA Block Controls ── */}
+        {block.type === "cta" && (() => {
+          const cta = block as CtaBlock;
+          const buttons = getCtaButtons(cta);
+          const currentShape: CtaShape = cta.shape ?? "square";
+          const currentAlign: CtaAlign = cta.align ?? "center";
+          const currentGap = cta.gap ?? (cta.layout === "flex" ? 8 : 16);
+          const currentLayout: CtaLayout =
+            cta.layout ?? (cta.align === "between" ? "between" : "flex");
+          const isSpaceBetween = currentLayout === "between" || currentAlign === "between";
+
+          return (
+            <div className="space-y-4 border-b border-border pb-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    Cấu hình nút kêu gọi (CTA)
+                  </label>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    {buttons.length} nút
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Hình dáng */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Hình dáng:</span>
+                    <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => handleCtaUpdate({ shape: "square" })}
+                        className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          currentShape === "square"
+                            ? "bg-primary text-white shadow-xs"
+                            : "text-text-muted hover:text-text"
+                        }`}
+                      >
+                        Vuông bo nhẹ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCtaUpdate({ shape: "pill" })}
+                        className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          currentShape === "pill"
+                            ? "bg-primary text-white shadow-xs"
+                            : "text-text-muted hover:text-text"
+                        }`}
+                      >
+                        Viên thuốc
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Căn lề */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Căn lề:</span>
+                    <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-xs">
+                      {[
+                        { id: "center", label: "Giữa" },
+                        { id: "start", label: "Trái" },
+                        { id: "end", label: "Phải" },
+                        { id: "between", label: "Between" },
+                      ].map((al) => (
+                        <button
+                          key={al.id}
+                          type="button"
+                          onClick={() => {
+                            if (al.id === "between") {
+                              handleCtaUpdate({ align: "between", layout: "between" });
+                            } else {
+                              handleCtaUpdate({ align: al.id as CtaAlign, layout: "flex" });
+                            }
+                          }}
+                          className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                            (al.id === "between"
+                              ? isSpaceBetween
+                              : currentAlign === al.id && !isSpaceBetween)
+                              ? "bg-primary text-white shadow-xs"
+                              : "text-text-muted hover:text-text"
+                          }`}
+                        >
+                          {al.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Khoảng cách gap */}
+                  {!isSpaceBetween && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-text-muted">Khoảng cách:</span>
+                      <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-xs">
+                        {[
+                          { label: "4px", val: 4 },
+                          { label: "8px", val: 8 },
+                          { label: "12px", val: 12 },
+                          { label: "16px", val: 16 },
+                          { label: "24px", val: 24 },
+                        ].map((g) => (
+                          <button
+                            key={g.val}
+                            type="button"
+                            onClick={() => handleCtaUpdate({ gap: g.val })}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                              currentGap === g.val
+                                ? "bg-primary text-white shadow-xs"
+                                : "text-text-muted hover:text-text"
+                            }`}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Thêm nút mới */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newBtn: CtaButtonItem = {
+                          id: `btn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                          label: `Nút ${buttons.length + 1}`,
+                          url: "/contact",
+                          variant: buttons.length % 2 === 1 ? "outline" : "solid",
+                        };
+                        handleCtaButtonsUpdate([...buttons, newBtn]);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
+                      >
+                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                      </svg>
+                      Thêm nút mới
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Danh sách các nút */}
+              <div className="space-y-3">
+                {buttons.map((btn, idx) => {
+                  const isSolid =
+                    (btn.variant ?? (idx === 0 ? "solid" : "outline")) === "solid";
+
+                  return (
+                    <div
+                      key={btn.id || idx}
+                      className="rounded-lg border border-border/80 bg-surface-muted/30 p-2.5 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-text flex items-center gap-1.5">
+                          <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                            {idx + 1}
+                          </span>
+                          Nút #{idx + 1}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          {/* Variant toggle */}
+                          <div className="inline-flex rounded border border-border bg-surface p-0.5 text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...buttons];
+                                next[idx] = { ...next[idx], variant: "solid" };
+                                handleCtaButtonsUpdate(next);
+                              }}
+                              className={`px-1.5 py-0.5 rounded transition-colors ${
+                                isSolid
+                                  ? "bg-primary text-white"
+                                  : "text-text-muted hover:text-text"
+                              }`}
+                            >
+                              Solid
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...buttons];
+                                next[idx] = { ...next[idx], variant: "outline" };
+                                handleCtaButtonsUpdate(next);
+                              }}
+                              className={`px-1.5 py-0.5 rounded transition-colors ${
+                                !isSolid
+                                  ? "bg-primary text-white"
+                                  : "text-text-muted hover:text-text"
+                              }`}
+                            >
+                              Outline
+                            </button>
+                          </div>
+
+                          {/* Reorder */}
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => {
+                              const next = [...buttons];
+                              const [moved] = next.splice(idx, 1);
+                              next.splice(idx - 1, 0, moved);
+                              handleCtaButtonsUpdate(next);
+                            }}
+                            className="rounded p-0.5 text-text-muted hover:bg-surface hover:text-text disabled:opacity-20"
+                            title="Lên trên"
+                          >
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === buttons.length - 1}
+                            onClick={() => {
+                              const next = [...buttons];
+                              const [moved] = next.splice(idx, 1);
+                              next.splice(idx + 1, 0, moved);
+                              handleCtaButtonsUpdate(next);
+                            }}
+                            className="rounded p-0.5 text-text-muted hover:bg-surface hover:text-text disabled:opacity-20"
+                            title="Xuống dưới"
+                          >
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+
+                          {/* Delete */}
+                          {buttons.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = buttons.filter((_, i) => i !== idx);
+                                handleCtaButtonsUpdate(next);
+                              }}
+                              className="rounded p-0.5 text-danger/80 hover:bg-danger/10 hover:text-danger"
+                              title="Xóa nút này"
+                            >
+                              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Label input */}
+                      <div>
+                        <label className="mb-1 block text-[10px] text-text-muted">Nhãn nút</label>
+                        <input
+                          type="text"
+                          value={btn.label || ""}
+                          onChange={(e) => {
+                            const next = [...buttons];
+                            next[idx] = { ...next[idx], label: e.target.value };
+                            handleCtaButtonsUpdate(next);
+                          }}
+                          placeholder="VD: Đăng ký nhu cầu đào tạo"
+                          className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                        />
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {["Đăng ký tư vấn", "Trao đổi trung tâm", "Tìm hiểu thêm"].map(
+                            (p) => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => {
+                                  const next = [...buttons];
+                                  next[idx] = { ...next[idx], label: p };
+                                  handleCtaButtonsUpdate(next);
+                                }}
+                                className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                                  btn.label === p
+                                    ? "border-primary/40 bg-primary/10 text-primary font-semibold"
+                                    : "border-border bg-surface text-text-muted"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+
+                      {/* URL input */}
+                      <div>
+                        <label className="mb-1 block text-[10px] text-text-muted">
+                          Đường dẫn liên kết (URL)
+                        </label>
+                        <input
+                          type="text"
+                          value={btn.url || ""}
+                          onChange={(e) => {
+                            const next = [...buttons];
+                            next[idx] = { ...next[idx], url: e.target.value };
+                            handleCtaButtonsUpdate(next);
+                          }}
+                          placeholder="VD: /contact hoặc https://..."
+                          className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none font-mono"
+                        />
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {["/contact", "/programs", "/solutions"].map((u) => (
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => {
+                                const next = [...buttons];
+                                next[idx] = { ...next[idx], url: u };
+                                handleCtaButtonsUpdate(next);
+                              }}
+                              className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${
+                                btn.url === u
+                                  ? "border-primary text-primary font-bold"
+                                  : "border-border text-text-muted"
+                              }`}
+                            >
+                              {u}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

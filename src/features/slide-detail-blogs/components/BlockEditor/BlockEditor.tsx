@@ -88,6 +88,30 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
           url: "/lien-he",
         };
         break;
+      case "quote":
+        newBlock = {
+          id: generateId("qte"),
+          type: "quote",
+          text: "",
+        };
+        break;
+      case "highlight":
+        newBlock = {
+          id: generateId("hl"),
+          type: "highlight",
+          text: "",
+        };
+        break;
+      case "ordered_list":
+        newBlock = createListBlock({ id: generateId("ls"), listType: "ordered" });
+        break;
+      default:
+        newBlock = {
+          id: generateId("p"),
+          type: "paragraph",
+          text: "",
+        };
+        break;
     }
 
     const nextBlocks = [...blocks];
