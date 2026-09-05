@@ -41,9 +41,26 @@ export function useSolutions(filters?: SolutionFilters) {
 }
 
 export function useSolution(id: string) {
-  const { data: solutionsData, ...rest } = useSolutions({ limit: 100 });
-  const solution = solutionsData?.items?.find((s) => s.id === id);
-  return { data: solution, ...rest };
+  return useQuery<Solution>({
+    queryKey: solutionKeys.detail(id),
+    queryFn: async () => {
+      try {
+        return await clientFetch<Solution>(`/api/admin/solutions/${id}`);
+      } catch {
+        try {
+          return await clientFetch<Solution>(`/api/solutions/admin/${id}`);
+        } catch {
+          const res = await clientFetch<PaginatedData<Solution>>(
+            "/api/solutions/all?limit=100",
+          );
+          const found = res.items?.find((s) => s.id === id);
+          if (!found) throw new Error("Không tìm thấy giải pháp");
+          return found;
+        }
+      }
+    },
+    enabled: Boolean(id),
+  });
 }
 
 export function useCreateSolution() {

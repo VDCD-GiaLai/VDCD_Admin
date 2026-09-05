@@ -24,9 +24,20 @@ export function ImageBlockRenderer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [prevBlockUrl, setPrevBlockUrl] = useState(block.url);
+  const [hasError, setHasError] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const { toast } = useToast();
   const { subfolder, uploadDocumentImage } = useDocumentUpload();
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: false });
+
+  if (block.url !== prevBlockUrl) {
+    setPrevBlockUrl(block.url);
+    setHasError(false);
+    setLocalPreview(null);
+  }
+
+  const displayUrl = localPreview ?? block.url;
 
   const handleCaptionBlur = useCallback(() => {
     if (captionRef.current && onCaptionChange) {
@@ -49,12 +60,17 @@ export function ImageBlockRenderer({
         return;
       }
 
+      const tempUrl = URL.createObjectURL(file);
+      setLocalPreview(tempUrl);
+      setHasError(false);
       setIsUploading(true);
       try {
         const result: UploadResult = await uploadDocumentImage(file);
+        setLocalPreview(result.url);
         onImageUpdate?.(result.url, result.fileId);
         toast({ title: "Tải ảnh thành công", color: "success" });
       } catch {
+        setLocalPreview(null);
         toast({ title: "Tải ảnh thất bại", color: "danger" });
       } finally {
         setIsUploading(false);
@@ -74,7 +90,7 @@ export function ImageBlockRenderer({
     [],
   );
 
-  if (!block.url) {
+  if (!displayUrl) {
     return (
       <figure className="blog-preview-image">
         {editable && (
@@ -151,19 +167,20 @@ export function ImageBlockRenderer({
       )}
 
       <div className="relative overflow-hidden rounded-lg">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={block.url}
-          alt={block.alt || "Hình ảnh minh hoạ"}
-          className="w-full rounded-lg object-cover"
-          loading="lazy"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = "none";
-            const fallback = target.nextElementSibling;
-            if (fallback) (fallback as HTMLElement).style.display = "flex";
-          }}
-        />
+        {displayUrl && !hasError ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={displayUrl}
+            alt={block.alt || "Hình ảnh minh hoạ"}
+            className="w-full rounded-lg object-cover"
+            loading="lazy"
+            onError={() => setHasError(true)}
+          />
+        ) : (
+          <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-danger/30 bg-danger/5">
+            <span className="text-sm text-danger/60">Không thể tải ảnh</span>
+          </div>
+        )}
 
         {/* Uploading overlay */}
         {isUploading && (
@@ -194,10 +211,6 @@ export function ImageBlockRenderer({
             </button>
           </div>
         )}
-
-        <div className="hidden h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-danger/30 bg-danger/5">
-          <span className="text-sm text-danger/60">Không thể tải ảnh</span>
-        </div>
       </div>
 
       {/* Caption */}

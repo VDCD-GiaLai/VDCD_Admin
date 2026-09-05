@@ -34,7 +34,9 @@ export function DocumentUploadProvider({
   const cleanSubfolder = useMemo(() => {
     const trimmed = subfolder?.trim() ?? "";
     if (trimmed) return trimmed;
-    return folder === "article" || folder === "program" ? "" : "content-media";
+    return folder === "article" || folder === "program" || folder === "solution"
+      ? ""
+      : "content-media";
   }, [subfolder, folder]);
 
   const uploadDocumentImage = useCallback(

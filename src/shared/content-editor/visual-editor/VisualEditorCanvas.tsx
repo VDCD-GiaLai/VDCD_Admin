@@ -153,6 +153,16 @@ export function VisualEditorCanvas({
   const heroCaption = heroMeta?.caption ?? "";
   const currentConfig = VIEWPORT_CONFIG[viewport];
 
+  const [prevHeroImageUrl, setPrevHeroImageUrl] = useState(heroImageUrl);
+  const [localHeroUrl, setLocalHeroUrl] = useState<string | null>(null);
+
+  if (heroImageUrl !== prevHeroImageUrl) {
+    setPrevHeroImageUrl(heroImageUrl);
+    setLocalHeroUrl(null);
+  }
+
+  const activeHeroUrl = localHeroUrl ?? heroImageUrl;
+
   // ── History ──
   const { pushState, undo, redo, canUndo, canRedo } = useEditorHistory(content, onContentChange);
 
@@ -404,12 +414,16 @@ export function VisualEditorCanvas({
         return;
       }
 
+      const localUrl = URL.createObjectURL(file);
+      setLocalHeroUrl(localUrl);
       setIsUploadingHero(true);
       try {
         const result: UploadResult = await uploadBlogImage(file);
+        setLocalHeroUrl(result.url);
         onHeroImageChange(result.url, result.fileId);
         toast({ title: "Tải ảnh hero thành công", color: "success" });
       } catch {
+        setLocalHeroUrl(null);
         toast({ title: "Tải ảnh hero thất bại", color: "danger" });
       } finally {
         setIsUploadingHero(false);
@@ -485,11 +499,11 @@ export function VisualEditorCanvas({
         onChange={handleHeroFileUpload}
       />
 
-      {heroImageUrl ? (
+      {activeHeroUrl ? (
         <div className="blog-preview-hero-image-wrapper relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={heroImageUrl}
+            src={activeHeroUrl}
             alt={title || "Hero"}
             className="blog-preview-hero-image"
             style={{ objectPosition: heroPosition }}
@@ -630,7 +644,7 @@ export function VisualEditorCanvas({
       )}
 
       {/* Hero caption (only displayed when hero image exists) */}
-      {heroImageUrl && (
+      {activeHeroUrl && (
         <figcaption
           ref={heroCaptionRef}
           className="blog-preview-hero-caption ve-editable"
@@ -812,9 +826,12 @@ export function VisualEditorCanvas({
         {selectedBlockId === "hero" ? (
           <PropertyPanel
             heroMeta={content?.heroMeta}
-            heroImageUrl={heroImageUrl}
+            heroImageUrl={activeHeroUrl}
             onHeroMetaChange={updateHeroMeta}
-            onHeroImageChange={onHeroImageChange}
+            onHeroImageChange={(url, fileId) => {
+              setLocalHeroUrl(url);
+              onHeroImageChange?.(url, fileId);
+            }}
             onClose={() => setSelectedBlockId("")}
           />
         ) : selectedBlock ? (

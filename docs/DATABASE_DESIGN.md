@@ -159,7 +159,7 @@
 
 ## solution
 
-**Description:** Solutions and technological products provided by VDCD
+**Description:** Solutions and technological products provided by VDCD, edited via Visual Block Editor (Document Model)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
@@ -167,7 +167,7 @@
 | 2 | title | VARCHAR(255) | Not Null | Solution name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
 | 4 | short_description | TEXT | Nullable | Short description (displayed on list page) |
-| 5 | content | TEXT | Nullable | Detailed content (rich text HTML) |
+| 5 | content | JSONB | Not Null, Default: `'{"version":1,"blocks":[]}'` | Structured block document (Document Model version 1) |
 | 6 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
 | 7 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
 | 8 | website_url | VARCHAR(500) | Nullable | External product / demo website URL |
@@ -175,8 +175,9 @@
 | 10 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
 | 11 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
 | 12 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 13 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 14 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 13 | published_at | TIMESTAMP | Nullable | Official publication timestamp |
+| 14 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 15 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
 
 ---
 

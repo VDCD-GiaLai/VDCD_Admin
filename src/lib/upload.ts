@@ -45,22 +45,23 @@ export type UploadFolder =
   | "partner"
   | "project"
   | "article"
-  | "program";
+  | "program"
+  | "solution";
 
 /** Options for uploading an image */
 export interface UploadImageOptions {
   /**
    * Optional subfolder name under the main folder (e.g. "bai-viet", "so-hoa-du-lieu").
-   * Supported by "slide", "slide-detail-blog", "article", and "program" endpoints.
+   * Supported by "slide", "slide-detail-blog", "article", "program", and "solution" endpoints.
    */
   subfolder?: string;
   /**
-   * Optional article or program slug.
-   * Supported by "article" and "program" endpoints.
+   * Optional article, program, or solution slug.
+   * Supported by "article", "program", and "solution" endpoints.
    */
   slug?: string;
   /**
-   * Optional program or article title to be slugified if slug is not provided.
+   * Optional program, article, or solution title to be slugified if slug is not provided.
    */
   title?: string;
 }
@@ -118,7 +119,9 @@ export async function uploadImage(
   const subfolder = options?.subfolder?.trim();
   const slug =
     options?.slug?.trim() ||
-    (folder === "article" || folder === "program" ? subfolder : undefined);
+    (folder === "article" || folder === "program" || folder === "solution"
+      ? subfolder
+      : undefined);
   const title = options?.title?.trim();
   if (subfolder) {
     formData.append("subfolder", subfolder);

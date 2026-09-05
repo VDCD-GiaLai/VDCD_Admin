@@ -17,7 +17,17 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
     block.fileId || !block.url ? "upload" : "url",
   );
   const [uploading, setUploading] = useState(false);
+  const [prevBlockUrl, setPrevBlockUrl] = useState(block.url);
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+
+  if (block.url !== prevBlockUrl) {
+    setPrevBlockUrl(block.url);
+    setLocalPreview(null);
+    setImageLoadError(false);
+  }
+
+  const displayUrl = localPreview ?? block.url;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,11 +43,14 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
       return;
     }
 
+    const tempUrl = URL.createObjectURL(file);
+    setLocalPreview(tempUrl);
     setImageLoadError(false);
     setUploading(true);
 
     try {
       const result: UploadResult = await uploadDocumentImage(file);
+      setLocalPreview(result.url);
       onChange({
         ...block,
         url: result.url,
@@ -45,6 +58,7 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
       });
       toast({ title: "Tải ảnh lên thành công", color: "success" });
     } catch {
+      setLocalPreview(null);
       toast({ title: "Tải ảnh lên thất bại", color: "danger" });
     } finally {
       setUploading(false);
@@ -104,16 +118,16 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
 
       {/* Preview */}
       <div className="overflow-hidden rounded-lg border border-border bg-surface-muted">
-        {block.url && !imageLoadError ? (
+        {displayUrl && !imageLoadError ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={block.url}
+            src={displayUrl}
             alt={block.alt || "Ảnh minh hoạ"}
             className="h-44 w-full object-cover transition-opacity duration-200"
             onError={() => setImageLoadError(true)}
             onLoad={() => setImageLoadError(false)}
           />
-        ) : block.url && imageLoadError ? (
+        ) : displayUrl && imageLoadError ? (
           <div className="flex h-36 w-full flex-col items-center justify-center gap-1.5 p-4 text-center text-text-muted">
             <p className="text-xs font-medium text-danger">Không thể tải xem trước ảnh</p>
             <p className="text-[11px] text-text-muted">Vui lòng kiểm tra lại liên kết hình ảnh.</p>
