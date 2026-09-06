@@ -1,11 +1,13 @@
 import { z } from "zod";
+import { documentContentSchema } from "@/shared/content-editor";
 
 /**
  * Technical highlight — key-value pair for project stats.
+ * Allows empty string during drafting; clean pairs are filtered during submit.
  */
 const technicalHighlightSchema = z.object({
-  label: z.string().min(1, "Tên thông số không được trống"),
-  value: z.string().min(1, "Giá trị không được trống"),
+  label: z.string(),
+  value: z.string(),
 });
 
 /**
@@ -17,15 +19,20 @@ export const projectSchema = z.object({
     .min(1, "Tiêu đề không được để trống")
     .max(255, "Tiêu đề tối đa 255 ký tự"),
   slug: z.string().optional(),
+  tempFolderKey: z.string().optional(),
+  content: documentContentSchema.optional(),
   overview: z.string().optional(),
   thumbnail: z.string().optional(),
   thumbnailFileId: z.string().nullable().optional(),
   fieldId: z.string().nullable().optional(),
   provinceId: z.string().nullable().optional(),
   year: z
-    .number({ message: "Năm phải là số" })
-    .min(1990, "Năm không hợp lệ")
-    .max(2100, "Năm không hợp lệ")
+    .union([
+      z.number().min(1990, "Năm không hợp lệ (1990 - 2100)").max(2100, "Năm không hợp lệ (1990 - 2100)"),
+      z.nan().transform(() => null),
+      z.literal(0).transform(() => null),
+      z.null(),
+    ])
     .nullable()
     .optional(),
 
@@ -43,10 +50,10 @@ export const projectSchema = z.object({
   nextProjectSlug: z.string().optional(),
 
   // ── SEO & Publishing ───────────────────────────────────
-  metaTitle: z.string().max(60, "Meta title tối đa 60 ký tự").optional(),
+  metaTitle: z.string().max(255, "Meta title tối đa 255 ký tự").optional(),
   metaDescription: z
     .string()
-    .max(160, "Meta description tối đa 160 ký tự")
+    .max(255, "Meta description tối đa 255 ký tự")
     .optional(),
   isPublished: z.boolean().optional(),
 });

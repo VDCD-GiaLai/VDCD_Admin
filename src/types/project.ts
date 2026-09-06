@@ -1,6 +1,14 @@
+export type {
+  DocumentContent,
+  ContentDocument,
+  BlogDocument,
+} from "@/shared/content-editor";
+import type { DocumentContent } from "@/shared/content-editor";
+
 /**
  * Project — content module with gallery.
  * Maps to DB `project` + `project_image` tables + /projects API.
+ * Uses the shared canonical DocumentContent (NO ProjectDocument or ProjectBlock).
  */
 export interface ProjectImage {
   id: string;
@@ -21,6 +29,7 @@ export interface Project {
   title: string;
   slug: string;
   overview: string | null;
+  content?: DocumentContent | null;
   thumbnail: string | null;
   thumbnailFileId: string | null;
   field: { id: string; name: string; slug: string } | null;

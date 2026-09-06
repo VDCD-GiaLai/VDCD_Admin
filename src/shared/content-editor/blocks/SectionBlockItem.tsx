@@ -179,7 +179,8 @@ export function SectionBlockItem({ block, onChange }: SectionBlockItemProps) {
             {block.children.map((child, index) => (
               <div
                 key={child.id}
-                className="rounded-lg border border-border bg-surface p-3 shadow-xs"
+                id={`block-${child.id}`}
+                className="rounded-lg border border-border bg-surface p-3 shadow-xs transition-all"
               >
                 {/* Child header */}
                 <div className="mb-2.5 flex items-center justify-between border-b border-border/60 pb-2">

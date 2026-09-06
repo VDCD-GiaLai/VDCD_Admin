@@ -199,3 +199,7 @@ export const documentContentSchema = z.object({
   blocks: z.array(contentBlockSchema),
   heroMeta: heroMetaSchema,
 });
+
+/** Generic unified aliases for schemas */
+export const blockSchema = contentBlockSchema;
+export const contentDocumentSchema = documentContentSchema;

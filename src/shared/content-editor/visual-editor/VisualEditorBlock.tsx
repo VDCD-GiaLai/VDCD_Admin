@@ -23,6 +23,8 @@ import {
   type SectionBlock,
   type SectionChildBlock,
   type CtaBlock,
+  type QuoteBlock,
+  type HighlightBlock,
 } from "../model/document.types";
 import { createListBlock } from "../paste/list-helpers";
 
@@ -138,6 +140,10 @@ function VisualEditorBlockInner({
         onBlockChange(index, { ...block, text } as HeadingBlock);
       } else if (block.type === "paragraph") {
         onBlockChange(index, { ...block, text } as ParagraphBlock);
+      } else if (block.type === "quote") {
+        onBlockChange(index, { ...block, text } as QuoteBlock);
+      } else if (block.type === "highlight") {
+        onBlockChange(index, { ...block, text } as HighlightBlock);
       }
     },
     [block, index, onBlockChange],
@@ -145,7 +151,7 @@ function VisualEditorBlockInner({
 
   const handleItemsChange = useCallback(
     (items: ListItem[]) => {
-      if (block.type === "list") {
+      if (block.type === "list" || block.type === "ordered_list") {
         onBlockChange(index, { ...block, items } as ListBlock);
       }
     },
@@ -326,6 +332,61 @@ function VisualEditorBlockInner({
             onItemsChange={handleItemsChange}
           />
         );
+      case "ordered_list":
+        return (
+          <ListBlockRenderer
+            block={{ ...block, listType: "ordered" } as unknown as ListBlock}
+            editable
+            onItemsChange={handleItemsChange}
+          />
+        );
+      case "quote": {
+        const quote = block as QuoteBlock;
+        return (
+          <blockquote className="blog-preview-quote my-4 border-l-4 border-primary pl-4 italic text-text-muted">
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => handleTextChange(e.currentTarget.innerText)}
+              className="outline-none focus:ring-1 focus:ring-primary/40 rounded px-1"
+            >
+              {quote.text || "Nội dung trích dẫn..."}
+            </div>
+            <footer className="mt-1 flex items-center gap-2 text-xs not-italic text-text-muted/80">
+              <span>—</span>
+              <input
+                type="text"
+                placeholder="Tác giả"
+                value={quote.author || ""}
+                onChange={(e) => onBlockChange(index, { ...quote, author: e.target.value })}
+                className="bg-transparent border-b border-border/50 focus:border-primary text-xs outline-none py-0.5"
+              />
+              <input
+                type="text"
+                placeholder="Nguồn / Chức vụ"
+                value={quote.citation || ""}
+                onChange={(e) => onBlockChange(index, { ...quote, citation: e.target.value })}
+                className="bg-transparent border-b border-border/50 focus:border-primary text-xs outline-none py-0.5"
+              />
+            </footer>
+          </blockquote>
+        );
+      }
+      case "highlight": {
+        const hl = block as HighlightBlock;
+        return (
+          <div className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 font-medium text-text">
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => handleTextChange(e.currentTarget.innerText)}
+              className="outline-none focus:ring-1 focus:ring-primary/40 rounded px-1"
+            >
+              {hl.text || "Nội dung điểm nhấn..."}
+            </div>
+          </div>
+        );
+      }
       case "section":
         return (
           <SectionBlockRenderer

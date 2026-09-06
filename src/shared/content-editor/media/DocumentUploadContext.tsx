@@ -15,10 +15,12 @@ const DocumentUploadContext = createContext<
 >(undefined);
 
 export interface DocumentUploadProviderProps {
-  /** Target subfolder (e.g. slug of the article/program) */
+  /** Target subfolder (e.g. slug of the article/program/project) */
   subfolder?: string;
-  /** Target upload folder (e.g., "slide-detail-blog", "article", "image", "thumbnail") */
+  /** Target upload folder (e.g., "slide-detail-blog", "article", "image", "thumbnail", "project") */
   folder?: UploadFolder;
+  /** Optional temporary stable folder key before slug exists (e.g. "project-a8f31c") */
+  tempFolderKey?: string;
   children: React.ReactNode;
 }
 
@@ -29,12 +31,16 @@ export interface DocumentUploadProviderProps {
 export function DocumentUploadProvider({
   subfolder = "content-media",
   folder = "image",
+  tempFolderKey,
   children,
 }: DocumentUploadProviderProps) {
   const cleanSubfolder = useMemo(() => {
     const trimmed = subfolder?.trim() ?? "";
     if (trimmed) return trimmed;
-    return folder === "article" || folder === "program" || folder === "solution"
+    return folder === "article" ||
+      folder === "program" ||
+      folder === "solution" ||
+      folder === "project"
       ? ""
       : "content-media";
   }, [subfolder, folder]);
@@ -44,9 +50,12 @@ export function DocumentUploadProvider({
       return uploadImage(file, folder, {
         subfolder: cleanSubfolder || undefined,
         slug: cleanSubfolder || undefined,
+        tempFolderKey:
+          tempFolderKey?.trim() ||
+          (folder === "project" ? cleanSubfolder || undefined : undefined),
       });
     },
-    [cleanSubfolder, folder],
+    [cleanSubfolder, folder, tempFolderKey],
   );
 
   const value = useMemo(

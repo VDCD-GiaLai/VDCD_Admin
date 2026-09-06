@@ -64,6 +64,10 @@ export interface UploadImageOptions {
    * Optional program, article, or solution title to be slugified if slug is not provided.
    */
   title?: string;
+  /**
+   * Optional temporary stable folder key before slug exists (e.g. "project-a8f31c").
+   */
+  tempFolderKey?: string;
 }
 
 // ─── Utilities ───────────────────────────────────────────────
@@ -119,10 +123,14 @@ export async function uploadImage(
   const subfolder = options?.subfolder?.trim();
   const slug =
     options?.slug?.trim() ||
-    (folder === "article" || folder === "program" || folder === "solution"
+    (folder === "article" ||
+    folder === "program" ||
+    folder === "solution" ||
+    folder === "project"
       ? subfolder
       : undefined);
   const title = options?.title?.trim();
+  const tempFolderKey = options?.tempFolderKey?.trim();
   if (subfolder) {
     formData.append("subfolder", subfolder);
   }
@@ -132,11 +140,15 @@ export async function uploadImage(
   if (title) {
     formData.append("title", title);
   }
+  if (tempFolderKey) {
+    formData.append("tempFolderKey", tempFolderKey);
+  }
 
   const params: Record<string, string> = {};
   if (subfolder) params.subfolder = subfolder;
   if (slug) params.slug = slug;
   if (title) params.title = title;
+  if (tempFolderKey) params.tempFolderKey = tempFolderKey;
   const queryParams = Object.keys(params).length > 0 ? params : undefined;
 
   try {

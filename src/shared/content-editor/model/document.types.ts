@@ -72,8 +72,23 @@ export interface HighlightBlock {
 /** Unified ContentBlock union type for all rich document models */
 export type ContentBlock = SlideDetailBlogBlock | QuoteBlock | HighlightBlock;
 
+/** Generic unified alias for ContentBlock */
+export type Block = ContentBlock;
+
+/** Base block interface */
+export interface BaseBlock {
+  id: string;
+  type: string;
+  spacing?: BlockSpacing;
+}
+
 /** Unified DocumentContent root structure */
 export type DocumentContent = SlideDetailBlogContent;
+
+/** Generic unified aliases for DocumentContent */
+export type Document = DocumentContent;
+export type ContentDocument = DocumentContent;
+export type BlogDocument = DocumentContent;
 
 /** Responsive preview viewport mode for Read-only and Visual editors */
 export type ViewportMode = "desktop" | "tablet" | "mobile";

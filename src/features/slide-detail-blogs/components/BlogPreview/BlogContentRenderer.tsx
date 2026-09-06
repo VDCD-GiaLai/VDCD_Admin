@@ -15,6 +15,8 @@ import type {
   ListBlock,
   SectionBlock,
   CtaBlock,
+  QuoteBlock,
+  HighlightBlock,
 } from "@/types/slide-detail-blog";
 
 interface BlogContentRendererProps {
@@ -76,6 +78,33 @@ export function BlogContentRenderer({ blocks }: BlogContentRendererProps) {
               return <ImageBlockRenderer block={block as ImageBlock} />;
             case "list":
               return <ListBlockRenderer block={block as ListBlock} />;
+            case "ordered_list":
+              return (
+                <ListBlockRenderer
+                  block={{ ...block, listType: "ordered" } as unknown as ListBlock}
+                />
+              );
+            case "quote": {
+              const quote = block as QuoteBlock;
+              return (
+                <blockquote className="blog-preview-quote my-4 border-l-4 border-primary pl-4 italic text-text-muted">
+                  <p>{quote.text}</p>
+                  {Boolean(quote.author || quote.citation) && (
+                    <footer className="mt-1 text-xs not-italic text-text-muted/80">
+                      — {[quote.author, quote.citation].filter(Boolean).join(", ")}
+                    </footer>
+                  )}
+                </blockquote>
+              );
+            }
+            case "highlight": {
+              const hl = block as HighlightBlock;
+              return (
+                <div className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 text-text">
+                  <p className="font-medium">{hl.text}</p>
+                </div>
+              );
+            }
             case "section":
               return <SectionBlockRenderer block={block as SectionBlock} />;
             case "cta":

@@ -8,7 +8,6 @@ import { useToast } from "@/components/ui";
 import type {
   ContentBlock as SlideDetailBlogBlock,
   HeadingBlock,
-  ParagraphBlock,
   ListBlock,
   ImageBlock,
   CtaBlock,
@@ -20,6 +19,8 @@ import type {
   BlockSpacing,
   HeroMeta,
   HeroPlacement,
+  QuoteBlock,
+  HighlightBlock,
   ListType,
   ListStyle,
   ListItem,
@@ -189,8 +190,16 @@ export function PropertyPanel({
   const handleFontSizeChange = useCallback(
     (fontSize: number) => {
       if (!block || !onBlockChange) return;
-      if (block.type === "heading" || block.type === "paragraph" || block.type === "list" || block.type === "cta") {
-        onBlockChange({ ...block, fontSize } as HeadingBlock | ParagraphBlock | ListBlock | CtaBlock);
+      if (
+        block.type === "heading" ||
+        block.type === "paragraph" ||
+        block.type === "list" ||
+        block.type === "ordered_list" ||
+        block.type === "quote" ||
+        block.type === "highlight" ||
+        block.type === "cta"
+      ) {
+        onBlockChange({ ...block, fontSize } as SlideDetailBlogBlock);
       }
     },
     [block, onBlockChange],
@@ -198,9 +207,17 @@ export function PropertyPanel({
 
   const handleResetFontSize = useCallback(() => {
     if (!block || !onBlockChange) return;
-    if (block.type === "heading" || block.type === "paragraph" || block.type === "list" || block.type === "cta") {
+    if (
+      block.type === "heading" ||
+      block.type === "paragraph" ||
+      block.type === "list" ||
+      block.type === "ordered_list" ||
+      block.type === "quote" ||
+      block.type === "highlight" ||
+      block.type === "cta"
+    ) {
       const updated = { ...block };
-      delete (updated as Record<string, unknown>).fontSize;
+      delete (updated as unknown as Record<string, unknown>).fontSize;
       onBlockChange(updated);
     }
   }, [block, onBlockChange]);
@@ -811,45 +828,52 @@ export function PropertyPanel({
         )}
 
         {/* Font size — shown for text blocks */}
-        {(block.type === "heading" || block.type === "paragraph" || block.type === "list" || block.type === "cta") && (
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Cỡ chữ
-            </label>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-text">
-                {(block as HeadingBlock | ParagraphBlock | ListBlock | CtaBlock).fontSize
-                  ? `${(block as HeadingBlock | ParagraphBlock | ListBlock | CtaBlock).fontSize}px`
-                  : "Mặc định"}
-              </span>
-              {(block as HeadingBlock | ParagraphBlock | ListBlock | CtaBlock).fontSize && (
-                <button
-                  type="button"
-                  onClick={handleResetFontSize}
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  Đặt lại
-                </button>
-              )}
+        {(block.type === "heading" ||
+          block.type === "paragraph" ||
+          block.type === "list" ||
+          block.type === "ordered_list" ||
+          block.type === "quote" ||
+          block.type === "highlight" ||
+          block.type === "cta") && (() => {
+          const currentBlockFontSize = (block as unknown as { fontSize?: number }).fontSize;
+          return (
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Cỡ chữ
+              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-text">
+                  {currentBlockFontSize ? `${currentBlockFontSize}px` : "Mặc định"}
+                </span>
+                {Boolean(currentBlockFontSize) && (
+                  <button
+                    type="button"
+                    onClick={handleResetFontSize}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Đặt lại
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {FONT_SIZE_PRESETS.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => handleFontSizeChange(size)}
+                    className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-all ${
+                      currentBlockFontSize === size
+                        ? "border-primary bg-primary/10 text-primary font-bold"
+                        : "border-border text-text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {FONT_SIZE_PRESETS.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => handleFontSizeChange(size)}
-                  className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-all ${
-                    (block as HeadingBlock | ParagraphBlock | ListBlock | CtaBlock).fontSize === size
-                      ? "border-primary bg-primary/10 text-primary font-bold"
-                      : "border-border text-text-muted hover:border-primary/40"
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Image: Direct upload, URL, alt, caption */}
         {block.type === "image" && (
@@ -955,9 +979,10 @@ export function PropertyPanel({
         )}
 
         {/* List Block Settings */}
-        {block.type === "list" && (() => {
+        {(block.type === "list" || block.type === "ordered_list") && (() => {
           const listBlock = block as ListBlock;
-          const currentListType: ListType = listBlock.listType ?? "bullet";
+          const currentListType: ListType =
+            listBlock.listType ?? (block.type === "ordered_list" ? "ordered" : "bullet");
           const currentListStyle: ListStyle =
             listBlock.listStyle ??
             (currentListType === "ordered" ? "decimal" : currentListType === "checklist" ? "checklist" : "disc");
@@ -2109,6 +2134,72 @@ export function PropertyPanel({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Quote Block Settings */}
+        {block.type === "quote" && (() => {
+          const quote = block as QuoteBlock;
+          return (
+            <div className="space-y-3 border-t border-border/50 pt-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Nội dung trích dẫn
+                </label>
+                <textarea
+                  value={quote.text || ""}
+                  onChange={(e) => onBlockChange?.({ ...quote, text: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                  placeholder="Nhập nội dung trích dẫn..."
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Tác giả
+                </label>
+                <input
+                  type="text"
+                  value={quote.author || ""}
+                  onChange={(e) => onBlockChange?.({ ...quote, author: e.target.value })}
+                  className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                  placeholder="Tên tác giả..."
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Nguồn / Chức vụ
+                </label>
+                <input
+                  type="text"
+                  value={quote.citation || ""}
+                  onChange={(e) => onBlockChange?.({ ...quote, citation: e.target.value })}
+                  className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                  placeholder="Nguồn / Chức vụ..."
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Highlight Block Settings */}
+        {block.type === "highlight" && (() => {
+          const hl = block as HighlightBlock;
+          return (
+            <div className="space-y-3 border-t border-border/50 pt-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Nội dung điểm nhấn
+                </label>
+                <textarea
+                  value={hl.text || ""}
+                  onChange={(e) => onBlockChange?.({ ...hl, text: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none"
+                  placeholder="Nhập nội dung điểm nhấn..."
+                />
               </div>
             </div>
           );

@@ -92,7 +92,10 @@ export function BlockCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-xs transition-shadow hover:shadow-sm">
+    <div
+      id={`block-${block.id}`}
+      className="overflow-hidden rounded-xl border border-border bg-surface shadow-xs transition-shadow hover:shadow-sm"
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/70 bg-surface-muted/60 px-4 py-2.5">
         <div className="flex items-center gap-2.5">

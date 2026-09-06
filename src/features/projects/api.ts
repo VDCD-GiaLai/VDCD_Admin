@@ -45,14 +45,23 @@ export function useProjects(filters?: ProjectFilters) {
 }
 
 export function useProject(id: string) {
-  const { data: projectsData, ...rest } = useProjects({ limit: 100 });
-  // Fallback to fetch single project via slug if not in list (BFF translates slug->id or we just fetch details)
-  // Actually, BFF might not have GET /projects/:id, only /projects/:slug.
-  // But wait! BFF endpoints for single item is usually by slug. The list has the full object though.
-  // The DB_SCHEMA says GET /projects/:slug
-  // For admin edit, we can rely on list cache.
-  const project = projectsData?.items?.find((p) => p.id === id);
-  return { data: project, ...rest };
+  return useQuery<Project>({
+    queryKey: projectKeys.detail(id),
+    queryFn: async () => {
+      try {
+        const res = await clientFetch<{ data?: Project } | Project>(
+          `/api/projects/admin/${id}`,
+        );
+        return (res as { data?: Project }).data ?? (res as Project);
+      } catch {
+        const res = await clientFetch<{ data?: Project } | Project>(
+          `/api/projects/${id}`,
+        );
+        return (res as { data?: Project }).data ?? (res as Project);
+      }
+    },
+    enabled: Boolean(id),
+  });
 }
 
 export function useCreateProject() {
@@ -79,6 +88,7 @@ export function useUpdateProject(id: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(id) });
     },
   });
 }
@@ -140,6 +150,7 @@ export function useUploadProjectImages(projectId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     },
   });
 }
@@ -157,6 +168,7 @@ export function useReorderProjectImages(projectId: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     },
   });
 }
@@ -173,6 +185,29 @@ export function useDeleteProjectImage(projectId: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+    },
+  });
+}
+
+/**
+ * Update project image metadata (caption, size)
+ */
+export function useUpdateProjectImage(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ProjectImage,
+    ApiError,
+    { imageId: string; caption?: string | null; size?: string }
+  >({
+    mutationFn: ({ imageId, caption, size }) =>
+      clientFetch<ProjectImage>(`/api/projects/${projectId}/images/${imageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ caption, size }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     },
   });
 }

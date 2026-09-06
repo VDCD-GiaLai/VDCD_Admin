@@ -8,6 +8,13 @@ export interface BlockSpacing {
   marginBottom?: number;
 }
 
+/** Standard Base Block interface */
+export interface BaseBlock {
+  id: string;
+  type: string;
+  spacing?: BlockSpacing;
+}
+
 // ─── Block Types ─────────────────────────────────────────────
 
 export interface HeadingBlock {
@@ -40,6 +47,7 @@ export interface ImageBlock {
 export interface ListItem {
   id: string;
   content: string;
+  text?: string;
   children: ListItem[];
   checked?: boolean;
 }
@@ -219,6 +227,14 @@ export interface SlideDetailBlogContent {
   blocks: SlideDetailBlogBlock[];
   heroMeta?: HeroMeta;
 }
+
+/** Generic unified aliases for SlideDetailBlogBlock & SlideDetailBlogContent */
+export type Block = SlideDetailBlogBlock;
+export type ContentBlock = SlideDetailBlogBlock;
+export type Document = SlideDetailBlogContent;
+export type DocumentContent = SlideDetailBlogContent;
+export type ContentDocument = SlideDetailBlogContent;
+export type BlogDocument = SlideDetailBlogContent;
 
 // ─── Entity Definitions ──────────────────────────────────────
 

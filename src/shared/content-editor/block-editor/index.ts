@@ -1,1 +1,1 @@
-export { BlockEditor, type BlockEditorProps } from "../editor/BlockEditor";
+export { BlockEditor, type BlockEditorProps } from "./BlockEditor";

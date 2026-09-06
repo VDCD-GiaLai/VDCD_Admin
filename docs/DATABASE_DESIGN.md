@@ -183,51 +183,55 @@
 
 ## project
 
-**Description:** Projects executed by VDCD with extensive case-study and transformation details
+**Description:** Projects executed by VDCD with extensive case-study and transformation details, edited via Visual Block Editor (Document Model) and Media Gallery
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | title | VARCHAR(255) | Not Null | Project name |
 | 3 | slug | VARCHAR(255) | Not Null, Unique | URL slug |
-| 4 | overview | TEXT | Nullable | Project overview (rich text HTML) |
-| 5 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
-| 6 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
-| 7 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
-| 8 | province_id | UUID | Nullable, FK → `province.id`, On Delete SET NULL | Implementation province/city |
-| 9 | year | INT | Nullable | Project implementation year |
-| 10 | challenge | TEXT | Nullable | Detailed problem/challenge description (HTML) |
-| 11 | challenge_image | VARCHAR(500) | Nullable | Challenge section illustration URL |
-| 12 | challenge_image_file_id | VARCHAR | Nullable | ImageKit file ID for challenge image |
-| 13 | services | TEXT | Nullable | List of provided services (stored as simple-array: string[]) |
-| 14 | discipline | VARCHAR(255) | Nullable | Project discipline / engineering area |
-| 15 | transformation_before | VARCHAR(500) | Nullable | Transformation "Before" image URL |
-| 16 | transformation_before_file_id | VARCHAR | Nullable | ImageKit file ID for "Before" image |
-| 17 | transformation_after | VARCHAR(500) | Nullable | Transformation "After" image URL |
-| 18 | transformation_after_file_id | VARCHAR | Nullable | ImageKit file ID for "After" image |
-| 19 | technical_highlights | JSONB | Nullable | Key metrics / technical highlights: `Array<{ label: string, value: string }>` |
-| 20 | next_project_slug | VARCHAR(255) | Nullable | Slug of the next project for detail page navigation |
-| 21 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
-| 22 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
-| 23 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
-| 24 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
-| 25 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+| 4 | content | JSONB | Not Null, Default: `'{"version":1,"blocks":[]}'` | Structured block content (Document Model version 1) |
+| 5 | content_html_backup | TEXT | Nullable, `select: false` | Backup of legacy HTML content (100% data preservation) |
+| 6 | overview | TEXT | Nullable | Project overview / lead excerpt (rich text HTML) |
+| 7 | thumbnail | VARCHAR(500) | Nullable | Thumbnail image URL |
+| 8 | thumbnail_file_id | VARCHAR | Nullable | ImageKit file ID for thumbnail |
+| 9 | field_id | UUID | Nullable, FK → `operation_field.id`, On Delete SET NULL | Associated operation field |
+| 10 | province_id | UUID | Nullable, FK → `province.id`, On Delete SET NULL | Implementation province/city |
+| 11 | year | INT | Nullable | Project implementation year |
+| 12 | challenge | TEXT | Nullable | Detailed problem/challenge description (HTML) |
+| 13 | challenge_image | VARCHAR(500) | Nullable | Challenge section illustration URL |
+| 14 | challenge_image_file_id | VARCHAR | Nullable | ImageKit file ID for challenge image |
+| 15 | services | TEXT | Nullable | List of provided services (stored as simple-array: string[]) |
+| 16 | discipline | VARCHAR(255) | Nullable | Project discipline / engineering area |
+| 17 | transformation_before | VARCHAR(500) | Nullable | Transformation "Before" image URL |
+| 18 | transformation_before_file_id | VARCHAR | Nullable | ImageKit file ID for "Before" image |
+| 19 | transformation_after | VARCHAR(500) | Nullable | Transformation "After" image URL |
+| 20 | transformation_after_file_id | VARCHAR | Nullable | ImageKit file ID for "After" image |
+| 21 | technical_highlights | JSONB | Nullable | Key metrics / technical highlights: `Array<{ label: string, value: string }>` |
+| 22 | next_project_slug | VARCHAR(255) | Nullable | Slug of the next project for detail page navigation |
+| 23 | meta_title | VARCHAR(255) | Nullable | SEO meta title |
+| 24 | meta_description | VARCHAR(255) | Nullable | SEO meta description |
+| 25 | is_published | BOOLEAN | Not Null, Default: FALSE | Published status |
+| 26 | created_at | TIMESTAMP | Not Null, Default: NOW() | Creation timestamp |
+| 27 | updated_at | TIMESTAMP | Not Null, Default: NOW() | Last updated timestamp |
+
+*Relation:* Has a 1-to-many relationship with `project_image` (media gallery).
 
 ---
 
 ## project_image
 
-**Description:** Project gallery and media showcase
+**Description:** Project gallery and media showcase (supports bulk upload, drag-and-drop ordering, captions, and responsive layout sizing)
 
 | No | Field | Data type | Constraints | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | id | UUID | Primary Key, Not Null | Unique identifier |
 | 2 | project_id | UUID | Not Null, FK → `project.id`, On Delete CASCADE | Project that owns this image |
-| 3 | url | VARCHAR(500) | Not Null | Image URL |
-| 4 | caption | VARCHAR(255) | Nullable | Image caption |
-| 5 | order | INT | Not Null, Default: 0 | Display order in gallery |
-| 6 | size | VARCHAR(20) | Not Null, Default: `'small'` · CHECK (`small`, `large`) | Display size in UI grid |
-| 7 | file_id | VARCHAR | Nullable | ImageKit file ID |
+| 3 | url | VARCHAR(500) | Not Null | Image URL (ImageKit CDN under `/vdcd/projects/{slug}/`) |
+| 4 | caption | VARCHAR(255) | Nullable | Image caption displayed underneath in Gallery & Reader |
+| 5 | order | INT | Not Null, Default: 0 | Display order in gallery (sortable via Drag & Drop) |
+| 6 | size | VARCHAR(20) | Not Null, Default: `'small'` · CHECK (`small`, `large`) | Display size in UI grid (`small` = 1 col, `large` = 2 cols) |
+| 7 | file_id | VARCHAR | Nullable | ImageKit file ID for asset lifecycle and cleanup |
 
 ---
 
@@ -514,7 +518,7 @@ erDiagram
         VARCHAR title
         VARCHAR slug UK
         TEXT short_description
-        TEXT content
+        JSONB content
         VARCHAR thumbnail
         VARCHAR thumbnail_file_id
         VARCHAR website_url
@@ -530,6 +534,8 @@ erDiagram
         UUID id PK
         VARCHAR title
         VARCHAR slug UK
+        JSONB content
+        TEXT content_html_backup
         TEXT overview
         VARCHAR thumbnail
         VARCHAR thumbnail_file_id
@@ -677,12 +683,14 @@ erDiagram
 
 # Block-based Document Model (`content` JSONB Specification)
 
-Three tables in the database store rich, structured editorial content as JSONB rather than legacy HTML text:
+Five tables in the database store rich, structured editorial content as JSONB rather than legacy HTML text:
 1. `slide_detail_blog` (`content` JSONB)
 2. `article` (`content` JSONB)
 3. `program` (`content` JSONB)
+4. `solution` (`content` JSONB)
+5. `project` (`content` JSONB)
 
-All three tables share the exact same standardized **Document Model** (`version: 1`), enabling unified validation, parsing, editing, and frontend rendering across the entire VDCD platform.
+All five tables share the exact same standardized **Document Model** (`version: 1`), enabling unified validation, parsing, editing, and frontend rendering across the entire VDCD platform.
 
 ### Document Root Schema
 
@@ -782,7 +790,7 @@ Every block in `blocks` must include a unique `id` and a recognized `type`. Opti
 - `text`: `string` (highlight box content).
 - `accentColor`: `string` (optional HEX accent color, defaults to brand red `#ca2a30`).
 
-#### 6. List Block (`type: "list"`)
+#### 6. List Block (`type: "list"` or `type: "ordered_list"`)
 ```json
 {
   "id": "blk_li_01",
@@ -790,24 +798,40 @@ Every block in `blocks` must include a unique `id` and a recognized `type`. Opti
   "listType": "unordered",
   "listStyle": "disc",
   "items": [
-    "Hỗ trợ kinh phí chuyển giao công nghệ cho HTX nông nghiệp.",
+    {
+      "id": "item_1",
+      "content": "Hỗ trợ kinh phí chuyển giao công nghệ cho HTX nông nghiệp.",
+      "children": []
+    },
     {
       "id": "item_sub_1",
       "content": "Tổ chức chuỗi workshop đào tạo ứng dụng GIS.",
-      "level": 1,
       "children": [
-        "Khóa 1: Nhập môn dữ liệu không gian.",
-        "Khóa 2: Vận hành thiết bị bay không người lái (UAV)."
+        {
+          "id": "item_sub_1_1",
+          "content": "Khóa 1: Nhập môn dữ liệu không gian.",
+          "children": []
+        },
+        {
+          "id": "item_sub_1_2",
+          "content": "Khóa 2: Vận hành thiết bị bay không người lái (UAV).",
+          "children": []
+        }
       ]
     },
-    "Tư vấn đăng ký sở hữu trí tuệ và nhãn hiệu tập thể."
+    {
+      "id": "item_2",
+      "content": "Tư vấn đăng ký sở hữu trí tuệ và nhãn hiệu tập thể.",
+      "children": []
+    }
   ],
   "spacing": { "marginTop": 16, "marginBottom": 20 }
 }
 ```
+- `type`: `"list"` (bulleted list) or `"ordered_list"` (numbered list).
 - `listType`: `"unordered"` | `"ordered"`.
 - `listStyle`: Bullet/number style (e.g. `"disc"`, `"circle"`, `"square"`, `"decimal"`, `"alpha"`).
-- `items`: Array of strings or structured `ListItem` nodes with nested `children` support.
+- `items`: Recursive array of structured `ListItem` nodes with nested `children` support (`ListItem: { id: string, content: string, children: ListItem[] }`). Keyboard interactions: `Enter` to add sibling, `Tab` to indent child, `Shift+Tab` to outdent, `Backspace` on empty item to merge/remove. Rendered recursively by `DocumentContentRenderer`.
 
 #### 7. Call-to-Action (CTA) Block (`type: "cta"`)
 ```json
@@ -869,6 +893,25 @@ Every block in `blocks` must include a unique `id` and a recognized `type`. Opti
 
 ---
 
+# Project Media Gallery Architecture (`project` vs `project_image`)
+
+In VDCD platform architecture, project media is strictly divided into two distinct concerns:
+
+1. **Document Content (`project.content` JSONB)**:
+   - Stores the narrative case study and editorial flow using the unified Document Model (`version: 1`).
+   - Image blocks embedded within `content.blocks` illustrate specific narrative points, technical diagrams, or method steps.
+2. **Project Gallery (`project_image` Table)**:
+   - Stores the dedicated photo gallery and field evidence showcase attached 1-to-many to the project.
+   - Preserved as dedicated database rows (`project_image[]`) rather than document blocks in Version 1.
+   - Key metadata:
+     - `caption`: Contextual description for field evidence.
+     - `order`: Drag-and-drop sortable display sequence.
+     - `size`: Presentation size toggle (`'small'` for 1-column standard photo, `'large'` for 2-column panoramic span).
+     - `file_id`: Direct ImageKit asset lifecycle tracking under `/vdcd/projects/{slug}/` with cascade cleanup on delete.
+     - `url`: Direct CDN URL.
+
+---
+
 # Migration & Schema Evolution History
 
 | Migration Timestamp | Name | Impacted Tables | Summary of Changes |
@@ -888,4 +931,7 @@ Every block in `blocks` must include a unique `id` and a recognized `type`. Opti
 | `1788254709454` | `AddSlideDetailBlog` | `slide_detail_blog` | Dedicated 1-to-1 slide detail article table with JSONB Document Model |
 | `1788300000000` | `RefactorArticleContentToJsonb` | `article` | Added `subtitle`, `excerpt`, `content_html_backup`; converted `content` to `JSONB`; added 6 performance indexes |
 | `1788400000000` | `RefactorProgramContentToJsonb` | `program` | Added `published_at`, `content_html_backup`; converted `content` to `JSONB`; added 3 performance indexes |
+| `1788500000000` | `RefactorSolutionContentToJsonb` | `solution` | Converted `content` to `JSONB` Document Model; added unified block validation |
+| `1788600000000` | `RefactorProjectContentToJsonb` | `project` | Added `content` (JSONB) and `content_html_backup` (TEXT); integrated canonical Document Model |
+| `1788650000000` | `EnhanceProjectGalleryMetadata` | `project_image` | Added `size` column ('small'/'large') and API endpoint for caption/size editing |
 

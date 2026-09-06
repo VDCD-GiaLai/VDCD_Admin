@@ -36,7 +36,7 @@ import { createListBlock } from "../paste/list-helpers";
 
 type ViewportMode = "desktop" | "tablet" | "mobile";
 
-interface VisualEditorCanvasProps {
+export interface VisualEditorCanvasProps {
   title: string;
   subtitle?: string | null;
   excerpt?: string | null;
@@ -47,6 +47,15 @@ interface VisualEditorCanvasProps {
   onSubtitleChange: (subtitle: string) => void;
   onExcerptChange: (excerpt: string) => void;
   onHeroImageChange?: (url: string, fileId?: string) => void;
+
+  /** Slot rendered above title (e.g., categories, badges) */
+  headerSlot?: React.ReactNode;
+  /** Slot rendered between hero/header and the block content stream */
+  beforeContentSlot?: React.ReactNode;
+  /** Slot rendered after the block content stream */
+  afterContentSlot?: React.ReactNode;
+  /** Custom simulated URL for the browser bar (fallback: vdcd.vn/slide-detail-blogs/...) */
+  simulatedUrl?: string;
 }
 
 const VIEWPORT_CONFIG: Record<ViewportMode, { label: string; maxWidth: string; icon: React.ReactNode }> = {
@@ -103,6 +112,12 @@ function createDefaultBlock(
       return { id, type: "image", url: "", fileId: null, alt: "", caption: null };
     case "list":
       return createListBlock({ id });
+    case "ordered_list":
+      return createListBlock({ id, listType: "ordered" });
+    case "quote":
+      return { id, type: "quote", text: "", author: "", citation: "" };
+    case "highlight":
+      return { id, type: "highlight", text: "" };
     case "section": {
       const sectionCount = existingBlocks.filter((b) => b.type === "section").length;
       return {
@@ -131,6 +146,10 @@ export function VisualEditorCanvas({
   onSubtitleChange,
   onExcerptChange,
   onHeroImageChange,
+  headerSlot,
+  beforeContentSlot,
+  afterContentSlot,
+  simulatedUrl,
 }: VisualEditorCanvasProps) {
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
   const [selectedBlockId, setSelectedBlockId] = useState<string>("");
@@ -439,6 +458,7 @@ export function VisualEditorCanvas({
 
   const renderHeroHeader = () => (
     <div className="space-y-2">
+      {headerSlot && <div className="ve-header-slot mb-3">{headerSlot}</div>}
       {/* Editable subtitle */}
       <p
         ref={subtitleRef}
@@ -731,7 +751,9 @@ export function VisualEditorCanvas({
             <div className="h-2.5 w-2.5 rounded-full bg-warning/40" />
             <div className="h-2.5 w-2.5 rounded-full bg-success/40" />
             <div className="ml-3 flex-1 rounded-md bg-surface-muted px-3 py-1">
-              <span className="text-[10px] text-text-muted/60">vdcd.vn/slide-detail-blogs/...</span>
+              <span className="text-[10px] text-text-muted/60 font-mono">
+                {simulatedUrl ? `https://${simulatedUrl}` : "vdcd.vn/slide-detail-blogs/..."}
+              </span>
             </div>
           </div>
 
@@ -771,6 +793,13 @@ export function VisualEditorCanvas({
                 </>
               )}
             </div>
+
+            {/* Custom Before Content Slot (e.g. Project Specs, Overview Cards) */}
+            {beforeContentSlot && (
+              <div className="ve-before-content-slot border-b border-border/50">
+                {beforeContentSlot}
+              </div>
+            )}
 
             {/* Content Body with blocks */}
             <div className="blog-preview-body">
@@ -819,6 +848,13 @@ export function VisualEditorCanvas({
                 </DndContext>
               )}
             </div>
+
+            {/* Custom After Content Slot (e.g. Project Gallery) */}
+            {afterContentSlot && (
+              <div className="ve-after-content-slot border-t border-border/50">
+                {afterContentSlot}
+              </div>
+            )}
           </div>
         </div>
 

@@ -73,18 +73,26 @@ export function normalizeListItem(raw: unknown): ListItem {
     return {
       id: generateListItemId(),
       content: raw,
+      text: raw,
       children: [],
     };
   }
 
   if (raw && typeof raw === "object") {
     const obj = raw as Record<string, unknown>;
+    const val =
+      typeof obj.content === "string" && obj.content
+        ? obj.content
+        : typeof obj.text === "string" && obj.text
+          ? obj.text
+          : "";
     return {
       id:
         typeof obj.id === "string" && obj.id.trim() && !obj.id.startsWith("temp_")
           ? obj.id
           : generateListItemId(),
-      content: typeof obj.content === "string" ? obj.content : "",
+      content: val,
+      text: val,
       ...(typeof obj.checked === "boolean" ? { checked: obj.checked } : {}),
       children: Array.isArray(obj.children)
         ? obj.children.map(normalizeListItem)
@@ -95,6 +103,7 @@ export function normalizeListItem(raw: unknown): ListItem {
   return {
     id: generateListItemId(),
     content: "",
+    text: "",
     children: [],
   };
 }
