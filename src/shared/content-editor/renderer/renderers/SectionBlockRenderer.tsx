@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from "react";
 import { useSanitizedPaste } from "../../paste/useSanitizedPaste";
+import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import { HeadingBlockRenderer } from "./HeadingBlockRenderer";
 import { ParagraphBlockRenderer } from "./ParagraphBlockRenderer";
 import { ImageBlockRenderer } from "./ImageBlockRenderer";
@@ -34,10 +35,15 @@ export function SectionBlockRenderer({
 }: SectionBlockRendererProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: false });
+  const { handleInput } = useContentEditableSync(titleRef, {
+    html: block.title || "",
+    enabled: editable,
+  });
 
   const handleTitleBlur = useCallback(() => {
     if (titleRef.current && onTitleChange) {
-      onTitleChange(titleRef.current.textContent ?? "");
+      const text = titleRef.current.textContent?.trim() ?? "";
+      onTitleChange(text ? titleRef.current.innerHTML : "");
     }
   }, [onTitleChange]);
 
@@ -59,19 +65,22 @@ export function SectionBlockRenderer({
             className="blog-preview-section-title ve-editable"
             contentEditable
             suppressContentEditableWarning
+            onInput={handleInput}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             onPaste={handlePaste}
             data-placeholder="Nhập tiêu đề nhóm nội dung..."
-            dangerouslySetInnerHTML={{ __html: block.title || "" }}
+          />
+        ) : block.title ? (
+          <h2
+            className="blog-preview-section-title"
+            dangerouslySetInnerHTML={{ __html: block.title }}
           />
         ) : (
           <h2 className="blog-preview-section-title">
-            {block.title || (
-              <span className="italic text-text-muted/50">
-                (Chưa có tiêu đề section)
-              </span>
-            )}
+            <span className="italic text-text-muted/50">
+              (Chưa có tiêu đề section)
+            </span>
           </h2>
         )}
       </div>

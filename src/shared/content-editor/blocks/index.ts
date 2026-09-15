@@ -6,3 +6,4 @@ export * from "./SectionBlockItem";
 export * from "./CtaBlockItem";
 export * from "./BlockCard";
 export * from "./BlockPicker";
+export * from "./BlockFormatToolbar";

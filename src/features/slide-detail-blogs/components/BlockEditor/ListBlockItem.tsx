@@ -87,10 +87,13 @@ function ListItemInput({
   const { handleKeyDown: handleShortcutKeyDown } = useHtmlShortcuts(onChange);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // 1. Text formatting shortcuts (Ctrl+B, Ctrl+I, Ctrl+U)
-    if ((e.ctrlKey || e.metaKey) && ["b", "i", "u"].includes(e.key.toLowerCase())) {
-      handleShortcutKeyDown(e);
-      return;
+    // 1. Text formatting shortcuts (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+Shift+X, Ctrl+K, Ctrl+\, etc.)
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (["b", "i", "u", "x", "s", "c", "e", "`", "h", "k", "\\"].includes(key)) {
+        handleShortcutKeyDown(e);
+        return;
+      }
     }
 
     const input = e.currentTarget;
@@ -798,12 +801,18 @@ export function ListBlockItem({ block, onChange }: ListBlockItemProps) {
         <span>•</span>
         <span><kbd className="rounded border border-border bg-surface-muted px-1 py-0.5 font-mono text-[10px]">Backspace</kbd> gộp / xoá</span>
         <span>•</span>
-        <kbd className="rounded border border-border bg-surface-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+B</kbd>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+B</kbd>
         <span>Đậm</span>
-        <kbd className="rounded border border-border bg-surface-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+I</kbd>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd>
         <span>Nghiêng</span>
-        <kbd className="rounded border border-border bg-surface-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+U</kbd>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+U</kbd>
         <span>Gạch chân</span>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+Shift+X</kbd>
+        <span>Gạch ngang</span>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+K</kbd>
+        <span>Link</span>
+        <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+\</kbd>
+        <span>Xóa định dạng</span>
       </div>
     </div>
   );

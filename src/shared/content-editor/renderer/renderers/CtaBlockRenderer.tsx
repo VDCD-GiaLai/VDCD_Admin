@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useRef, useCallback, useMemo } from "react";
 import { useSanitizedPaste } from "../../paste/useSanitizedPaste";
+import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import {
   getCtaButtons,
   type CtaBlock,
@@ -15,6 +16,47 @@ export interface CtaBlockRendererProps {
   onSecondaryLabelChange?: (secondaryLabel: string) => void;
   onButtonLabelChange?: (buttonIndex: number, label: string) => void;
   onSelect?: () => void;
+}
+
+function CtaEditableButton({
+  label,
+  fontStyle,
+  placeholder,
+  onBlur,
+  onKeyDown,
+  onPaste,
+}: {
+  label: string;
+  fontStyle?: React.CSSProperties;
+  placeholder: string;
+  onBlur: (text: string) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLElement>) => void;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const { handleInput } = useContentEditableSync(ref, {
+    html: label || "",
+    enabled: true,
+  });
+
+  return (
+    <span
+      ref={ref}
+      className="ve-editable outline-none"
+      style={fontStyle}
+      contentEditable
+      suppressContentEditableWarning
+      onInput={handleInput}
+      onBlur={(e) => {
+        const text = e.currentTarget.textContent?.trim() ?? "";
+        onBlur(text ? e.currentTarget.innerHTML : "");
+      }}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
+      onClick={(e) => e.stopPropagation()}
+      data-placeholder={placeholder}
+    />
+  );
 }
 
 export function CtaBlockRenderer({
@@ -84,7 +126,7 @@ export function CtaBlockRenderer({
       className={`blog-preview-cta w-full ${editable ? "cursor-pointer" : ""}`}
       onClick={editable ? onSelect : undefined}
       role={editable ? "button" : undefined}
-      tabIndex={editable ? 0 : undefined}
+      tabIndex={editable ? -1 : undefined}
     >
       <div
         className={`flex items-center flex-wrap max-w-full py-1 ${
@@ -110,19 +152,13 @@ export function CtaBlockRenderer({
                       : "bg-gradient-to-r from-primary to-[#b82228] text-white shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
                   }`}
                 >
-                  <span
-                    className="ve-editable outline-none"
-                    style={fontStyle}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) =>
-                      handleButtonBlur(index, e.currentTarget.textContent ?? "")
-                    }
+                  <CtaEditableButton
+                    label={btn.label || ""}
+                    fontStyle={fontStyle}
+                    placeholder={`Nút ${index + 1}`}
+                    onBlur={(text) => handleButtonBlur(index, text)}
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
-                    onClick={(e) => e.stopPropagation()}
-                    data-placeholder={`Nút ${index + 1}`}
-                    dangerouslySetInnerHTML={{ __html: btn.label || "" }}
                   />
                   <span
                     className={`blog-preview-cta-icon flex h-5 w-5 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5 ${
@@ -162,7 +198,11 @@ export function CtaBlockRenderer({
                     if (!btn.url) e.preventDefault();
                   }}
                 >
-                  <span>{btn.label || `Nút ${index + 1}`}</span>
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: btn.label || `Nút ${index + 1}`,
+                    }}
+                  />
                   <span
                     className={`blog-preview-cta-icon flex h-5 w-5 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5 ${
                       isOutline

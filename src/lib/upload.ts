@@ -36,6 +36,7 @@ export interface UploadResult {
  * - "partner" → POST /upload/image/partner
  * - "project" → POST /upload/image/project
  * - "article" → POST /upload/image/article (under vdcd/articles/<slug>)
+ * - "about-us" → POST /upload/image/about-us (under /vdcd/about-us)
  */
 export type UploadFolder =
   | "image"
@@ -46,13 +47,14 @@ export type UploadFolder =
   | "project"
   | "article"
   | "program"
-  | "solution";
+  | "solution"
+  | "about-us";
 
 /** Options for uploading an image */
 export interface UploadImageOptions {
   /**
    * Optional subfolder name under the main folder (e.g. "bai-viet", "so-hoa-du-lieu").
-   * Supported by "slide", "slide-detail-blog", "article", "program", and "solution" endpoints.
+   * Supported by "slide", "slide-detail-blog", "article", "program", "solution", and "about-us" endpoints.
    */
   subfolder?: string;
   /**
@@ -273,4 +275,36 @@ export function validateImageFile(file: File): string | null {
     return `File không được vượt quá 10MB. Hiện tại: ${(file.size / 1024 / 1024).toFixed(2)}MB`;
   }
   return null;
+}
+
+// ─── ImageKit Deletion helper ────────────────────────────────
+
+/**
+ * Delete an uploaded file from ImageKit by its unique file ID.
+ * Request goes through the BFF proxy: DELETE /api/upload/:fileId -> NestJS DELETE /upload/:fileId.
+ *
+ * @param fileId - ImageKit file ID
+ * @throws ApiError if deletion fails
+ */
+export async function deleteUploadedImage(fileId: string): Promise<void> {
+  if (!fileId || typeof fileId !== "string" || !fileId.trim()) return;
+
+  try {
+    await axios.delete(`/api/upload/${encodeURIComponent(fileId.trim())}`);
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      const body = err.response.data as {
+        message?: string | string[];
+        statusCode?: number;
+      };
+      const msg =
+        typeof body?.message === "string"
+          ? body.message
+          : Array.isArray(body?.message)
+            ? body.message.join(", ")
+            : "Xóa ảnh thất bại";
+      throw new ApiError(err.response.status, msg, body);
+    }
+    throw err;
+  }
 }

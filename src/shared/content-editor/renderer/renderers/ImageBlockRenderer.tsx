@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState } from "react";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
 import { useDocumentUpload } from "../../media/DocumentUploadContext";
 import { useSanitizedPaste } from "../../paste/useSanitizedPaste";
+import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import { Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import type { ImageBlock } from "../../model/document.types";
@@ -12,6 +13,8 @@ export interface ImageBlockRendererProps {
   onSelect?: () => void;
   onCaptionChange?: (caption: string) => void;
   onImageUpdate?: (url: string, fileId?: string) => void;
+  /** Called with the old fileId when an image is replaced/removed, for soft-delete tracking */
+  onImageDiscard?: (fileId: string) => void;
 }
 
 export function ImageBlockRenderer({
@@ -20,6 +23,7 @@ export function ImageBlockRenderer({
   onSelect,
   onCaptionChange,
   onImageUpdate,
+  onImageDiscard,
 }: ImageBlockRendererProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLElement>(null);
@@ -31,6 +35,12 @@ export function ImageBlockRenderer({
   const { subfolder, uploadDocumentImage } = useDocumentUpload();
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: false });
 
+  // Sync caption from block prop safely (won't overwrite user typing mid-edit)
+  const { handleInput: handleCaptionInput } = useContentEditableSync(
+    captionRef as React.RefObject<HTMLElement | null>,
+    { html: block.caption || "", enabled: editable },
+  );
+
   if (block.url !== prevBlockUrl) {
     setPrevBlockUrl(block.url);
     setHasError(false);
@@ -41,7 +51,8 @@ export function ImageBlockRenderer({
 
   const handleCaptionBlur = useCallback(() => {
     if (captionRef.current && onCaptionChange) {
-      onCaptionChange(captionRef.current.textContent ?? "");
+      const text = captionRef.current.textContent?.trim() ?? "";
+      onCaptionChange(text ? captionRef.current.innerHTML : "");
     }
   }, [onCaptionChange]);
 
@@ -58,6 +69,11 @@ export function ImageBlockRenderer({
           color: "danger",
         });
         return;
+      }
+
+      // Soft-delete old image: track old fileId before uploading new one
+      if (block.fileId) {
+        onImageDiscard?.(block.fileId);
       }
 
       const tempUrl = URL.createObjectURL(file);
@@ -79,7 +95,7 @@ export function ImageBlockRenderer({
         }
       }
     },
-    [onImageUpdate, toast, uploadDocumentImage],
+    [block.fileId, onImageUpdate, onImageDiscard, toast, uploadDocumentImage],
   );
 
   const triggerUpload = useCallback(
@@ -220,18 +236,18 @@ export function ImageBlockRenderer({
           className="mt-2.5 text-center text-sm italic text-text-muted ve-editable"
           contentEditable
           suppressContentEditableWarning
+          onInput={handleCaptionInput}
           onBlur={handleCaptionBlur}
           onPaste={handlePaste}
           onClick={(e) => e.stopPropagation()}
           data-placeholder="Thêm chú thích ảnh..."
-        >
-          {block.caption || ""}
-        </figcaption>
+        />
       ) : (
         block.caption && (
-          <figcaption className="mt-2.5 text-center text-sm italic text-text-muted">
-            {block.caption}
-          </figcaption>
+          <figcaption
+            className="mt-2.5 text-center text-sm italic text-text-muted"
+            dangerouslySetInnerHTML={{ __html: block.caption }}
+          />
         )
       )}
     </figure>

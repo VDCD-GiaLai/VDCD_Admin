@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useMemo } from "react";
 import { useSanitizedPaste } from "../../../hooks/useSanitizedPaste";
+import { useContentEditableSync } from "../../../hooks/useContentEditableSync";
 import type { ParagraphBlock } from "@/types/slide-detail-blog";
 
 interface ParagraphBlockRendererProps {
@@ -15,6 +16,10 @@ export function ParagraphBlockRenderer({
 }: ParagraphBlockRendererProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: true });
+  const { handleInput } = useContentEditableSync(ref, {
+    html: block.text || "",
+    enabled: editable,
+  });
   const fontStyle = useMemo(
     () => (block.fontSize ? { fontSize: `${block.fontSize}px` } : undefined),
     [block.fontSize],
@@ -43,10 +48,10 @@ export function ParagraphBlockRenderer({
         style={fontStyle}
         contentEditable
         suppressContentEditableWarning
+        onInput={handleInput}
         onBlur={handleBlur}
         onPaste={handlePaste}
         data-placeholder="Nhập nội dung đoạn văn..."
-        dangerouslySetInnerHTML={{ __html: block.text || "" }}
       />
     );
   }

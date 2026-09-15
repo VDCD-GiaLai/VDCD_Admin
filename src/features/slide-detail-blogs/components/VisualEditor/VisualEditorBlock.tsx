@@ -23,6 +23,8 @@ import {
   type SectionBlock,
   type SectionChildBlock,
   type CtaBlock,
+  type QuoteBlock,
+  type HighlightBlock,
 } from "@/types/slide-detail-blog";
 import { createListBlock } from "../../utils/list-helpers";
 
@@ -37,6 +39,8 @@ interface VisualEditorBlockProps {
   onMoveDown: (index: number) => void;
   onDuplicate: (index: number) => void;
   onDelete: (index: number) => void;
+  /** Called with a fileId when an image block's file is discarded (for soft-delete) */
+  onImageDiscard?: (fileId: string) => void;
 }
 
 const BLOCK_TYPE_LABELS: Record<SlideDetailBlogBlock["type"], string> = {
@@ -62,6 +66,7 @@ function VisualEditorBlockInner({
   onMoveDown,
   onDuplicate,
   onDelete,
+  onImageDiscard,
 }: VisualEditorBlockProps) {
   const {
     attributes,
@@ -91,31 +96,50 @@ function VisualEditorBlockInner({
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      // Don't select if user is editing text (contentEditable)
       const target = e.target as HTMLElement;
-      if (target.isContentEditable) return;
+
+      // Do not process clicks inside the toolbar
+      if (target.closest(".ve-block-toolbar")) {
+        return;
+      }
+
+      // Check if user clicked/dragged inside an editable element or has active selection
+      const editableEl = target.closest<HTMLElement>(
+        '.ve-editable, [contenteditable="true"], input, textarea'
+      );
+      const hasSelection = !window.getSelection()?.isCollapsed;
+
+      // If user is interacting with text or has selected text, keep block selected but DO NOT collapse or steal focus
+      if (editableEl || hasSelection) {
+        onSelect(block.id);
+        return;
+      }
+
       onSelect(block.id);
 
-      // If clicking inside wrapper but not on toolbar or button, focus the editable element
-      if (!target.closest(".ve-block-toolbar") && !target.closest("button") && !target.closest("input")) {
+      // If clicking inside wrapper background (outside toolbar & buttons), focus the editable element
+      if (!target.closest(".ve-block-toolbar") && !target.closest("button")) {
         const editable = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(
-          '[contenteditable="true"], input:not([type="hidden"]), textarea'
+          '.ve-editable, [contenteditable="true"], input:not([type="hidden"]), textarea'
         );
         if (editable && document.activeElement !== editable) {
           editable.focus();
-          try {
-            const selection = window.getSelection();
-            if (selection) {
-              const range = document.createRange();
-              range.selectNodeContents(editable);
-              range.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            }
-          } catch {
-            // ignore
-          }
         }
+      }
+    },
+    [block.id, onSelect],
+  );
+
+  const handleFocusCapture = useCallback(
+    (e: React.FocusEvent) => {
+      const target = e.target as HTMLElement;
+      // When an editable element inside this block receives focus, select this block
+      if (
+        !target.closest(".ve-block-toolbar") &&
+        (target.matches?.('.ve-editable, [contenteditable="true"], input, textarea') ||
+          Boolean(target.closest?.('.ve-editable, [contenteditable="true"], input, textarea')))
+      ) {
+        onSelect(block.id);
       }
     },
     [block.id, onSelect],
@@ -138,6 +162,10 @@ function VisualEditorBlockInner({
         onBlockChange(index, { ...block, text } as HeadingBlock);
       } else if (block.type === "paragraph") {
         onBlockChange(index, { ...block, text } as ParagraphBlock);
+      } else if (block.type === "quote") {
+        onBlockChange(index, { ...block, text } as QuoteBlock);
+      } else if (block.type === "highlight") {
+        onBlockChange(index, { ...block, text } as HighlightBlock);
       }
     },
     [block, index, onBlockChange],
@@ -275,6 +303,11 @@ function VisualEditorBlockInner({
   const handleImageUpdate = useCallback(
     (url: string, fileId?: string) => {
       if (block.type === "image") {
+        // Soft-delete: if replacing image, track old fileId
+        const oldFileId = (block as ImageBlock).fileId;
+        if (oldFileId && oldFileId !== fileId) {
+          onImageDiscard?.(oldFileId);
+        }
         onBlockChange(index, {
           ...block,
           url,
@@ -282,7 +315,7 @@ function VisualEditorBlockInner({
         } as ImageBlock);
       }
     },
-    [block, index, onBlockChange],
+    [block, index, onBlockChange, onImageDiscard],
   );
 
   const handleImageSelect = useCallback(() => {
@@ -316,6 +349,7 @@ function VisualEditorBlockInner({
             onSelect={handleImageSelect}
             onCaptionChange={handleImageCaptionChange}
             onImageUpdate={handleImageUpdate}
+            onImageDiscard={onImageDiscard}
           />
         );
       case "list":
@@ -349,6 +383,53 @@ function VisualEditorBlockInner({
             onSelect={handleImageSelect}
           />
         );
+      case "quote": {
+        const quote = block as QuoteBlock;
+        return (
+          <blockquote className="blog-preview-quote my-4 border-l-4 border-primary pl-4 italic text-text-muted">
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => handleTextChange(e.currentTarget.innerText)}
+              className="ve-editable outline-none focus:ring-1 focus:ring-primary/40 rounded px-1"
+            >
+              {quote.text || "Nội dung trích dẫn..."}
+            </div>
+            <footer className="mt-1 flex items-center gap-2 text-xs not-italic text-text-muted/80">
+              <span>—</span>
+              <input
+                type="text"
+                placeholder="Tác giả"
+                value={quote.author || ""}
+                onChange={(e) => onBlockChange(index, { ...quote, author: e.target.value })}
+                className="bg-transparent border-b border-border/50 focus:border-primary text-xs outline-none py-0.5"
+              />
+              <input
+                type="text"
+                placeholder="Nguồn / Chức vụ"
+                value={quote.citation || ""}
+                onChange={(e) => onBlockChange(index, { ...quote, citation: e.target.value })}
+                className="bg-transparent border-b border-border/50 focus:border-primary text-xs outline-none py-0.5"
+              />
+            </footer>
+          </blockquote>
+        );
+      }
+      case "highlight": {
+        const hl = block as HighlightBlock;
+        return (
+          <div className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 font-medium text-text">
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => handleTextChange(e.currentTarget.innerText)}
+              className="ve-editable outline-none focus:ring-1 focus:ring-primary/40 rounded px-1"
+            >
+              {hl.text || "Nội dung điểm nhấn..."}
+            </div>
+          </div>
+        );
+      }
       default:
         return (
           <div className="rounded-lg border-2 border-dashed border-danger/30 bg-danger/5 px-4 py-6 text-center">
@@ -370,9 +451,10 @@ function VisualEditorBlockInner({
       style={style}
       className={`ve-block-wrapper ${isSelected ? "ve-block-selected" : ""} ${isDragging ? "ve-block-dragging" : ""}`}
       onClick={handleClick}
+      onFocusCapture={handleFocusCapture}
       onKeyDown={handleKeyDown}
       role="article"
-      tabIndex={0}
+      tabIndex={-1}
       aria-label={`Khối ${BLOCK_TYPE_LABELS[block.type] || block.type}`}
     >
       {/* Block type label (shown on hover) */}

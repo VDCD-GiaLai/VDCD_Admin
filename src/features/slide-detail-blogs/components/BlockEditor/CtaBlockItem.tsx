@@ -78,14 +78,6 @@ export function CtaBlockItem({ block, onChange }: CtaBlockItemProps) {
     [buttons, updateButtons],
   );
 
-  const handlePrimaryLabelChange = useCallback(
-    (newValue: string) => {
-      handleUpdateButton(0, { label: newValue });
-    },
-    [handleUpdateButton],
-  );
-
-  const { handleKeyDown } = useHtmlShortcuts(handlePrimaryLabelChange);
 
   const LABEL_PRESETS = [
     "Đăng ký nhu cầu đào tạo",
@@ -397,13 +389,10 @@ export function CtaBlockItem({ block, onChange }: CtaBlockItemProps) {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {/* Nhãn nút */}
                 <div className="space-y-1.5">
-                  <FormInput
-                    label="Nhãn nút"
-                    isRequired
+                  <CtaButtonLabelInput
                     placeholder={`VD: ${idx === 0 ? "Đăng ký nhu cầu đào tạo" : "Trao đổi với trung tâm"}`}
                     value={btn.label}
-                    onChange={(e) => handleUpdateButton(idx, { label: e.target.value })}
-                    onKeyDown={idx === 0 ? handleKeyDown : undefined}
+                    onChange={(val) => handleUpdateButton(idx, { label: val })}
                   />
                   <div className="flex flex-wrap items-center gap-1 pt-1">
                     <span className="text-[11px] font-medium text-text-muted">Gợi ý:</span>
@@ -522,5 +511,28 @@ export function CtaBlockItem({ block, onChange }: CtaBlockItemProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function CtaButtonLabelInput({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  onChange: (val: string) => void;
+}) {
+  const { handleKeyDown } = useHtmlShortcuts(onChange);
+  return (
+    <FormInput
+      label="Nhãn nút"
+      isRequired
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={handleKeyDown}
+      helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng)..."
+    />
   );
 }

@@ -135,8 +135,8 @@ export interface CtaButtonItem {
 export interface CtaBlock {
   id: string;
   type: "cta";
-  label: string;
-  url: string;
+  label?: string;
+  url?: string;
   secondaryLabel?: string;
   secondaryUrl?: string;
   items?: CtaButtonItem[];

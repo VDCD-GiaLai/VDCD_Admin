@@ -46,6 +46,7 @@ export const listItemSchema: z.ZodType<ListItem, ListItem> = z.lazy(() =>
   z.object({
     id: z.string(),
     content: z.string().min(1, "Mục không được để trống"),
+    text: z.string().optional(),
     children: z.array(listItemSchema),
     checked: z.boolean().optional(),
   }),

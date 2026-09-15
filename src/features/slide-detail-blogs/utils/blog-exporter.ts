@@ -202,7 +202,7 @@ ${childrenHTML}
       };
       const ctaStyleAttr = styleObjectToCSS(ctaStyle);
       return `<div style="text-align: center;">
-  <a href="${escapeHTML(cta.url)}" class="blog-cta-button" style="${ctaStyleAttr}">${escapeHTML(cta.label)}</a>
+  <a href="${escapeHTML(cta.url || "#")}" class="blog-cta-button" style="${ctaStyleAttr}">${escapeHTML(cta.label || "")}</a>
 </div>`;
     }
     default:

@@ -26,12 +26,18 @@ export function VisualEditorToolbar({
   dragHandleProps,
 }: VisualEditorToolbarProps) {
   return (
-    <div className="ve-block-toolbar" role="toolbar" aria-label="Block actions">
+    <div
+      className="ve-block-toolbar"
+      role="toolbar"
+      aria-label="Block actions"
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Drag handle */}
       <button
         type="button"
         className="ve-toolbar-btn cursor-grab active:cursor-grabbing"
         aria-label="Kéo di chuyển"
+        onClick={(e) => e.stopPropagation()}
         {...dragHandleProps}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
@@ -45,7 +51,10 @@ export function VisualEditorToolbar({
       <button
         type="button"
         className="ve-toolbar-btn"
-        onClick={onMoveUp}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMoveUp();
+        }}
         disabled={isFirst}
         aria-label="Di chuyển lên"
       >
@@ -58,7 +67,10 @@ export function VisualEditorToolbar({
       <button
         type="button"
         className="ve-toolbar-btn"
-        onClick={onMoveDown}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMoveDown();
+        }}
         disabled={isLast}
         aria-label="Di chuyển xuống"
       >
@@ -73,7 +85,10 @@ export function VisualEditorToolbar({
       <button
         type="button"
         className="ve-toolbar-btn"
-        onClick={onDuplicate}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDuplicate();
+        }}
         aria-label="Nhân đôi"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
@@ -86,7 +101,10 @@ export function VisualEditorToolbar({
       <button
         type="button"
         className="ve-toolbar-btn ve-toolbar-btn-danger"
-        onClick={onDelete}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
         aria-label="Xoá khối"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">

@@ -255,8 +255,51 @@ body {
 .blog-preview-excerpt {
   font-size: 1rem;
   line-height: 1.65;
-  color: var(--color-text-muted, #6C7E96);
+  color: var(--color-text, #011A42);
   margin-top: 0.75rem;
+}
+
+.blog-preview-excerpt strong,
+.blog-preview-excerpt b {
+  font-weight: 700;
+  color: var(--color-text, #011A42);
+}
+
+.blog-preview-excerpt em,
+.blog-preview-excerpt i {
+  font-style: italic;
+}
+
+.blog-preview-excerpt u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.blog-preview-excerpt del,
+.blog-preview-excerpt s {
+  text-decoration: line-through;
+}
+
+.blog-preview-excerpt code {
+  font-family: monospace;
+  background-color: var(--color-surface-muted, #F9F7FC);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  color: var(--color-text, #011A42);
+}
+
+.blog-preview-excerpt mark {
+  background-color: #fef08a;
+  color: #854d0e;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.blog-preview-excerpt a {
+  color: var(--color-primary, #ca2a30);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ── Content Body ── */
@@ -700,11 +743,14 @@ ol.blog-preview-list {
 }
 
 /* ── Editable elements ── */
-.ve-editable {
+.ve-editable,
+.ve-editable-list {
   cursor: text;
   border-radius: 0.25rem;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
   min-height: 1.5em;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .ve-editable:hover {

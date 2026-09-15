@@ -20,12 +20,14 @@ import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
 import { articleSchema, type ArticleFormData } from "@/features/articles/schema";
 import { parseArticleContent } from "@/features/articles/utils/article-content";
-import { BlockEditor } from "@/features/slide-detail-blogs/components/BlockEditor";
+import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/components/BlockEditor";
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
+import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
 import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
+import { FloatingSaveBar } from "@/components/shared";
 import { format } from "date-fns";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
 
@@ -67,7 +69,7 @@ export default function EditArticlePage() {
     setValue,
     reset,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ArticleFormData>({
     resolver: zodResolver(articleSchema),
     defaultValues: {
@@ -135,6 +137,25 @@ export default function EditArticlePage() {
   const watchedProgramId = useWatch({ control, name: "programId" });
   const watchedSolutionId = useWatch({ control, name: "solutionId" });
   const watchedContent = useWatch({ control, name: "content" }) as SlideDetailBlogContent;
+
+  // Formatting shortcuts and refs for metadata fields
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const subtitleInputRef = useRef<HTMLInputElement>(null);
+  const excerptInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { handleKeyDown: handleTitleKeyDown, applyFormat: applyTitleFormat } = useHtmlShortcuts(
+    (val) => setValue("title", val, { shouldDirty: true, shouldValidate: true }),
+  );
+  const { handleKeyDown: handleSubtitleKeyDown, applyFormat: applySubtitleFormat } = useHtmlShortcuts(
+    (val) => setValue("subtitle", val, { shouldDirty: true }),
+  );
+  const { handleKeyDown: handleExcerptKeyDown, applyFormat: applyExcerptFormat } = useHtmlShortcuts(
+    (val) => setValue("excerpt", val, { shouldDirty: true }),
+  );
+
+  const titleRegister = register("title");
+  const subtitleRegister = register("subtitle");
+  const excerptRegister = register("excerpt");
 
   const currentThumbnailPreview = thumbPreviewUrl ?? watchedThumbnail ?? null;
   const isThumbLoadError = Boolean(
@@ -405,23 +426,53 @@ export default function EditArticlePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-5">
-              <FormInput
-                label="Tiêu đề bài viết (Title)"
-                isRequired
-                placeholder="VD: Hội nghị chuyển đổi số toàn diện tỉnh Gia Lai..."
-                errorMessage={errors.title?.message}
-                {...register("title")}
-                onPaste={handlePlainPaste}
-              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-text">
+                    Tiêu đề bài viết (Title) <span className="text-danger">*</span>
+                  </label>
+                  <BlockFormatToolbar
+                    onApply={(action) => applyTitleFormat(titleInputRef.current, action)}
+                    size="xs"
+                  />
+                </div>
+                <FormInput
+                  placeholder="VD: Hội nghị chuyển đổi số toàn diện tỉnh Gia Lai..."
+                  errorMessage={errors.title?.message}
+                  {...titleRegister}
+                  ref={(el) => {
+                    titleRegister.ref(el);
+                    titleInputRef.current = el;
+                  }}
+                  onKeyDown={handleTitleKeyDown}
+                  onPaste={handlePlainPaste}
+                  helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
+                />
+              </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormInput
-                  label="Tiêu đề phụ (Subtitle)"
-                  placeholder="VD: Hướng tới xây dựng chính quyền số và kinh tế số..."
-                  errorMessage={errors.subtitle?.message}
-                  {...register("subtitle")}
-                  onPaste={handlePlainPaste}
-                />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-semibold text-text">
+                      Tiêu đề phụ (Subtitle)
+                    </label>
+                    <BlockFormatToolbar
+                      onApply={(action) => applySubtitleFormat(subtitleInputRef.current, action)}
+                      size="xs"
+                    />
+                  </div>
+                  <FormInput
+                    placeholder="VD: Hướng tới xây dựng chính quyền số và kinh tế số..."
+                    errorMessage={errors.subtitle?.message}
+                    {...subtitleRegister}
+                    ref={(el) => {
+                      subtitleRegister.ref(el);
+                      subtitleInputRef.current = el;
+                    }}
+                    onKeyDown={handleSubtitleKeyDown}
+                    onPaste={handlePlainPaste}
+                  />
+                </div>
                 <FormInput
                   label="Đường dẫn tĩnh (Slug)"
                   placeholder="Tự sinh từ tiêu đề nếu để trống..."
@@ -431,14 +482,30 @@ export default function EditArticlePage() {
                 />
               </div>
 
-              <FormTextarea
-                label="Tóm tắt bài viết (Excerpt)"
-                rows={2}
-                placeholder="Mô tả ngắn hiển thị trên thẻ bài viết và mạng xã hội..."
-                errorMessage={errors.excerpt?.message}
-                {...register("excerpt")}
-                onPaste={handlePlainPaste}
-              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-text">
+                    Tóm tắt bài viết (Excerpt)
+                  </label>
+                  <BlockFormatToolbar
+                    onApply={(action) => applyExcerptFormat(excerptInputRef.current, action)}
+                    size="xs"
+                  />
+                </div>
+                <FormTextarea
+                  rows={2}
+                  placeholder="Mô tả ngắn hiển thị trên thẻ bài viết và mạng xã hội..."
+                  errorMessage={errors.excerpt?.message}
+                  {...excerptRegister}
+                  ref={(el) => {
+                    excerptRegister.ref(el);
+                    excerptInputRef.current = el;
+                  }}
+                  onKeyDown={handleExcerptKeyDown}
+                  onPaste={handlePlainPaste}
+                  helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -706,7 +773,7 @@ export default function EditArticlePage() {
           </Card>
 
           {/* Footer Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
             <AppButton variant="ghost" type="button" onClick={() => router.back()}>
               Huỷ
             </AppButton>
@@ -731,7 +798,7 @@ export default function EditArticlePage() {
 
         {/* Floating/Fixed Footer when in Reader or Visual Tab */}
         {activeTab !== "editor" && (
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
             <AppButton variant="ghost" type="button" onClick={() => router.back()}>
               Huỷ
             </AppButton>
@@ -753,6 +820,30 @@ export default function EditArticlePage() {
             </AppButton>
           </div>
         )}
+
+        {/* Floating Save Bar cố định ở góc dưới bên phải màn hình khi có thay đổi */}
+        <FloatingSaveBar
+          isVisible={isDirty && (activeTab === "editor" || activeTab === "visual")}
+          statusText="Có thay đổi chưa lưu"
+        >
+          <AppButton
+            type="button"
+            variant="ghost"
+            isLoading={updateMutation.isPending}
+            onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
+            className="border border-border bg-surface text-xs"
+          >
+            Lưu bản nháp
+          </AppButton>
+          <AppButton
+            type="button"
+            isLoading={updateMutation.isPending}
+            onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
+            className="text-xs"
+          >
+            Lưu & Xuất bản
+          </AppButton>
+        </FloatingSaveBar>
       </div>
     </SlideDetailBlogUploadProvider>
   );

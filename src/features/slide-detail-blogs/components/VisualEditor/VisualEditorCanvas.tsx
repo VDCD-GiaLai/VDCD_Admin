@@ -24,6 +24,7 @@ import { BlockPicker } from "../BlockEditor/BlockPicker";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
 import { useSlideDetailBlogUpload } from "../../context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "../../hooks/useSanitizedPaste";
+import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import { Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import type {
@@ -33,6 +34,16 @@ import type {
   HeroPlacement,
 } from "@/types/slide-detail-blog";
 import { createListBlock } from "../../utils/list-helpers";
+import {
+  formatContentEditable,
+  DEFAULT_SHORTCUTS,
+  formatHtmlText,
+  restoreSelection,
+  detectActiveFormatsInElement,
+  detectActiveFormatsInText,
+  type FormatAction,
+} from "../../hooks/useHtmlShortcuts";
+import { BlockFormatToolbar } from "../BlockEditor/BlockFormatToolbar";
 
 type ViewportMode = "desktop" | "tablet" | "mobile";
 
@@ -45,8 +56,11 @@ interface VisualEditorCanvasProps {
   onContentChange: (content: SlideDetailBlogContent) => void;
   onTitleChange: (title: string) => void;
   onSubtitleChange: (subtitle: string) => void;
-  onExcerptChange: (excerpt: string) => void;
+  onExcerptChange?: (excerpt: string) => void;
   onHeroImageChange?: (url: string, fileId?: string) => void;
+  onHeroImageDelete?: () => Promise<void> | void;
+  /** Called with a fileId when an image block's file is discarded (soft-delete until save) */
+  onImageDiscard?: (fileId: string) => void;
 }
 
 const VIEWPORT_CONFIG: Record<ViewportMode, { label: string; maxWidth: string; icon: React.ReactNode }> = {
@@ -115,6 +129,12 @@ function createDefaultBlock(
     }
     case "cta":
       return { id, type: "cta", label: "Liên hệ tư vấn", url: "/lien-he" };
+    case "quote":
+      return { id, type: "quote", text: "" };
+    case "highlight":
+      return { id, type: "highlight", text: "" };
+    case "ordered_list":
+      return createListBlock({ id, listType: "ordered" });
     default:
       return { id, type: "paragraph", text: "" };
   }
@@ -131,10 +151,18 @@ export function VisualEditorCanvas({
   onSubtitleChange,
   onExcerptChange,
   onHeroImageChange,
+  onHeroImageDelete,
+  onImageDiscard,
 }: VisualEditorCanvasProps) {
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
   const [selectedBlockId, setSelectedBlockId] = useState<string>("");
   const [isUploadingHero, setIsUploadingHero] = useState(false);
+  const [floatingToolbar, setFloatingToolbar] = useState<{
+    top: number;
+    left: number;
+    editableElement: HTMLElement;
+    activeActions?: FormatAction[];
+  } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { subfolder, uploadBlogImage } = useSlideDetailBlogUpload();
@@ -152,6 +180,19 @@ export function VisualEditorCanvas({
   const heroPosition = heroMeta?.position ?? "center";
   const heroCaption = heroMeta?.caption ?? "";
   const currentConfig = VIEWPORT_CONFIG[viewport];
+
+  const { handleInput: handleSubtitleInput } = useContentEditableSync(subtitleRef, {
+    html: subtitle || "",
+  });
+  const { handleInput: handleTitleInput } = useContentEditableSync(titleRef, {
+    html: title || "",
+  });
+  const { handleInput: handleExcerptInput } = useContentEditableSync(excerptRef, {
+    html: excerpt || "",
+  });
+  const { handleInput: handleHeroCaptionInput } = useContentEditableSync(heroCaptionRef, {
+    html: heroCaption || "",
+  });
 
   // ── History ──
   const { pushState, undo, redo, canUndo, canRedo } = useEditorHistory(content, onContentChange);
@@ -208,8 +249,11 @@ export function VisualEditorCanvas({
   );
 
   const focusBlock = useCallback((blockId: string) => {
+    setSelectedBlockId(blockId);
     requestAnimationFrame(() => {
+      setSelectedBlockId(blockId);
       requestAnimationFrame(() => {
+        setSelectedBlockId(blockId);
         const blockElement = document.getElementById(`block-${blockId}`);
         if (blockElement) {
           blockElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -261,11 +305,16 @@ export function VisualEditorCanvas({
   const handleDelete = useCallback(
     (index: number) => {
       pushState();
+      const blockToDelete = blocks[index];
+      // Soft-delete: if removing an image block with an uploaded file, track the fileId
+      if (blockToDelete.type === "image" && blockToDelete.fileId) {
+        onImageDiscard?.(blockToDelete.fileId);
+      }
       const newBlocks = blocks.filter((_, i) => i !== index);
       updateBlocks(newBlocks);
       setSelectedBlockId("");
     },
-    [blocks, pushState, updateBlocks],
+    [blocks, onImageDiscard, pushState, updateBlocks],
   );
 
   const handleInsert = useCallback(
@@ -307,11 +356,104 @@ export function VisualEditorCanvas({
     [blocks, pushState, updateBlocks],
   );
 
+  // ── Floating format toolbar for text selection ──
+  useEffect(() => {
+    const updateToolbarPosition = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        setFloatingToolbar(null);
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const element =
+        container.nodeType === Node.ELEMENT_NODE
+          ? (container as HTMLElement)
+          : container.parentElement;
+
+      if (!element) {
+        setFloatingToolbar(null);
+        return;
+      }
+
+      const editable =
+        (element.closest("li, .ve-editable") as HTMLElement | null) ||
+        (element.isContentEditable ? element : null);
+
+      if (!editable || !canvasRef.current?.contains(editable)) {
+        setFloatingToolbar(null);
+        return;
+      }
+
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        setFloatingToolbar(null);
+        return;
+      }
+
+      const activeActions = detectActiveFormatsInElement(editable, range);
+
+      setFloatingToolbar({
+        top: rect.top - 46,
+        left: rect.left + rect.width / 2,
+        editableElement: editable,
+        activeActions,
+      });
+    };
+
+    const handleSelectionChange = () => {
+      requestAnimationFrame(updateToolbarPosition);
+    };
+
+    const handleScrollOrResize = () => {
+      if (window.getSelection()?.isCollapsed) {
+        setFloatingToolbar(null);
+      } else {
+        requestAnimationFrame(updateToolbarPosition);
+      }
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    window.addEventListener("scroll", handleScrollOrResize, { passive: true, capture: true });
+    window.addEventListener("resize", handleScrollOrResize, { passive: true });
+
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      window.removeEventListener("scroll", handleScrollOrResize, { capture: true });
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, []);
+
+  const handleFloatingAction = useCallback(
+    (action: FormatAction) => {
+      if (!floatingToolbar?.editableElement) return;
+      formatContentEditable(floatingToolbar.editableElement, action);
+      requestAnimationFrame(() => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+          const r = sel.getRangeAt(0);
+          const active = detectActiveFormatsInElement(floatingToolbar.editableElement, r);
+          setFloatingToolbar((prev) => (prev ? { ...prev, activeActions: active } : null));
+        }
+      });
+    },
+    [floatingToolbar],
+  );
+
   // ── Keyboard shortcuts ──
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isEditing = target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+      if (!target) return;
+      const isContent =
+        target.isContentEditable ||
+        target.getAttribute("contenteditable") === "true" ||
+        !!target.closest('[contenteditable="true"], .ve-editable');
+      const isEditing =
+        isContent ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA";
 
       // Undo/Redo (always active)
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
@@ -323,6 +465,66 @@ export function VisualEditorCanvas({
         e.preventDefault();
         redo();
         return;
+      }
+
+      // Formatting shortcuts (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+Shift+H, Ctrl+Shift+X, Ctrl+Shift+C, Ctrl+K, Ctrl+\, etc.)
+      if (isEditing && (e.ctrlKey || e.metaKey)) {
+        const pressedKey = e.key.toLowerCase();
+        const isShift = e.shiftKey;
+        const match = DEFAULT_SHORTCUTS.find((s) => {
+          if (s.key.toLowerCase() !== pressedKey) return false;
+          if (s.shiftKey !== undefined && s.shiftKey !== isShift) return false;
+          return true;
+        });
+
+        if (match?.action) {
+          const editableRoot =
+            (target.closest("li, .ve-editable, [contenteditable='true']") as HTMLElement) ||
+            target;
+
+          if (editableRoot) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (isContent) {
+              formatContentEditable(editableRoot, match.action);
+            } else if (
+              editableRoot instanceof HTMLInputElement ||
+              editableRoot instanceof HTMLTextAreaElement
+            ) {
+              const inputEl = editableRoot;
+              const start = inputEl.selectionStart ?? 0;
+              const end = inputEl.selectionEnd ?? 0;
+
+              let linkUrl: string | undefined;
+              if (match.action === "link") {
+                const activeFormats = detectActiveFormatsInText(inputEl.value, start, end);
+                if (activeFormats.includes("link")) {
+                  // TOGGLE OFF: unlink immediately without prompting!
+                  const result = formatHtmlText(inputEl.value, start, end, "link");
+                  if (result) {
+                    inputEl.value = result.newValue;
+                    inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+                    restoreSelection(inputEl, result.cursorStart, result.cursorEnd);
+                  }
+                  return;
+                }
+
+                const input = window.prompt("Nhập đường dẫn liên kết (URL):", "https://");
+                if (input === null) return;
+                linkUrl = input.trim();
+                if (!linkUrl) return;
+              }
+              const result = formatHtmlText(inputEl.value, start, end, match.action, { linkUrl });
+              if (result) {
+                inputEl.value = result.newValue;
+                inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+                restoreSelection(inputEl, result.cursorStart, result.cursorEnd);
+              }
+            }
+            return;
+          }
+        }
       }
 
       // Delete selected block (only when not editing text)
@@ -345,15 +547,24 @@ export function VisualEditorCanvas({
 
   // ── Hero text blur handlers ──
   const handleTitleBlur = useCallback(() => {
-    if (titleRef.current) onTitleChange(titleRef.current.textContent ?? "");
+    if (titleRef.current) {
+      const text = titleRef.current.textContent?.trim() ?? "";
+      onTitleChange(text ? titleRef.current.innerHTML : "");
+    }
   }, [onTitleChange]);
 
   const handleSubtitleBlur = useCallback(() => {
-    if (subtitleRef.current) onSubtitleChange(subtitleRef.current.textContent ?? "");
+    if (subtitleRef.current) {
+      const text = subtitleRef.current.textContent?.trim() ?? "";
+      onSubtitleChange?.(text ? subtitleRef.current.innerHTML : "");
+    }
   }, [onSubtitleChange]);
 
   const handleExcerptBlur = useCallback(() => {
-    if (excerptRef.current) onExcerptChange(excerptRef.current.textContent ?? "");
+    if (excerptRef.current) {
+      const text = excerptRef.current.textContent?.trim() ?? "";
+      onExcerptChange?.(text ? excerptRef.current.innerHTML : "");
+    }
   }, [onExcerptChange]);
 
   // ── Hero meta handlers ──
@@ -384,9 +595,11 @@ export function VisualEditorCanvas({
 
   const handleHeroCaptionBlur = useCallback(() => {
     if (heroCaptionRef.current) {
-      updateHeroMeta({ caption: heroCaptionRef.current.textContent ?? "" });
+      const text = heroCaptionRef.current.textContent?.trim() ?? "";
+      updateHeroMeta({ caption: text ? heroCaptionRef.current.innerHTML : "" });
     }
   }, [updateHeroMeta]);
+
 
   // ── Direct Hero Image File Upload ──
   const handleHeroFileUpload = useCallback(
@@ -431,12 +644,11 @@ export function VisualEditorCanvas({
         className="blog-preview-subtitle ve-editable"
         contentEditable
         suppressContentEditableWarning
+        onInput={handleSubtitleInput}
         onBlur={handleSubtitleBlur}
         onPaste={handleMetaPaste}
         data-placeholder="Subtitle (tuỳ chọn)"
-      >
-        {subtitle || ""}
-      </p>
+      />
 
       {/* Editable title */}
       <h1
@@ -444,12 +656,11 @@ export function VisualEditorCanvas({
         className="blog-preview-title ve-editable"
         contentEditable
         suppressContentEditableWarning
+        onInput={handleTitleInput}
         onBlur={handleTitleBlur}
         onPaste={handleMetaPaste}
         data-placeholder="Nhập tiêu đề bài viết..."
-      >
-        {title || ""}
-      </h1>
+      />
     </div>
   );
 
@@ -461,12 +672,11 @@ export function VisualEditorCanvas({
         className="blog-preview-excerpt ve-editable"
         contentEditable
         suppressContentEditableWarning
+        onInput={handleExcerptInput}
         onBlur={handleExcerptBlur}
         onPaste={handleMetaPaste}
         data-placeholder="Mô tả ngắn (tuỳ chọn)"
-      >
-        {excerpt || ""}
-      </p>
+      />
     </div>
   );
 
@@ -523,6 +733,30 @@ export function VisualEditorCanvas({
                 </svg>
                 Thay ảnh bìa
               </button>
+
+              {/* Delete hero image button */}
+              {onHeroImageDelete && (
+                <button
+                  type="button"
+                  onClick={onHeroImageDelete}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-md backdrop-blur-sm transition-transform hover:scale-105 hover:bg-red-50 hover:text-danger"
+                  title="Xoá ảnh bìa này"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5 text-danger"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Xoá ảnh bìa
+                </button>
+              )}
 
               <div className="inline-flex items-center gap-1 rounded-lg bg-black/60 backdrop-blur-md p-1 border border-white/20">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-white/80 px-1.5">
@@ -636,13 +870,12 @@ export function VisualEditorCanvas({
           className="blog-preview-hero-caption ve-editable"
           contentEditable
           suppressContentEditableWarning
+          onInput={handleHeroCaptionInput}
           onBlur={handleHeroCaptionBlur}
           onPaste={handleMetaPaste}
           onClick={(e) => e.stopPropagation()}
           data-placeholder="Thêm chú thích ảnh bìa..."
-        >
-          {heroCaption}
-        </figcaption>
+        />
       )}
     </div>
   );
@@ -795,6 +1028,7 @@ export function VisualEditorCanvas({
                             onMoveDown={handleMoveDown}
                             onDuplicate={handleDuplicate}
                             onDelete={handleDelete}
+                            onImageDiscard={onImageDiscard}
                           />
                           {/* Insert zone after each block */}
                           <InsertZone onInsert={(type) => handleInsert(index + 1, type)} />
@@ -815,6 +1049,7 @@ export function VisualEditorCanvas({
             heroImageUrl={heroImageUrl}
             onHeroMetaChange={updateHeroMeta}
             onHeroImageChange={onHeroImageChange}
+            onHeroImageDelete={onHeroImageDelete}
             onClose={() => setSelectedBlockId("")}
           />
         ) : selectedBlock ? (
@@ -825,6 +1060,27 @@ export function VisualEditorCanvas({
           />
         ) : null}
       </div>
+
+      {/* Floating format toolbar for selected text in visual editor */}
+      {floatingToolbar && (
+        <div
+          className="fixed z-50 -translate-x-1/2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          style={{
+            top: `${Math.max(12, floatingToolbar.top)}px`,
+            left: `${floatingToolbar.left}px`,
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+          }}
+        >
+          <BlockFormatToolbar
+            onApply={handleFloatingAction}
+            activeActions={floatingToolbar.activeActions}
+            size="sm"
+            className="border-primary/30 bg-surface shadow-lg"
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef } from "react";
 import { FormInput } from "@/components/ui";
-import { useHtmlShortcuts } from "../paste/useHtmlShortcuts";
+import { useHtmlShortcuts, type FormatAction } from "../paste/useHtmlShortcuts";
+import { BlockFormatToolbar } from "./BlockFormatToolbar";
 import type { HeadingBlock } from "../model/document.types";
 
 export interface HeadingBlockItemProps {
@@ -9,12 +10,21 @@ export interface HeadingBlockItemProps {
 }
 
 export function HeadingBlockItem({ block, onChange }: HeadingBlockItemProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const handleTextChange = useCallback(
     (newValue: string) => onChange({ ...block, text: newValue }),
     [block, onChange],
   );
 
-  const { handleKeyDown } = useHtmlShortcuts(handleTextChange);
+  const { handleKeyDown, applyFormat, activeActions, handleSelect } = useHtmlShortcuts(handleTextChange);
+
+  const handleToolbarApply = useCallback(
+    (action: FormatAction) => {
+      applyFormat(inputRef.current, action);
+    },
+    [applyFormat],
+  );
 
   return (
     <div className="space-y-3">
@@ -40,14 +50,27 @@ export function HeadingBlockItem({ block, onChange }: HeadingBlockItemProps) {
         </div>
       </div>
 
-      <FormInput
-        label="Nội dung tiêu đề"
-        isRequired
-        placeholder="Nhập tiêu đề mục (VD: Tổng quan giải pháp)..."
-        value={block.text}
-        onChange={(e) => onChange({ ...block, text: e.target.value })}
-        onKeyDown={handleKeyDown}
-      />
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold uppercase text-text-muted">
+            Nội dung tiêu đề <span className="text-danger">*</span>
+          </label>
+          <BlockFormatToolbar onApply={handleToolbarApply} activeActions={activeActions} size="xs" />
+        </div>
+
+        <FormInput
+          ref={inputRef}
+          isRequired
+          placeholder="Nhập tiêu đề mục (VD: Tổng quan giải pháp)..."
+          value={block.text}
+          onChange={(e) => onChange({ ...block, text: e.target.value })}
+          onKeyDown={handleKeyDown}
+          onSelect={handleSelect}
+          onKeyUp={handleSelect}
+          onClick={handleSelect}
+          helperText="Sử dụng phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân) hoặc thanh công cụ để định dạng."
+        />
+      </div>
     </div>
   );
 }

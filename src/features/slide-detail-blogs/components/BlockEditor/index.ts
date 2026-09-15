@@ -7,3 +7,4 @@ export { ImageBlockItem } from "./ImageBlockItem";
 export { ListBlockItem } from "./ListBlockItem";
 export { SectionBlockItem } from "./SectionBlockItem";
 export { CtaBlockItem } from "./CtaBlockItem";
+export { BlockFormatToolbar } from "./BlockFormatToolbar";

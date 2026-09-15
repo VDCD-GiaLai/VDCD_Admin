@@ -1521,7 +1521,21 @@ Upload a partner logo to the `partners/` folder.
 
 ---
 
-### 17.7. 🔓 POST `/upload/file`
+### 17.7. ✏️ POST `/upload/image/about-us`
+
+Upload an image for the about-us / organization page to `/vdcd/about-us` (or `/vdcd/about-us/<subfolder>`).
+
+**Content-Type:** `multipart/form-data`
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `subfolder` | String | ❌ | Optional subfolder under `about-us` (e.g. `bento-intro`) |
+
+**Request / Response:** Same as `POST /upload/image`
+
+---
+
+### 17.8. 🔓 POST `/upload/file`
 
 Upload an attachment file (PDF, DOC, DOCX) — used for guests submitting CVs.
 
@@ -2116,7 +2130,8 @@ Search across entities and return grouped results. Restricted to superadmin and 
 | 85 | Upload | POST | `/upload/image/slide/:subfolder` | ✏️ | Upload slide image in subfolder |
 | 86 | Upload | POST | `/upload/image/slide-detail-blog` | ✏️ | Upload slide detail blog image |
 | 87 | Upload | POST | `/upload/image/partner` | ✏️ | Upload partner logo |
-| 88 | Upload | POST | `/upload/file` | 🔓 | Upload attachment file |
+| 88 | Upload | POST | `/upload/image/about-us` | ✏️ | Upload image for about-us page |
+| 89 | Upload | POST | `/upload/file` | 🔓 | Upload attachment file |
 | 89 | Upload | DELETE | `/upload/:fileId` | 👑 | Delete uploaded file |
 | 90 | Upload | GET | `/upload/transform` | 🔓 | Transform image URL |
 | 91 | Upload | GET | `/upload/auth` | ✏️ | Auth params for client upload |

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { FormInput } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
 import { useSlideDetailBlogUpload } from "../../context/SlideDetailBlogUploadContext";
+import { useHtmlShortcuts } from "../../hooks/useHtmlShortcuts";
 import type { ImageBlock } from "@/types/slide-detail-blog";
 
 interface ImageBlockItemProps {
@@ -18,6 +19,16 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
   );
   const [uploading, setUploading] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
+
+  const handleCaptionChange = useCallback(
+    (newCaption: string) =>
+      onChange({
+        ...block,
+        caption: newCaption ? newCaption : null,
+      }),
+    [block, onChange],
+  );
+  const { handleKeyDown: handleCaptionKeyDown } = useHtmlShortcuts(handleCaptionChange);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -193,6 +204,8 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
               caption: e.target.value ? e.target.value : null,
             })
           }
+          onKeyDown={handleCaptionKeyDown}
+          helperText="Hỗ trợ phím tắt Ctrl+B, Ctrl+I..."
         />
       </div>
     </div>

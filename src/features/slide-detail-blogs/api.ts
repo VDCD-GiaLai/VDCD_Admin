@@ -81,6 +81,8 @@ export function useSlideDetailBlogBySlide(slideId: string, enabled = true) {
 
 // ─── Mutations ───────────────────────────────────────────────
 
+import { normalizeSlideDetailBlogContent } from "./utils/blog-content";
+
 /**
  * POST /slide-detail-blogs — create a new slide detail blog.
  */
@@ -88,11 +90,16 @@ export function useCreateSlideDetailBlog() {
   const queryClient = useQueryClient();
 
   return useMutation<SlideDetailBlog, ApiError, SlideDetailBlogFormData>({
-    mutationFn: (data) =>
-      clientFetch<SlideDetailBlog>("/api/slide-detail-blogs", {
+    mutationFn: (data) => {
+      const payload = {
+        ...data,
+        ...(data.content ? { content: normalizeSlideDetailBlogContent(data.content) } : {}),
+      };
+      return clientFetch<SlideDetailBlog>("/api/slide-detail-blogs", {
         method: "POST",
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify(payload),
+      });
+    },
     onSuccess: (newBlog) => {
       queryClient.invalidateQueries({ queryKey: slideDetailBlogKeys.all });
       queryClient.setQueryData(
@@ -114,11 +121,16 @@ export function useUpdateSlideDetailBlog(id: string) {
     ApiError,
     Partial<Omit<SlideDetailBlogFormData, "slideId">>
   >({
-    mutationFn: (data) =>
-      clientFetch<SlideDetailBlog>(`/api/slide-detail-blogs/${id}`, {
+    mutationFn: (data) => {
+      const payload = {
+        ...data,
+        ...(data.content ? { content: normalizeSlideDetailBlogContent(data.content) } : {}),
+      };
+      return clientFetch<SlideDetailBlog>(`/api/slide-detail-blogs/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify(payload),
+      });
+    },
     onSuccess: (updatedBlog) => {
       queryClient.invalidateQueries({ queryKey: slideDetailBlogKeys.all });
       queryClient.setQueryData(

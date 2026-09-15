@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { FormInput, AppButton } from "@/components/ui";
 import { HeadingBlockItem } from "./HeadingBlockItem";
 import { ParagraphBlockItem } from "./ParagraphBlockItem";
 import { ImageBlockItem } from "./ImageBlockItem";
 import { ListBlockItem } from "./ListBlockItem";
+import { BlockFormatToolbar } from "./BlockFormatToolbar";
+import { useHtmlShortcuts } from "../../hooks/useHtmlShortcuts";
 import type {
   SectionBlock,
   SectionChildBlock,
@@ -24,6 +26,14 @@ const generateId = (prefix: string) =>
 
 export function SectionBlockItem({ block, onChange }: SectionBlockItemProps) {
   const [showChildPicker, setShowChildPicker] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTitleChange = useCallback(
+    (newTitle: string) => onChange({ ...block, title: newTitle }),
+    [block, onChange],
+  );
+  const { handleKeyDown: handleTitleKeyDown, applyFormat: applyTitleFormat } =
+    useHtmlShortcuts(handleTitleChange);
 
   const handleAddChild = (type: "heading" | "paragraph" | "image" | "list") => {
     let newChild: SectionChildBlock;
@@ -107,13 +117,23 @@ export function SectionBlockItem({ block, onChange }: SectionBlockItemProps) {
             onChange={(e) => onChange({ ...block, number: e.target.value })}
           />
         </div>
-        <div className="sm:col-span-3">
+        <div className="sm:col-span-3 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs font-medium text-text-muted">
+              Tiêu đề Section <span className="text-danger">*</span>
+            </label>
+            <BlockFormatToolbar
+              onApply={(action) => applyTitleFormat(titleInputRef.current, action)}
+              size="xs"
+            />
+          </div>
           <FormInput
-            label="Tiêu đề Section"
-            isRequired
+            ref={titleInputRef}
             placeholder="VD: Khảo sát và đo đạc hiện trạng..."
             value={block.title}
             onChange={(e) => onChange({ ...block, title: e.target.value })}
+            onKeyDown={handleTitleKeyDown}
+            helperText="Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
           />
         </div>
       </div>

@@ -22,13 +22,16 @@ import {
   slideDetailBlogSchema,
   type SlideDetailBlogFormData,
 } from "@/features/slide-detail-blogs/schema";
-import { BlockEditor } from "@/features/slide-detail-blogs/components/BlockEditor";
+import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/components/BlockEditor";
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { BlogExportModal } from "@/features/slide-detail-blogs/components/ExportModal";
-import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
+import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
+import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
-import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
+import { FloatingSaveBar } from "@/components/shared";
+import type { SlideDetailBlogContent, SlideDetailBlogBlock, HeroMeta } from "@/types/slide-detail-blog";
+import { normalizeSlideDetailBlogContent } from "@/features/slide-detail-blogs/utils/blog-content";
 
 function NewSlideDetailBlogContent() {
   const router = useRouter();
@@ -47,6 +50,7 @@ function NewSlideDetailBlogContent() {
   const [uploadingHero, setUploadingHero] = useState(false);
   const [heroPreviewUrl, setHeroPreviewUrl] = useState<string | null>(null);
   const [failedHeroUrl, setFailedHeroUrl] = useState<string | null>(null);
+  const [discardedHeroFileIds, setDiscardedHeroFileIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // SEO card toggle
@@ -60,8 +64,9 @@ function NewSlideDetailBlogContent() {
     register,
     handleSubmit,
     setValue,
+    getValues,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<SlideDetailBlogFormData>({
     resolver: zodResolver(slideDetailBlogSchema),
     defaultValues: {
@@ -96,6 +101,25 @@ function NewSlideDetailBlogContent() {
 
   // Find currently selected slide
   const selectedSlide = slides?.find((s) => s.id === watchedSlideId);
+
+  // Formatting shortcuts and refs for metadata fields
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const subtitleInputRef = useRef<HTMLInputElement>(null);
+  const excerptInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { handleKeyDown: handleTitleKeyDown, applyFormat: applyTitleFormat } = useHtmlShortcuts(
+    (val) => setValue("title", val, { shouldDirty: true, shouldValidate: true }),
+  );
+  const { handleKeyDown: handleSubtitleKeyDown, applyFormat: applySubtitleFormat } = useHtmlShortcuts(
+    (val) => setValue("subtitle", val, { shouldDirty: true }),
+  );
+  const { handleKeyDown: handleExcerptKeyDown, applyFormat: applyExcerptFormat } = useHtmlShortcuts(
+    (val) => setValue("excerpt", val, { shouldDirty: true }),
+  );
+
+  const titleRegister = register("title");
+  const subtitleRegister = register("subtitle");
+  const excerptRegister = register("excerpt");
 
   // Compute active upload subfolder (auto tracks slug, title, or selected slide)
   const currentSubfolder = useMemo(() => {
@@ -150,6 +174,10 @@ function NewSlideDetailBlogContent() {
       const result: UploadResult = await uploadImage(file, "slide-detail-blog", {
         subfolder: currentSubfolder,
       });
+      const previousUnsavedFileId = getValues("heroImageFileId");
+      if (previousUnsavedFileId) {
+        setDiscardedHeroFileIds((prev) => [...prev, previousUnsavedFileId]);
+      }
       setValue("heroImageUrl", result.url, { shouldValidate: true, shouldDirty: true });
       setValue("heroImageFileId", result.fileId, { shouldDirty: true });
       setHeroPreviewUrl(result.url);
@@ -166,10 +194,38 @@ function NewSlideDetailBlogContent() {
     }
   };
 
+  // Handle Soft-Delete Hero Image
+  const handleDeleteHeroImage = () => {
+    const currentFileId = getValues("heroImageFileId");
+    if (currentFileId) {
+      setDiscardedHeroFileIds((prev) =>
+        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
+      );
+    }
+    setValue("heroImageUrl", null, { shouldValidate: true, shouldDirty: true });
+    setValue("heroImageFileId", null, { shouldDirty: true });
+    setHeroPreviewUrl(null);
+    setFailedHeroUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast({
+      title: "Đã gỡ ảnh bìa",
+      description: "Ảnh bìa đã được gỡ. Hãy nhấn \"Lưu bài viết\" để hoàn tất.",
+      color: "warning",
+    });
+  };
+
+  // Handle Soft-Delete of Image Blocks
+  const handleImageBlockDiscard = (fileId: string) => {
+    setDiscardedHeroFileIds((prev) =>
+      prev.includes(fileId) ? prev : [...prev, fileId],
+    );
+  };
+
   // Submit Handler
   const onSubmit = (data: SlideDetailBlogFormData, publish = false) => {
     const payload: SlideDetailBlogFormData = {
       ...data,
+      content: normalizeSlideDetailBlogContent(data.content),
       isPublished: publish,
     };
 
@@ -194,6 +250,13 @@ function NewSlideDetailBlogContent() {
 
     createMutation.mutate(payload, {
       onSuccess: () => {
+        if (discardedHeroFileIds.length > 0) {
+          for (const fid of discardedHeroFileIds) {
+            deleteUploadedImage(fid).catch((err) =>
+              console.warn("Lỗi dọn rác ảnh ImageKit:", err),
+            );
+          }
+        }
         toast({
           title: publish ? "Đã xuất bản bài viết" : "Đã lưu bản nháp",
           color: "success",
@@ -203,9 +266,55 @@ function NewSlideDetailBlogContent() {
         });
       },
       onError: (error) => {
+        const rawMessage = error.message || "";
+        const blockMatch = rawMessage.match(
+          /blocks\[(\d+)\](?:\.children\[(\d+)\])?(?:\.items\[(\d+)\])?(?:\.(\w+))?:?\s*(.*)/i,
+        );
+
+        let friendlyTitle = "Tạo bài viết thất bại";
+        let friendlyDescription = rawMessage;
+
+        if (blockMatch) {
+          const blockIdx = parseInt(blockMatch[1], 10);
+          const childIdx = blockMatch[2] ? parseInt(blockMatch[2], 10) : undefined;
+          const itemIdx = blockMatch[3] ? parseInt(blockMatch[3], 10) : undefined;
+          const rawReason = blockMatch[5] || "";
+
+          const currentBlocks = (data.content?.blocks || []) as SlideDetailBlogBlock[];
+          const parentBlock = currentBlocks[blockIdx];
+          const targetBlock =
+            childIdx !== undefined && parentBlock?.type === "section"
+              ? (parentBlock as import("@/types/slide-detail-blog").SectionBlock).children?.[childIdx]
+              : parentBlock;
+          const targetId = targetBlock?.id || parentBlock?.id;
+
+          if (targetId) {
+            const el = document.getElementById(`block-${targetId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }
+
+          if (itemIdx !== undefined || rawReason.toLowerCase().includes("item text")) {
+            friendlyTitle = "Mục danh sách đang để trống";
+            friendlyDescription = `Mục số ${Number(itemIdx ?? 0) + 1} của danh sách (Khối ${blockIdx + 1}) chưa có nội dung. Vui lòng nhập nội dung cho mục này hoặc xoá mục này đi.`;
+          } else {
+            friendlyTitle = `Khối nội dung ${blockIdx + 1} chưa hợp lệ`;
+            friendlyDescription = rawReason.replace(
+              /Item text không được để trống/i,
+              "Mục danh sách không được để trống",
+            );
+          }
+        } else {
+          friendlyDescription = rawMessage.replace(
+            /Item text không được để trống/i,
+            "Mục danh sách không được để trống",
+          );
+        }
+
         toast({
-          title: "Tạo bài viết thất bại",
-          description: error.message,
+          title: friendlyTitle,
+          description: friendlyDescription,
           color: "danger",
         });
       },
@@ -391,6 +500,8 @@ function NewSlideDetailBlogContent() {
             setHeroPreviewUrl(url);
             setFailedHeroUrl(null);
           }}
+          onHeroImageDelete={handleDeleteHeroImage}
+          onImageDiscard={handleImageBlockDiscard}
         />
       )}
 
@@ -459,21 +570,51 @@ function NewSlideDetailBlogContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
-            <FormInput
-              label="Tiêu đề bài viết (H1)"
-              isRequired
-              placeholder="VD: Số hoá dữ liệu đất đai toàn diện..."
-              errorMessage={errors.title?.message}
-              {...register("title")}
-            />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-text">
+                  Tiêu đề bài viết (H1) <span className="text-danger">*</span>
+                </label>
+                <BlockFormatToolbar
+                  onApply={(action) => applyTitleFormat(titleInputRef.current, action)}
+                  size="xs"
+                />
+              </div>
+              <FormInput
+                placeholder="VD: Số hoá dữ liệu đất đai toàn diện..."
+                errorMessage={errors.title?.message}
+                {...titleRegister}
+                ref={(el) => {
+                  titleRegister.ref(el);
+                  titleInputRef.current = el;
+                }}
+                onKeyDown={handleTitleKeyDown}
+                helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
+              />
+            </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormInput
-                label="Phụ đề / Tagline"
-                placeholder="VD: Từ hiện trạng ngoài thực địa đến bản đồ số..."
-                errorMessage={errors.subtitle?.message}
-                {...register("subtitle")}
-              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-text">
+                    Phụ đề / Tagline
+                  </label>
+                  <BlockFormatToolbar
+                    onApply={(action) => applySubtitleFormat(subtitleInputRef.current, action)}
+                    size="xs"
+                  />
+                </div>
+                <FormInput
+                  placeholder="VD: Từ hiện trạng ngoài thực địa đến bản đồ số..."
+                  errorMessage={errors.subtitle?.message}
+                  {...subtitleRegister}
+                  ref={(el) => {
+                    subtitleRegister.ref(el);
+                    subtitleInputRef.current = el;
+                  }}
+                  onKeyDown={handleSubtitleKeyDown}
+                />
+              </div>
               <FormInput
                 label="Đường dẫn tĩnh (Slug)"
                 placeholder="Tự sinh từ tiêu đề nếu để trống..."
@@ -496,13 +637,29 @@ function NewSlideDetailBlogContent() {
               </p>
             </div>
 
-            <FormTextarea
-              label="Mô tả ngắn (Excerpt)"
-              rows={2}
-              placeholder="Mô tả ngắn hiển thị cho danh sách bài viết và thẻ tóm tắt..."
-              errorMessage={errors.excerpt?.message}
-              {...register("excerpt")}
-            />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-text">
+                  Mô tả ngắn (Excerpt)
+                </label>
+                <BlockFormatToolbar
+                  onApply={(action) => applyExcerptFormat(excerptInputRef.current, action)}
+                  size="xs"
+                />
+              </div>
+              <FormTextarea
+                rows={2}
+                placeholder="Mô tả ngắn hiển thị cho danh sách bài viết và thẻ tóm tắt..."
+                errorMessage={errors.excerpt?.message}
+                {...excerptRegister}
+                ref={(el) => {
+                  excerptRegister.ref(el);
+                  excerptInputRef.current = el;
+                }}
+                onKeyDown={handleExcerptKeyDown}
+                helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
+              />
+            </div>
 
             {/* Hero Image Section */}
             <div className="space-y-3 pt-2">
@@ -597,6 +754,30 @@ function NewSlideDetailBlogContent() {
                 )}
               </div>
 
+              {/* Hero Caption (stored in content.heroMeta.caption) */}
+              {currentPreview && !isHeroLoadError && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-text-muted">
+                    Chú thích ảnh bìa
+                  </label>
+                  <FormInput
+                    placeholder="VD: Ảnh minh hoạ quá trình số hoá dữ liệu..."
+                    value={(previewContent as SlideDetailBlogContent)?.heroMeta?.caption ?? ""}
+                    onChange={(e) => {
+                      const currentContent = getValues("content") as SlideDetailBlogContent;
+                      const updatedContent: SlideDetailBlogContent = {
+                        ...currentContent,
+                        heroMeta: {
+                          ...currentContent?.heroMeta,
+                          caption: e.target.value,
+                        } as HeroMeta,
+                      };
+                      setValue("content", updatedContent, { shouldDirty: true });
+                    }}
+                  />
+                </div>
+              )}
+
               {heroMode === "upload" ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -620,6 +801,27 @@ function NewSlideDetailBlogContent() {
                         disabled={uploadingHero}
                       />
                     </label>
+                    {currentPreview && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteHeroImage}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-3.5 w-3.5"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Xoá ảnh Hero
+                      </button>
+                    )}
                     <span className="text-xs text-text-muted">
                       JPG, PNG, WebP • Tối đa 10MB • Lưu vào /vdcd/slides/{currentSubfolder}
                     </span>
@@ -631,16 +833,39 @@ function NewSlideDetailBlogContent() {
                   )}
                 </div>
               ) : (
-                <FormInput
-                  label="URL ảnh Hero"
-                  placeholder="https://ik.imagekit.io/..."
-                  value={watchedHeroUrl || ""}
-                  onChange={(e) => {
-                    setFailedHeroUrl(null);
-                    setValue("heroImageUrl", e.target.value, { shouldDirty: true });
-                    setValue("heroImageFileId", null, { shouldDirty: true });
-                  }}
-                />
+                <div className="space-y-2">
+                  <FormInput
+                    label="URL ảnh Hero"
+                    placeholder="https://ik.imagekit.io/..."
+                    value={watchedHeroUrl || ""}
+                    onChange={(e) => {
+                      setFailedHeroUrl(null);
+                      setValue("heroImageUrl", e.target.value, { shouldDirty: true });
+                      setValue("heroImageFileId", null, { shouldDirty: true });
+                    }}
+                  />
+                  {currentPreview && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteHeroImage}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Xoá ảnh Hero
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -697,7 +922,7 @@ function NewSlideDetailBlogContent() {
         </Card>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
           <AppButton
             variant="ghost"
             type="button"
@@ -726,7 +951,7 @@ function NewSlideDetailBlogContent() {
 
       {/* Footer Actions (visible when Reader or Visual tab is active — form footer is hidden with the form) */}
       {activeTab !== "editor" && (
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
           <AppButton
             variant="ghost"
             type="button"
@@ -762,6 +987,31 @@ function NewSlideDetailBlogContent() {
           content={(previewContent as SlideDetailBlogContent) ?? { version: 1, blocks: [] }}
           heroImageUrl={currentPreview}
         />
+
+
+        {/* Floating Save Bar cố định ở góc dưới bên phải màn hình khi có thay đổi */}
+        <FloatingSaveBar
+          isVisible={isDirty && (activeTab === "editor" || activeTab === "visual")}
+          statusText="Có thay đổi chưa lưu"
+        >
+          <AppButton
+            type="button"
+            variant="ghost"
+            isLoading={createMutation.isPending}
+            onClick={handleSubmit((data: SlideDetailBlogFormData) => onSubmit(data, false), onInvalid)}
+            className="border border-border bg-surface text-xs"
+          >
+            Lưu bản nháp
+          </AppButton>
+          <AppButton
+            type="button"
+            isLoading={createMutation.isPending}
+            onClick={handleSubmit((data: SlideDetailBlogFormData) => onSubmit(data, true), onInvalid)}
+            className="text-xs"
+          >
+            Xuất bản ngay
+          </AppButton>
+        </FloatingSaveBar>
       </div>
     </SlideDetailBlogUploadProvider>
   );

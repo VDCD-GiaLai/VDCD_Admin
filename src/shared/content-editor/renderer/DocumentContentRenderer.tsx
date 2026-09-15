@@ -87,7 +87,7 @@ export function DocumentContentRenderer(props: DocumentContentRendererProps) {
               const quote = block as QuoteBlock;
               return (
                 <blockquote className="blog-preview-quote my-4 border-l-4 border-primary pl-4 italic text-text-muted">
-                  <p>{quote.text}</p>
+                  <p dangerouslySetInnerHTML={{ __html: quote.text }} />
                   {Boolean(quote.author || quote.citation) && (
                     <footer className="mt-1 text-xs not-italic text-text-muted/80">
                       — {[quote.author, quote.citation].filter(Boolean).join(", ")}
@@ -99,9 +99,10 @@ export function DocumentContentRenderer(props: DocumentContentRendererProps) {
             case "highlight": {
               const hl = block as HighlightBlock;
               return (
-                <div className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 font-medium text-text">
-                  {hl.text}
-                </div>
+                <div
+                  className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 font-medium text-text"
+                  dangerouslySetInnerHTML={{ __html: hl.text }}
+                />
               );
             }
             case "section":

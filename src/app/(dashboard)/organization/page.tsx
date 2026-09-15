@@ -1,541 +1,719 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
-import { FormInput, FormTextarea, AppButton, FormSelect } from "@/components/ui";
-
-function FacebookIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>;
-}
-function YoutubeIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>;
-}
-function MessageCircleIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>;
-}
-function PhoneIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
-}
-function MailIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
-}
-function LinkedinIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>;
-}
-function InstagramIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>;
-}
-function DefaultLinkIcon({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
-}
-
-const PLATFORM_OPTIONS = [
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'zalo', label: 'Zalo' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'messenger', label: 'Messenger' },
-  { value: 'hotline', label: 'Hotline / SĐT' },
-  { value: 'email', label: 'Email' },
-  { value: 'website', label: 'Website' },
-  { value: 'other', label: 'Khác (Nhập tùy chỉnh)' }
-];
-
-const getPlatformIcon = (platform: string) => {
-  switch (platform?.toLowerCase()) {
-    case 'facebook': return <FacebookIcon className="w-4 h-4 text-blue-600" />;
-    case 'zalo':
-    case 'messenger': return <MessageCircleIcon className="w-4 h-4 text-blue-500" />;
-    case 'youtube': return <YoutubeIcon className="w-4 h-4 text-red-600" />;
-    case 'hotline': return <PhoneIcon className="w-4 h-4 text-green-600" />;
-    case 'email': return <MailIcon className="w-4 h-4 text-gray-500" />;
-    case 'linkedin': return <LinkedinIcon className="w-4 h-4 text-blue-700" />;
-    case 'instagram': return <InstagramIcon className="w-4 h-4 text-pink-600" />;
-    default: return <DefaultLinkIcon className="w-4 h-4 text-gray-400" />;
-  }
-};
-
-const getPlatformPlaceholder = (platform: string) => {
-  switch (platform?.toLowerCase()) {
-    case 'facebook': return 'https://facebook.com/...';
-    case 'zalo': return 'https://zalo.me/...';
-    case 'tiktok': return 'https://tiktok.com/@...';
-    case 'youtube': return 'https://youtube.com/@...';
-    case 'linkedin': return 'https://linkedin.com/company/...';
-    case 'hotline': return '09... hoặc 0269...';
-    case 'email': return 'contact@vdcd.vn';
-    case 'messenger': return 'https://m.me/...';
-    default: return 'https://...';
-  }
-};
-import { useToast } from "@/components/ui";
-import { Spinner } from "@/components/ui";
-import { useOrganization, useUpdateOrganization } from "@/features/organization/api";
+import { AppButton, useToast, Spinner } from "@/components/ui";
+import { FloatingSaveBar } from "@/components/shared";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  useOrganization,
+  useUpdateOrganization,
+} from "@/features/organization/api";
 import {
   organizationSchema,
   type OrganizationFormData,
 } from "@/features/organization/schema";
+import {
+  GeneralInfoSection,
+  AnnouncementSection,
+  LeaderSection,
+  VisionValuesSection,
+  StatsSection,
+  EcosystemSection,
+  CtaContactSection,
+} from "@/features/organization/components";
+import type { Organization } from "@/types/organization";
 
-/**
- * Organization page — redesigned for About Us (6 content blocks).
- * Single-record form: GET organization, edit, PUT to save.
- */
+type TabKey =
+  | "general"
+  | "leader"
+  | "vision-values"
+  | "stats"
+  | "ecosystem"
+  | "cta-contact";
+
+interface TabItem {
+  key: TabKey;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  badgeCount?: number;
+}
+
 export default function OrganizationPage() {
   const { toast } = useToast();
+  const canUpdate = usePermission("organization:update");
   const { data: org, isLoading } = useOrganization();
   const updateMutation = useUpdateOrganization();
+
+  const [activeTab, setActiveTab] = useState<TabKey>("general");
+  const bottomBarRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<OrganizationFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(organizationSchema) as any,
     defaultValues: {
       name: "",
+      shortName: "",
       tagline: "",
       businessLicenseNo: "",
       description: "",
       mission: "",
       vision: "",
       coreValues: "",
+      coreValuesList: [],
       foundedYear: null,
       address: "",
-      stats: { staff: 0, experts: 0, provinces: 0, projects: 0 },
+      email: "",
+      hotline: "",
+      announcement: {
+        text: "",
+        link: "",
+        isActive: true,
+        imageUrl: "",
+        imageFileId: "",
+      },
+      leader: {
+        name: "",
+        role: "",
+        quote: "",
+        avatarUrl: "",
+        avatarFileId: "",
+        ctaText: "",
+        ctaLink: "",
+      },
+      stats: {
+        staff: 0,
+        experts: 0,
+        provinces: 0,
+        projects: 0,
+      },
+      statsList: [],
       ecosystemCapabilities: "",
+      ecosystemMembersArray: [],
       developmentOrientationsArray: [],
+      operationFieldsArray: [],
+      ctaSection: {
+        badge: "",
+        title: "",
+        description: "",
+        buttonText: "",
+        buttonLink: "",
+        secondaryButtonText: "",
+        secondaryButtonLink: "",
+        subtext: "",
+      },
       socialLinksArray: [],
     },
   });
 
-  // ── Field arrays ──
-  const {
-    fields: socialFields,
-    append: appendSocial,
-    remove: removeSocial,
-  } = useFieldArray({ control, name: "socialLinksArray" });
-
-
-
-  const {
-    fields: devFields,
-    append: appendDev,
-    remove: removeDev,
-  } = useFieldArray({ control, name: "developmentOrientationsArray" });
-
-  const socialLinksWatch = useWatch({ control, name: "socialLinksArray" });
-
   // ── Populate form from API ──
-  useEffect(() => {
-    if (org) {
-      const socialLinksArray = Object.entries(org.socialLinks || {}).map(([key, value]) => ({
-        platform: key,
-        url: value as string,
-      }));
+  const populateForm = useCallback(
+    (currentOrg: Organization) => {
+      // Social links array
+      const socialLinksArray = Object.entries(currentOrg.socialLinks || {}).map(
+        ([platform, url]) => ({
+          platform,
+          url: url as string,
+        })
+      );
 
-      const developmentOrientationsArray = (org.developmentOrientations || []).map((item) => ({
+      // Orientations array
+      const developmentOrientationsArray = (
+        currentOrg.developmentOrientations || []
+      ).map((item, idx) => ({
         title: item.title || "",
         description: item.description || "",
+        icon: item.icon || "compass",
+        order: item.order ?? idx + 1,
       }));
 
+      // Operation fields array
+      const operationFieldsArray = (currentOrg.operationFields || []).map(
+        (item, idx) => ({
+          title: item.title || "",
+          description: item.description || "",
+          icon: item.icon || "layers",
+          imageUrl: item.imageUrl || "",
+          order: item.order ?? idx + 1,
+        })
+      );
+
+      // Ecosystem members array
+      const ecosystemMembersArray = (currentOrg.ecosystemMembers || []).map(
+        (m, idx) => ({
+          id: m.id,
+          title: m.title || "",
+          slug: m.slug || "",
+          description: m.description || "",
+          imageUrl: m.imageUrl || "",
+          websiteUrl: m.websiteUrl || "",
+          order: m.order ?? idx + 1,
+        })
+      );
+
+      // Stats list
+      let statsList = currentOrg.statsList || [];
+      if (statsList.length === 0 && currentOrg.stats) {
+        // Fallback convert from legacy stats object if statsList is not yet populated
+        statsList = [
+          {
+            key: "staff",
+            value: `${currentOrg.stats.staff ?? 1500}+`,
+            label: "Nhân sự",
+            description:
+              "Đội ngũ chuyên môn cao, đáp ứng triển khai dự án quy mô lớn",
+            icon: "users",
+          },
+          {
+            key: "experts",
+            value: `${currentOrg.stats.experts ?? 250}+`,
+            label: "Chuyên gia",
+            description: "Năng lực R&D phần cứng, GIS, AI và chuyển đổi số",
+            icon: "award",
+          },
+          {
+            key: "projects",
+            value: `${currentOrg.stats.projects ?? 100}+`,
+            label: "Dự án",
+            description:
+              "Tham gia trực tiếp triển khai các dự án quy mô toàn quốc",
+            icon: "briefcase",
+          },
+          {
+            key: "provinces",
+            value: `${currentOrg.stats.provinces ?? 30}+`,
+            label: "Tỉnh thành",
+            description:
+              "Mạng lưới phục vụ thực địa rộng khắp các tỉnh thành toàn quốc",
+            icon: "map-pin",
+          },
+        ];
+      }
+
       reset({
-        name: org.name,
-        tagline: org.tagline ?? "",
-        businessLicenseNo: org.businessLicenseNo ?? "",
-        description: org.description ?? "",
-        mission: org.mission ?? "",
-        vision: org.vision ?? "",
-        coreValues: org.coreValues ?? "",
-        foundedYear: org.foundedYear ?? null,
-        address: org.address ?? "",
-        stats: {
-          staff: org.stats?.staff ?? 0,
-          experts: org.stats?.experts ?? 0,
-          provinces: org.stats?.provinces ?? 0,
-          projects: org.stats?.projects ?? 0,
+        name: currentOrg.name || "",
+        shortName: currentOrg.shortName ?? "",
+        tagline: currentOrg.tagline ?? "",
+        businessLicenseNo: currentOrg.businessLicenseNo ?? "",
+        description: currentOrg.description ?? "",
+        mission: currentOrg.mission ?? "",
+        vision: currentOrg.vision ?? "",
+        coreValues: currentOrg.coreValues ?? "",
+        coreValuesList: currentOrg.coreValuesList ?? [],
+        foundedYear: currentOrg.foundedYear ?? null,
+        address: currentOrg.address ?? "",
+        email:
+          currentOrg.email ??
+          (currentOrg.socialLinks?.email as string) ??
+          "",
+        hotline:
+          currentOrg.hotline ??
+          (currentOrg.socialLinks?.hotline as string) ??
+          "",
+        announcement: currentOrg.announcement
+          ? {
+              text: currentOrg.announcement.text ?? "",
+              link: currentOrg.announcement.link ?? "",
+              isActive: currentOrg.announcement.isActive ?? true,
+              imageUrl: currentOrg.announcement.imageUrl ?? "",
+              imageFileId: currentOrg.announcement.imageFileId ?? "",
+            }
+          : {
+              text: "",
+              link: "",
+              isActive: true,
+              imageUrl: "",
+              imageFileId: "",
+            },
+        leader: currentOrg.leader ?? {
+          name: "",
+          role: "",
+          quote: "",
+          avatarUrl: "",
+          avatarFileId: "",
+          ctaText: "",
+          ctaLink: "",
         },
-        ecosystemCapabilities: org.ecosystemCapabilities ?? "",
+        stats: {
+          staff: currentOrg.stats?.staff ?? 0,
+          experts: currentOrg.stats?.experts ?? 0,
+          provinces: currentOrg.stats?.provinces ?? 0,
+          projects: currentOrg.stats?.projects ?? 0,
+        },
+        statsList,
+        ecosystemCapabilities: currentOrg.ecosystemCapabilities ?? "",
+        ecosystemMembersArray,
         developmentOrientationsArray,
+        operationFieldsArray,
+        ctaSection: currentOrg.ctaSection
+          ? {
+              badge: currentOrg.ctaSection.badge ?? "",
+              title: currentOrg.ctaSection.title ?? "",
+              description: currentOrg.ctaSection.description ?? "",
+              buttonText: currentOrg.ctaSection.buttonText ?? "",
+              buttonLink: currentOrg.ctaSection.buttonLink ?? "",
+              secondaryButtonText:
+                currentOrg.ctaSection.secondaryButtonText ?? "",
+              secondaryButtonLink:
+                currentOrg.ctaSection.secondaryButtonLink ?? "",
+              subtext: currentOrg.ctaSection.subtext ?? "",
+            }
+          : {
+              badge: "",
+              title: "",
+              description: "",
+              buttonText: "",
+              buttonLink: "",
+              secondaryButtonText: "",
+              secondaryButtonLink: "",
+              subtext: "",
+            },
         socialLinksArray,
       });
+    },
+    [reset]
+  );
+
+  useEffect(() => {
+    if (org) {
+      populateForm(org);
     }
-  }, [org, reset]);
+  }, [org, populateForm]);
 
-  // ── Submit ──
+  // ── Handle Submit ──
   const onSubmit = (data: OrganizationFormData) => {
-    // Transform socialLinksArray → Record<string, string>
-    const socialLinks = data.socialLinksArray?.reduce((acc, curr) => {
-      if (curr.platform && curr.url) {
-        acc[curr.platform] = curr.url;
-      }
-      return acc;
-    }, {} as Record<string, string>) ?? {};
+    // 1. Transform socialLinksArray -> Record<string, string>
+    const socialLinks =
+      data.socialLinksArray?.reduce(
+        (acc, curr) => {
+          if (curr.platform && curr.url) {
+            acc[curr.platform] = curr.url;
+          }
+          return acc;
+        },
+        {} as Record<string, string>
+      ) ?? {};
 
-    // Clear operationFields in database
-    const operationFields: { title: string; description: string }[] = [];
+    // Sync direct email and hotline into socialLinks as well
+    if (data.email) socialLinks.email = data.email;
+    if (data.hotline) socialLinks.hotline = data.hotline;
 
-    // Transform developmentOrientationsArray → array
-    const developmentOrientations = (data.developmentOrientationsArray || []).map((item) => ({
+    // 2. Transform developmentOrientationsArray
+    const developmentOrientations = (
+      data.developmentOrientationsArray || []
+    ).map((item, idx) => ({
       title: item.title,
       description: item.description || "",
+      icon: item.icon || "compass",
+      order: item.order ?? idx + 1,
     }));
 
-    // Build payload (remove form-only array keys)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { socialLinksArray, developmentOrientationsArray, ...rest } = data;
+    // 3. Transform operationFieldsArray
+    const operationFields = (data.operationFieldsArray || []).map(
+      (item, idx) => ({
+        title: item.title,
+        description: item.description || "",
+        icon: item.icon || "layers",
+        imageUrl: item.imageUrl || "",
+        order: item.order ?? idx + 1,
+      })
+    );
 
-    const apiPayload = {
-      ...rest,
+    // 4. Transform ecosystemMembersArray
+    const ecosystemMembers = (data.ecosystemMembersArray || []).map(
+      (item, idx) => ({
+        id: item.id,
+        title: item.title,
+        slug: item.slug || "",
+        description: item.description || "",
+        imageUrl: item.imageUrl || "",
+        websiteUrl: item.websiteUrl || "",
+        order: item.order ?? idx + 1,
+      })
+    );
+
+    // 5. Sync stats numeric values from statsList
+    const stats = {
+      staff: data.stats?.staff ?? 0,
+      experts: data.stats?.experts ?? 0,
+      provinces: data.stats?.provinces ?? 0,
+      projects: data.stats?.projects ?? 0,
+    };
+    (data.statsList || []).forEach((item, idx) => {
+      // Remove dots/commas to parse 1.500+ -> 1500 correctly
+      const cleanValue = item.value?.replace(/[.,\s]/g, "") || "";
+      const numMatch = cleanValue.match(/\d+/);
+      const parsedNum = numMatch ? parseInt(numMatch[0], 10) : 0;
+      const labelLower = (item.label || "").toLowerCase();
+
+      if (item.key === "staff" || idx === 0 || labelLower.includes("nhân sự") || labelLower.includes("cán bộ")) {
+        stats.staff = parsedNum;
+      } else if (item.key === "experts" || idx === 1 || labelLower.includes("chuyên gia")) {
+        stats.experts = parsedNum;
+      } else if (item.key === "projects" || idx === 2 || labelLower.includes("dự án")) {
+        stats.projects = parsedNum;
+      } else if (item.key === "provinces" || idx === 3 || labelLower.includes("tỉnh")) {
+        stats.provinces = parsedNum;
+      }
+    });
+
+    // 6. Build final payload
+    const cleanRest = { ...data } as Record<string, unknown>;
+    delete cleanRest.socialLinksArray;
+    delete cleanRest.developmentOrientationsArray;
+    delete cleanRest.operationFieldsArray;
+    delete cleanRest.ecosystemMembersArray;
+
+    const payload: Partial<Organization> = {
+      ...cleanRest,
+      stats,
       socialLinks,
-      operationFields,
       developmentOrientations,
+      operationFields,
+      ecosystemMembers,
     };
 
-    updateMutation.mutate(apiPayload, {
-      onSuccess: () => {
+    updateMutation.mutate(payload, {
+      onSuccess: (updated) => {
         toast({
           title: "Cập nhật thành công",
-          description: "Thông tin tổ chức đã được lưu.",
+          description: "Thông tin tổ chức và trang Về chúng tôi đã được lưu.",
           color: "success",
         });
+        if (updated) {
+          populateForm(updated);
+        }
       },
       onError: (error) => {
         toast({
           title: "Cập nhật thất bại",
-          description: error.message,
+          description: error.message || "Vui lòng kiểm tra lại các trường dữ liệu.",
           color: "danger",
         });
       },
     });
   };
 
+  // ── Tab items configuration ──
+  const tabs: TabItem[] = useMemo(
+    () => [
+      {
+        key: "general",
+        label: "Thông tin & Thông báo",
+        shortLabel: "Chung & Thông báo",
+        icon: "🏢",
+      },
+      {
+        key: "leader",
+        label: "Thông điệp Lãnh đạo",
+        shortLabel: "Lãnh đạo",
+        icon: "👤",
+      },
+      {
+        key: "vision-values",
+        label: "Tầm nhìn & Năng lực trọng tâm",
+        shortLabel: "Tầm nhìn & Năng lực",
+        icon: "🎯",
+      },
+      {
+        key: "stats",
+        label: "Mạng lưới & Quy mô",
+        shortLabel: "Thống kê",
+        icon: "📊",
+      },
+      {
+        key: "ecosystem",
+        label: "Hệ sinh thái VDCD",
+        shortLabel: "Hệ sinh thái (12)",
+        icon: "🌐",
+      },
+      {
+        key: "cta-contact",
+        label: "CTA & Liên hệ",
+        shortLabel: "CTA & Liên hệ",
+        icon: "📞",
+      },
+    ],
+    []
+  );
+
+  // Tab error indicators
+  const tabErrors = useMemo(() => {
+    return {
+      general: Boolean(
+        errors.name ||
+          errors.shortName ||
+          errors.tagline ||
+          errors.businessLicenseNo ||
+          errors.foundedYear ||
+          errors.address ||
+          errors.description ||
+          errors.announcement
+      ),
+      leader: Boolean(errors.leader),
+      "vision-values": Boolean(
+        errors.mission ||
+          errors.vision ||
+          errors.coreValues ||
+          errors.developmentOrientationsArray
+      ),
+      stats: Boolean(errors.stats || errors.statsList),
+      ecosystem: Boolean(
+        errors.ecosystemCapabilities || errors.ecosystemMembersArray
+      ),
+      "cta-contact": Boolean(
+        errors.ctaSection ||
+          errors.email ||
+          errors.hotline ||
+          errors.socialLinksArray
+      ),
+    };
+  }, [errors]);
+
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-72 items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-text">Thông tin tổ chức</h1>
-        <p className="text-sm text-text-muted">
-          Quản lý nội dung trang &ldquo;Về chúng tôi&rdquo; — 6 khối nội dung.
-        </p>
+    <div className="space-y-6 pb-20">
+      {/* ════════════════════════════════════════════
+          Page Header
+      ════════════════════════════════════════════ */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-text">
+              Quản lý Tổ chức & Trang Về chúng tôi
+            </h1>
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+              Live Sync
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-text-muted">
+            Quản trị 100% các khối nội dung hiển thị trên trang &ldquo;Về chúng tôi&rdquo; (/about-us).
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <a
+            href="http://localhost:3002/about-us"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-xs font-medium text-text shadow-sm transition-colors hover:bg-surface-muted"
+          >
+            <span>🌐 Xem trang thực tế</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3.5 w-3.5 text-text-muted"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h4a.75.75 0 010 1.5h-4z"
+                clipRule="evenodd"
+              />
+              <path
+                fillRule="evenodd"
+                d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.553l-9.156 8.497a.75.75 0 00-.053 1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </a>
+
+          {canUpdate && (
+            <AppButton
+              type="button"
+              isLoading={updateMutation.isPending}
+              disabled={!isDirty || updateMutation.isPending}
+              onClick={handleSubmit(onSubmit)}
+            >
+              Lưu thay đổi
+            </AppButton>
+          )}
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* ════════════════════════════════════════════
+          Modern Segmented Tabs Navigation
+      ════════════════════════════════════════════ */}
+      <div className="flex overflow-x-auto rounded-xl border border-border bg-surface p-1.5 shadow-sm scrollbar-none">
+        <div className="flex min-w-full gap-1">
+          {tabs.map((tab) => {
+            const isSelected = activeTab === tab.key;
+            const hasError = tabErrors[tab.key];
 
-        {/* ════════════════════════════════════════════
-            Khối 1 – Giới thiệu chung
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <CardTitle className="text-base font-semibold text-text">
-              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">1</span>
-              Giới thiệu chung
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormInput
-                label="Tên tổ chức"
-                isRequired
-                errorMessage={errors.name?.message}
-                {...register("name")}
-              />
-              <FormInput
-                label="Khẩu hiệu"
-                placeholder="Slogan..."
-                errorMessage={errors.tagline?.message}
-                {...register("tagline")}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <FormInput
-                label="Mã ĐKKD"
-                placeholder="VD: 4101443823"
-                errorMessage={errors.businessLicenseNo?.message}
-                {...register("businessLicenseNo")}
-              />
-              <FormInput
-                label="Năm thành lập"
-                type="number"
-                errorMessage={errors.foundedYear?.message}
-                {...register("foundedYear", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Địa chỉ"
-                placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố..."
-                errorMessage={errors.address?.message}
-                {...register("address")}
-              />
-            </div>
-
-            <FormTextarea
-              label="Mô tả tổ chức"
-              rows={5}
-              placeholder="Giới thiệu chung về tổ chức..."
-              errorMessage={errors.description?.message}
-              {...register("description")}
-            />
-          </CardContent>
-        </Card>
-
-        {/* ════════════════════════════════════════════
-            Khối 2 – Sứ mệnh, Tầm nhìn, Giá trị cốt lõi
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <CardTitle className="text-base font-semibold text-text">
-              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">2</span>
-              Sứ mệnh, Tầm nhìn & Giá trị cốt lõi
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormTextarea
-                label="Sứ mệnh"
-                rows={4}
-                errorMessage={errors.mission?.message}
-                {...register("mission")}
-              />
-              <FormTextarea
-                label="Tầm nhìn"
-                rows={4}
-                errorMessage={errors.vision?.message}
-                {...register("vision")}
-              />
-            </div>
-            <FormTextarea
-              label="Giá trị cốt lõi"
-              rows={4}
-              errorMessage={errors.coreValues?.message}
-              {...register("coreValues")}
-            />
-          </CardContent>
-        </Card>
-
-        {/* ════════════════════════════════════════════
-            Khối 3 – Mạng lưới (Thống kê)
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <CardTitle className="text-base font-semibold text-text">
-              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">3</span>
-              Mạng lưới & Thống kê
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <FormInput
-                label="Nhân sự"
-                type="number"
-                {...register("stats.staff", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Chuyên gia"
-                type="number"
-                {...register("stats.experts", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Tỉnh thành"
-                type="number"
-                {...register("stats.provinces", { valueAsNumber: true })}
-              />
-              <FormInput
-                label="Dự án"
-                type="number"
-                {...register("stats.projects", { valueAsNumber: true })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ════════════════════════════════════════════
-            Khối 4 – Năng lực kế thừa từ hệ sinh thái VDCD
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <CardTitle className="text-base font-semibold text-text">
-              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">4</span>
-              Năng lực kế thừa từ hệ sinh thái VDCD
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
-            <FormTextarea
-              label="Nội dung"
-              rows={5}
-              placeholder="Trung tâm kế thừa năng lực công nghệ, đội ngũ chuyên gia và mạng lưới triển khai..."
-              errorMessage={errors.ecosystemCapabilities?.message}
-              {...register("ecosystemCapabilities")}
-            />
-          </CardContent>
-        </Card>
-
-        {/* ════════════════════════════════════════════
-            Khối 5 – Định hướng phát triển
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <div className="flex w-full flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold text-text">
-                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">5</span>
-                Định hướng phát triển
-              </CardTitle>
-              <AppButton
+            return (
+              <button
+                key={tab.key}
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => appendDev({ title: "", description: "" })}
+                onClick={() => setActiveTab(tab.key)}
+                className={`relative flex flex-1 shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-xs font-semibold transition-all ${
+                  isSelected
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-text-muted hover:bg-surface-muted hover:text-text"
+                }`}
               >
-                + Thêm định hướng
-              </AppButton>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
-            {devFields.length === 0 ? (
-              <p className="text-sm text-text-muted">Chưa có định hướng phát triển nào. Bấm &ldquo;Thêm định hướng&rdquo; để bắt đầu.</p>
-            ) : (
-              <div className="space-y-3">
-                {devFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex items-start gap-3 rounded-xl border border-border bg-surface-alt/30 p-4 transition-all focus-within:border-primary/50 focus-within:shadow-sm hover:border-border-strong"
-                  >
-                    <div className="flex items-center justify-center pt-7 text-sm font-bold text-text-muted min-w-[28px]">
-                      {(index + 1).toString().padStart(2, "0")}
-                    </div>
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
-                      <div className="md:col-span-5">
-                        <FormInput
-                          label="Tiêu đề"
-                          placeholder="VD: Phát triển hạ tầng dữ liệu..."
-                          errorMessage={errors.developmentOrientationsArray?.[index]?.title?.message}
-                          {...register(`developmentOrientationsArray.${index}.title`)}
-                        />
-                      </div>
-                      <div className="md:col-span-7">
-                        <FormTextarea
-                          label="Mô tả (tuỳ chọn)"
-                          rows={2}
-                          placeholder="Mô tả chi tiết hướng phát triển..."
-                          errorMessage={errors.developmentOrientationsArray?.[index]?.description?.message}
-                          {...register(`developmentOrientationsArray.${index}.description`)}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeDev(index)}
-                      className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10"
-                      title="Xoá"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ════════════════════════════════════════════
-            Liên hệ / Mạng xã hội (giữ nguyên)
-        ════════════════════════════════════════════ */}
-        <Card className="border border-border bg-surface shadow-sm">
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <div className="flex w-full flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold text-text">
-                Liên hệ / Mạng xã hội
-              </CardTitle>
-              <AppButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => appendSocial({ platform: "", url: "" })}
-              >
-                + Thêm phương thức
-              </AppButton>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 p-5">
-            {socialFields.length === 0 ? (
-              <p className="text-sm text-text-muted">Chưa có phương thức liên hệ nào.</p>
-            ) : (
-              <div className="space-y-3">
-                {socialFields.map((field, index) => {
-                  const currentPlatform = socialLinksWatch?.[index]?.platform || "other";
-
-                  return (
-                    <div key={field.id} className="flex items-start gap-3 rounded-xl border border-border bg-surface-alt/30 p-4 transition-all focus-within:border-primary/50 focus-within:shadow-sm hover:border-border-strong">
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="md:col-span-4">
-                          <FormSelect
-                            label="Nền tảng"
-                            options={PLATFORM_OPTIONS}
-                            errorMessage={errors.socialLinksArray?.[index]?.platform?.message}
-                            {...register(`socialLinksArray.${index}.platform`)}
-                          />
-                        </div>
-                        <div className="md:col-span-8">
-                          <div className="relative">
-                            <FormInput
-                              label="Đường dẫn / SĐT / Email"
-                              placeholder={getPlatformPlaceholder(currentPlatform)}
-                              errorMessage={errors.socialLinksArray?.[index]?.url?.message}
-                              {...register(`socialLinksArray.${index}.url`)}
-                              className="pl-9"
-                            />
-                            <div className="absolute left-3 top-[34px] flex items-center justify-center pointer-events-none">
-                              {getPlatformIcon(currentPlatform)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    <button
-                      type="button"
-                      onClick={() => removeSocial(index)}
-                      className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10"
-                      title="Xoá"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Submit ── */}
-        <div className="flex items-center justify-end gap-3">
-          {isDirty && (
-            <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
-          )}
-          <AppButton
-            type="submit"
-            isLoading={updateMutation.isPending}
-            disabled={!isDirty}
-          >
-            Lưu thay đổi
-          </AppButton>
+                <span>{tab.icon}</span>
+                <span className="whitespace-nowrap">{tab.label}</span>
+                {hasError && (
+                  <span className="flex h-2 w-2 rounded-full bg-danger" />
+                )}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* ════════════════════════════════════════════
+          Form Content Tabs
+      ════════════════════════════════════════════ */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Tab 1: Thông tin chung & Thông báo */}
+        <div className={activeTab === "general" ? "space-y-6" : "hidden"}>
+          <GeneralInfoSection register={register} errors={errors} />
+          <AnnouncementSection
+            register={register}
+            setValue={setValue}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* Tab 2: Thông điệp Lãnh đạo */}
+        <div className={activeTab === "leader" ? "space-y-6" : "hidden"}>
+          <LeaderSection
+            register={register}
+            setValue={setValue}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* Tab 3: Tầm nhìn & Giá trị cốt lõi / Chức năng trọng tâm */}
+        <div className={activeTab === "vision-values" ? "space-y-6" : "hidden"}>
+          <VisionValuesSection
+            register={register}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* Tab 4: Mạng lưới & Thống kê quy mô */}
+        <div className={activeTab === "stats" ? "space-y-6" : "hidden"}>
+          <StatsSection
+            register={register}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* Tab 6: Hệ sinh thái VDCD & 12 Đơn vị thành viên */}
+        <div className={activeTab === "ecosystem" ? "space-y-6" : "hidden"}>
+          <EcosystemSection
+            register={register}
+            setValue={setValue}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* Tab 7: Khối CTA & Thông tin liên hệ / Mạng xã hội */}
+        <div className={activeTab === "cta-contact" ? "space-y-6" : "hidden"}>
+          <CtaContactSection
+            register={register}
+            setValue={setValue}
+            control={control}
+            errors={errors}
+          />
+        </div>
+
+        {/* ════════════════════════════════════════════
+            Bottom Fallback Save Bar (Standard Form Footer)
+        ════════════════════════════════════════════ */}
+        <div
+          ref={bottomBarRef}
+          data-bottom-save-bar
+          className="flex items-center justify-between rounded-xl border border-border bg-surface px-6 py-4 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            {isDirty ? (
+              <span className="flex items-center gap-2 text-xs font-medium text-warning">
+                <span className="h-2 w-2 rounded-full bg-warning animate-pulse" />
+                Có thay đổi chưa lưu
+              </span>
+            ) : (
+              <span className="text-xs text-text-muted">
+                Dữ liệu tổ chức đã đồng bộ với hệ thống.
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isDirty && (
+              <AppButton
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={updateMutation.isPending}
+                onClick={() => org && populateForm(org)}
+              >
+                Hoàn tác
+              </AppButton>
+            )}
+            {canUpdate && (
+              <AppButton
+                type="submit"
+                isLoading={updateMutation.isPending}
+                disabled={!isDirty || updateMutation.isPending}
+              >
+                Lưu thay đổi
+              </AppButton>
+            )}
+          </div>
+        </div>
+
+        {/* ════════════════════════════════════════════
+            Floating Action Save Bar (Always Accessible)
+        ════════════════════════════════════════════ */}
+        {canUpdate && (
+          <FloatingSaveBar
+            isVisible={isDirty}
+            hideWhenInViewRef={bottomBarRef}
+            statusText="Có thay đổi chưa lưu trên biểu mẫu"
+          >
+            <AppButton
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={updateMutation.isPending}
+              onClick={() => org && populateForm(org)}
+            >
+              Hoàn tác
+            </AppButton>
+            <AppButton
+              type="submit"
+              size="sm"
+              isLoading={updateMutation.isPending}
+              disabled={updateMutation.isPending}
+            >
+              Lưu thay đổi
+            </AppButton>
+          </FloatingSaveBar>
+        )}
       </form>
     </div>
   );

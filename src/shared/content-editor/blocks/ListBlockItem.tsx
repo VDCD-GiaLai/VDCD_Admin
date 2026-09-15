@@ -95,10 +95,13 @@ function ListItemInput({
   const { handleKeyDown: handleShortcutKeyDown } = useHtmlShortcuts(onChange);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // 1. Text formatting shortcuts (Ctrl+B, Ctrl+I, Ctrl+U)
-    if ((e.ctrlKey || e.metaKey) && ["b", "i", "u"].includes(e.key.toLowerCase())) {
-      handleShortcutKeyDown(e);
-      return;
+    // 1. Text formatting shortcuts (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+Shift+X, Ctrl+K, Ctrl+\, etc.)
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (["b", "i", "u", "x", "s", "c", "e", "`", "h", "k", "\\"].includes(key)) {
+        handleShortcutKeyDown(e);
+        return;
+      }
     }
 
     const input = e.currentTarget;

@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientFetch, ApiError } from "@/lib/api-client";
 import type { Organization } from "@/types/organization";
-import type { OrganizationFormData } from "./schema";
 
 // ─── Query keys ──────────────────────────────────────────────
 
@@ -30,7 +29,7 @@ export function useOrganization() {
 export function useUpdateOrganization() {
   const queryClient = useQueryClient();
 
-  return useMutation<Organization, ApiError, OrganizationFormData>({
+  return useMutation<Organization, ApiError, Partial<Organization>>({
     mutationFn: (data) =>
       clientFetch<Organization>("/api/organization", {
         method: "PUT",

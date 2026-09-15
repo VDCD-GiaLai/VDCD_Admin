@@ -71,6 +71,28 @@ const BLOCK_OPTIONS: BlockOption[] = [
     ),
   },
   {
+    type: "quote",
+    title: "Trích dẫn (Quote)",
+    description: "Khối trích dẫn nổi bật kèm thông tin tác giả và nguồn",
+    icon: (
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-serif text-lg font-bold text-primary">
+        "
+      </span>
+    ),
+  },
+  {
+    type: "highlight",
+    title: "Điểm nhấn (Highlight)",
+    description: "Hộp thông tin nổi bật với viền và nền màu thương hiệu",
+    icon: (
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+          <path fillRule="evenodd" d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zm-8-5a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 012 10zm13 0a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0115 10zM4.22 4.22a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.06L4.22 5.28a.75.75 0 010-1.06zm10.46 10.46a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zM6.34 14.68a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 01-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm10.46-10.46a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zM10 6.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" clipRule="evenodd" />
+        </svg>
+      </span>
+    ),
+  },
+  {
     type: "cta",
     title: "Nút kêu gọi (Call to Action)",
     description: "Nút liên kết điều hướng hoặc đăng ký tư vấn",

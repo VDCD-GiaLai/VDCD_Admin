@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { HeadingBlockItem } from "./HeadingBlockItem";
 import { ParagraphBlockItem } from "./ParagraphBlockItem";
 import { ImageBlockItem } from "./ImageBlockItem";
 import { ListBlockItem } from "./ListBlockItem";
 import { SectionBlockItem } from "./SectionBlockItem";
 import { CtaBlockItem } from "./CtaBlockItem";
+import { BlockFormatToolbar } from "./BlockFormatToolbar";
+import { useHtmlShortcuts } from "../../hooks/useHtmlShortcuts";
 import {
   getCtaButtons,
   type SlideDetailBlogBlock,
@@ -14,6 +16,8 @@ import {
   type ListBlock,
   type SectionBlock,
   type CtaBlock,
+  type QuoteBlock,
+  type HighlightBlock,
 } from "@/types/slide-detail-blog";
 
 interface BlockCardProps {
@@ -216,55 +220,143 @@ export function BlockCard({
             />
           )}
           {block.type === "quote" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">Nội dung trích dẫn</label>
-                <textarea
-                  value={block.text || ""}
-                  onChange={(e) => onChange({ ...block, text: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
-                  placeholder="Nhập nội dung trích dẫn..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1">Tác giả</label>
-                  <input
-                    type="text"
-                    value={block.author || ""}
-                    onChange={(e) => onChange({ ...block, author: e.target.value })}
-                    className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
-                    placeholder="Tên tác giả..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1">Nguồn / Chức vụ</label>
-                  <input
-                    type="text"
-                    value={block.citation || ""}
-                    onChange={(e) => onChange({ ...block, citation: e.target.value })}
-                    className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
-                    placeholder="Nguồn / chức vụ..."
-                  />
-                </div>
-              </div>
-            </div>
+            <QuoteBlockItem
+              block={block as QuoteBlock}
+              onChange={onChange}
+            />
           )}
           {block.type === "highlight" && (
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Nội dung điểm nhấn</label>
-              <textarea
-                value={block.text || ""}
-                onChange={(e) => onChange({ ...block, text: e.target.value })}
-                rows={2}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
-                placeholder="Nhập nội dung điểm nhấn..."
-              />
-            </div>
+            <HighlightBlockItem
+              block={block as HighlightBlock}
+              onChange={onChange}
+            />
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function QuoteBlockItem({
+  block,
+  onChange,
+}: {
+  block: QuoteBlock;
+  onChange: (updated: QuoteBlock) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleTextChange = useCallback(
+    (newValue: string) => onChange({ ...block, text: newValue }),
+    [block, onChange],
+  );
+  const { handleKeyDown, applyFormat } = useHtmlShortcuts(handleTextChange);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold uppercase text-text-muted">
+            Nội dung trích dẫn
+          </label>
+          <BlockFormatToolbar onApply={(action) => applyFormat(textareaRef.current, action)} size="xs" />
+        </div>
+        <textarea
+          ref={textareaRef}
+          value={block.text || ""}
+          onChange={(e) => onChange({ ...block, text: e.target.value })}
+          onKeyDown={handleKeyDown}
+          rows={3}
+          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+          placeholder="Nhập nội dung trích dẫn..."
+        />
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-muted">
+          <span className="font-medium text-text">Phím tắt:</span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+B</kbd>
+            <span>Đậm</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd>
+            <span>Nghiêng</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+U</kbd>
+            <span>Gạch chân</span>
+          </span>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-text-muted">Tác giả</label>
+          <input
+            type="text"
+            value={block.author || ""}
+            onChange={(e) => onChange({ ...block, author: e.target.value })}
+            className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
+            placeholder="Tên tác giả..."
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-text-muted">Nguồn / Chức vụ</label>
+          <input
+            type="text"
+            value={block.citation || ""}
+            onChange={(e) => onChange({ ...block, citation: e.target.value })}
+            className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
+            placeholder="Nguồn / chức vụ..."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HighlightBlockItem({
+  block,
+  onChange,
+}: {
+  block: HighlightBlock;
+  onChange: (updated: HighlightBlock) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleTextChange = useCallback(
+    (newValue: string) => onChange({ ...block, text: newValue }),
+    [block, onChange],
+  );
+  const { handleKeyDown, applyFormat } = useHtmlShortcuts(handleTextChange);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs font-semibold uppercase text-text-muted">
+          Nội dung điểm nhấn
+        </label>
+        <BlockFormatToolbar onApply={(action) => applyFormat(textareaRef.current, action)} size="xs" />
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={block.text || ""}
+        onChange={(e) => onChange({ ...block, text: e.target.value })}
+        onKeyDown={handleKeyDown}
+        rows={2}
+        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+        placeholder="Nhập nội dung điểm nhấn..."
+      />
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-muted">
+        <span className="font-medium text-text">Phím tắt:</span>
+        <span className="inline-flex items-center gap-1">
+          <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+B</kbd>
+          <span>Đậm</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd>
+          <span>Nghiêng</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+U</kbd>
+          <span>Gạch chân</span>
+        </span>
+      </div>
     </div>
   );
 }

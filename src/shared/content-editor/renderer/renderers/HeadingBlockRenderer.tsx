@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useMemo } from "react";
 import { useSanitizedPaste } from "../../paste/useSanitizedPaste";
+import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import type { HeadingBlock } from "../../model/document.types";
 
 export interface HeadingBlockRendererProps {
@@ -15,10 +16,15 @@ export function HeadingBlockRenderer({
 }: HeadingBlockRendererProps) {
   const ref = useRef<HTMLHeadingElement>(null);
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: false });
+  const { handleInput } = useContentEditableSync(ref, {
+    html: block.text || "",
+    enabled: editable,
+  });
 
   const handleBlur = useCallback(() => {
     if (ref.current && onTextChange) {
-      onTextChange(ref.current.textContent ?? "");
+      const text = ref.current.textContent?.trim() ?? "";
+      onTextChange(text ? ref.current.innerHTML : "");
     }
   }, [onTextChange]);
 
@@ -54,14 +60,20 @@ export function HeadingBlockRenderer({
         style={fontStyle}
         contentEditable
         suppressContentEditableWarning
+        onInput={handleInput}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         data-placeholder="Nhập tiêu đề mục..."
-        dangerouslySetInnerHTML={{ __html: block.text || "" }}
       />
     );
   }
 
-  return <Tag className="blog-preview-heading" style={fontStyle}>{block.text}</Tag>;
+  return (
+    <Tag
+      className="blog-preview-heading"
+      style={fontStyle}
+      dangerouslySetInnerHTML={{ __html: block.text }}
+    />
+  );
 }

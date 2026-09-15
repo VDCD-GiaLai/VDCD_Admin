@@ -32,6 +32,7 @@ export function cloneTree(items: ListItem[]): ListItem[] {
   return items.map((item) => ({
     id: item.id,
     content: item.content,
+    text: item.text ?? item.content,
     ...(typeof item.checked === "boolean" ? { checked: item.checked } : {}),
     children: item.children && item.children.length > 0 ? cloneTree(item.children) : [],
   }));
@@ -46,18 +47,26 @@ export function normalizeListItem(raw: unknown): ListItem {
     return {
       id: generateListItemId(),
       content: raw,
+      text: raw,
       children: [],
     };
   }
 
   if (raw && typeof raw === "object") {
     const obj = raw as Record<string, unknown>;
+    const val =
+      typeof obj.content === "string" && obj.content
+        ? obj.content
+        : typeof obj.text === "string" && obj.text
+          ? obj.text
+          : "";
     return {
       id:
         typeof obj.id === "string" && obj.id.trim() && !obj.id.startsWith("temp_")
           ? obj.id
           : generateListItemId(),
-      content: typeof obj.content === "string" ? obj.content : "",
+      content: val,
+      text: val,
       ...(typeof obj.checked === "boolean" ? { checked: obj.checked } : {}),
       children: Array.isArray(obj.children)
         ? obj.children.map(normalizeListItem)
@@ -68,6 +77,7 @@ export function normalizeListItem(raw: unknown): ListItem {
   return {
     id: generateListItemId(),
     content: "",
+    text: "",
     children: [],
   };
 }
@@ -78,7 +88,7 @@ export function normalizeListItem(raw: unknown): ListItem {
  */
 export function normalizeListItems(items: unknown): ListItem[] {
   if (!Array.isArray(items) || items.length === 0) {
-    return [{ id: generateListItemId(), content: "", children: [] }];
+    return [{ id: generateListItemId(), content: "", text: "", children: [] }];
   }
 
   const seenIds = new Set<string>();
@@ -117,9 +127,10 @@ export function createListBlock(options?: {
     ? options.initialTexts.map((text) => ({
         id: generateListItemId(),
         content: text,
+        text: text,
         children: [],
       }))
-    : [{ id: generateListItemId(), content: "", children: [] }];
+    : [{ id: generateListItemId(), content: "", text: "", children: [] }];
 
   return {
     id: blockId,
@@ -339,7 +350,7 @@ export function updateListItemContent(
 ): ListItem[] {
   return items.map((item) => {
     if (item.id === targetId) {
-      return { ...item, content };
+      return { ...item, content, text: content };
     }
     if (item.children && item.children.length > 0) {
       return {
@@ -427,7 +438,7 @@ export function splitListItemInTree(
   const newItemId = generateListItemId();
 
   if (!loc) {
-    const newItem: ListItem = { id: newItemId, content: "", children: [] };
+    const newItem: ListItem = { id: newItemId, content: "", text: "", children: [] };
     cloned.push(newItem);
     return { items: cloned, newItemId };
   }
@@ -440,7 +451,8 @@ export function splitListItemInTree(
   const rightContent = fullText.substring(safeCursor);
 
   currentItem.content = leftContent;
-  const newItem: ListItem = { id: newItemId, content: rightContent, children: [] };
+  currentItem.text = leftContent;
+  const newItem: ListItem = { id: newItemId, content: rightContent, text: rightContent, children: [] };
 
   loc.siblings.splice(loc.index + 1, 0, newItem);
 
@@ -463,6 +475,7 @@ export function deleteListItemInTree(
   const flatList = flattenListItems(cloned);
   if (flatList.length <= 1) {
     loc.item.content = "";
+    loc.item.text = "";
     loc.item.children = [];
     return { items: cloned, targetFocusId: loc.item.id, targetItemId: loc.item.id };
   }
@@ -487,7 +500,7 @@ export function addListItem(
   content = "",
 ): { items: ListItem[]; newItemId: string } {
   const newItemId = generateListItemId();
-  const newItem: ListItem = { id: newItemId, content, children: [] };
+  const newItem: ListItem = { id: newItemId, content, text: content, children: [] };
   const nextItems = cloneTree(items);
 
   if (typeof targetOrIndex === "number" && targetOrIndex >= 0 && targetOrIndex <= nextItems.length) {
@@ -541,6 +554,7 @@ export function mergeListItemWithPrevious(
   const updatedPrev: ListItem = {
     ...prevItem,
     content: mergedContent,
+    text: mergedContent,
     children: mergedChildren,
   };
 
@@ -624,8 +638,10 @@ export function insertPastedItemsInTree(
   const suffix = currentContent.substring(safeCursor);
 
   clonedPasted[0].content = prefix + clonedPasted[0].content;
+  clonedPasted[0].text = clonedPasted[0].content;
   const lastPasted = clonedPasted[clonedPasted.length - 1];
   lastPasted.content = lastPasted.content + suffix;
+  lastPasted.text = lastPasted.content;
 
   if (loc.item.children && loc.item.children.length > 0) {
     lastPasted.children = [...lastPasted.children, ...loc.item.children];

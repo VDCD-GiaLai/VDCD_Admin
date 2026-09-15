@@ -186,9 +186,10 @@ export function DocumentPreviewContainer({
                   ) : null}
 
                   {heroCaption && (
-                    <figcaption className="blog-preview-hero-caption">
-                      {heroCaption}
-                    </figcaption>
+                    <figcaption
+                      className="blog-preview-hero-caption"
+                      dangerouslySetInnerHTML={{ __html: heroCaption }}
+                    />
                   )}
                 </div>
               );
@@ -201,22 +202,33 @@ export function DocumentPreviewContainer({
                     </span>
                   )}
                   {subtitle && (
-                    <p className="blog-preview-subtitle">{subtitle}</p>
+                    <p
+                      className="blog-preview-subtitle"
+                      dangerouslySetInnerHTML={{ __html: subtitle }}
+                    />
                   )}
-                  <h1 className="blog-preview-title">
-                    {title || (
+                  {title ? (
+                    <h1
+                      className="blog-preview-title"
+                      dangerouslySetInnerHTML={{ __html: title }}
+                    />
+                  ) : (
+                    <h1 className="blog-preview-title">
                       <span className="italic text-text-muted/40">
                         (Chưa có tiêu đề)
                       </span>
-                    )}
-                  </h1>
+                    </h1>
+                  )}
                 </div>
               );
 
               const renderHeroExcerpt = () => (
                 <div>
                   {displayExcerpt && (
-                    <p className="blog-preview-excerpt">{displayExcerpt}</p>
+                    <p
+                      className="blog-preview-excerpt"
+                      dangerouslySetInnerHTML={{ __html: displayExcerpt }}
+                    />
                   )}
                 </div>
               );

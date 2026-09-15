@@ -88,7 +88,7 @@ export function BlogContentRenderer({ blocks }: BlogContentRendererProps) {
               const quote = block as QuoteBlock;
               return (
                 <blockquote className="blog-preview-quote my-4 border-l-4 border-primary pl-4 italic text-text-muted">
-                  <p>{quote.text}</p>
+                  <p dangerouslySetInnerHTML={{ __html: quote.text }} />
                   {Boolean(quote.author || quote.citation) && (
                     <footer className="mt-1 text-xs not-italic text-text-muted/80">
                       — {[quote.author, quote.citation].filter(Boolean).join(", ")}
@@ -101,7 +101,10 @@ export function BlogContentRenderer({ blocks }: BlogContentRendererProps) {
               const hl = block as HighlightBlock;
               return (
                 <div className="blog-preview-highlight my-4 rounded-lg border border-primary/20 bg-primary/5 p-4 text-text">
-                  <p className="font-medium">{hl.text}</p>
+                  <p
+                    className="font-medium"
+                    dangerouslySetInnerHTML={{ __html: hl.text }}
+                  />
                 </div>
               );
             }

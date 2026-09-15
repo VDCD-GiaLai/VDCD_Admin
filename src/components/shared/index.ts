@@ -31,3 +31,8 @@ export type { PublishToggleProps } from "./PublishToggle";
 
 export { TablePagination } from "./TablePagination";
 export type { TablePaginationProps } from "./TablePagination";
+
+// ─── FloatingSaveBar ─────────────────────────────────────────
+
+export { FloatingSaveBar } from "./FloatingSaveBar";
+export type { FloatingSaveBarProps } from "./FloatingSaveBar";

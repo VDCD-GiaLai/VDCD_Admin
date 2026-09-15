@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useMemo } from "react";
+import { useContentEditableSync } from "../../../hooks/useContentEditableSync";
 import type { ListBlock, ListItem, ListType } from "@/types/slide-detail-blog";
 import {
   normalizeListItems,
@@ -92,15 +93,6 @@ export function ListItemRenderer({
   );
 }
 
-function escapeHtml(str: string): string {
-  if (!str) return "";
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 function renderEditableListItemsHTML(
   items: ListItem[],
@@ -148,19 +140,19 @@ function renderEditableListItemsHTML(
 
         return `<li data-item-id="${item.id}" class="flex items-start gap-2 list-none my-0.5" style="${itemStyleStr}">` +
           `<input type="checkbox" ${checkedAttr} readonly class="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary pointer-events-none" />` +
-          `<div class="flex-1">${escapeHtml(item.content)}${checkSubListHtml}</div></li>`;
+          `<div class="flex-1">${item.content || ""}${checkSubListHtml}</div></li>`;
       }
 
       return `<li data-item-id="${item.id}" style="${itemStyleStr}">` +
-        `${escapeHtml(item.content)}` +
+        `${item.content || ""}` +
         `${subListHtml}</li>`;
     })
     .join("");
 }
 
 /**
- * Extracts all text belonging to a single list item, cleanly excluding nested sub-lists and checkboxes.
- * Never gets fooled by browser placing typed text outside or around spans.
+ * Extracts all text/HTML belonging to a single list item, cleanly excluding nested sub-lists and checkboxes.
+ * Preserves inline HTML formatting (bold, italic, mark, link, etc.).
  */
 function extractItemText(li: HTMLElement): string {
   const clone = li.cloneNode(true) as HTMLElement;
@@ -173,7 +165,26 @@ function extractItemText(li: HTMLElement): string {
   const checkboxes = clone.querySelectorAll("input[type='checkbox']");
   checkboxes.forEach((cb) => cb.remove());
 
-  return (clone.textContent || "").trim();
+  // Unwrap any browser-inserted plain <span> tags
+  const spans = clone.querySelectorAll("span");
+  spans.forEach((span) => {
+    while (span.firstChild) {
+      span.parentNode?.insertBefore(span.firstChild, span);
+    }
+    span.remove();
+  });
+
+  const flexDiv = clone.querySelector(".flex-1");
+  const targetEl = (flexDiv as HTMLElement) ?? clone;
+
+  const hasFormatting = targetEl.querySelector(
+    "strong, b, em, i, u, del, s, strike, code, mark, a",
+  );
+  if (hasFormatting) {
+    return targetEl.innerHTML.trim();
+  }
+
+  return (targetEl.textContent || "").trim();
 }
 
 /**
@@ -310,6 +321,11 @@ export function ListBlockRenderer({
     return renderEditableListItemsHTML(normalizedItems, block);
   }, [normalizedItems, block]);
 
+  const { handleInput } = useContentEditableSync(
+    listRef as unknown as React.RefObject<HTMLElement | null>,
+    { html: editableHtml, enabled: editable },
+  );
+
   if (!hasContent && !editable) {
     return (
       <div className="blog-preview-list italic text-text-muted/50" style={listContainerStyle}>
@@ -326,11 +342,11 @@ export function ListBlockRenderer({
         style={listContainerStyle}
         contentEditable
         suppressContentEditableWarning
+        onInput={handleInput}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         data-placeholder="Nhập nội dung danh sách..."
-        dangerouslySetInnerHTML={{ __html: editableHtml }}
       />
     );
   }

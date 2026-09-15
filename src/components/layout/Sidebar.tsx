@@ -16,6 +16,8 @@ export interface MenuSingleItem {
   roles?: AdminRole[];
   icon: React.ReactNode;
   type?: "item";
+  /** Cho phép ẩn tạm thời khỏi navigation menu mà không cần xóa cấu hình */
+  hidden?: boolean;
 }
 
 export interface MenuSectionItem {
@@ -28,6 +30,8 @@ export interface MenuSectionItem {
     href: string;
     roles?: AdminRole[];
     icon: React.ReactNode;
+    /** Cho phép ẩn tạm thời khỏi navigation menu mà không cần xóa cấu hình */
+    hidden?: boolean;
   }[];
 }
 
@@ -96,6 +100,7 @@ const MENU_ITEMS: MenuItem[] = [
         href: "/provinces",
         roles: ["superadmin", "editor"],
         icon: <MapIcon />,
+        hidden: true, // Ẩn tab theo yêu cầu người dùng (không xóa)
       },
     ],
   },
@@ -202,7 +207,9 @@ export function Sidebar({ userRole }: SidebarProps) {
         }
         // Filter children
         const visibleChildren = item.children.filter(
-          (child) => !child.roles || child.roles.length === 0 || child.roles.includes(userRole),
+          (child) =>
+            !child.hidden &&
+            (!child.roles || child.roles.length === 0 || child.roles.includes(userRole)),
         );
         if (visibleChildren.length === 0) return null;
         return {
@@ -212,7 +219,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       }
 
       // Single item
-      if (item.roles && item.roles.length > 0 && !item.roles.includes(userRole)) {
+      if (item.hidden || (item.roles && item.roles.length > 0 && !item.roles.includes(userRole))) {
         return null;
       }
       return item;
