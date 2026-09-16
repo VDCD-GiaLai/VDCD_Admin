@@ -29,6 +29,7 @@ import {
   type DocumentContent,
 } from "@/shared/content-editor";
 import { uploadImage, validateImageFile, slugifyVietnamese } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import type { Solution } from "@/types/solution";
 
 type EditorTab = "info" | "blocks" | "reader" | "visual";
@@ -49,6 +50,14 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [prevSolutionThumbnail, setPrevSolutionThumbnail] = useState(solution?.thumbnail);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
+
+  const handleGallerySelect = (image: ImagePickerResult) => {
+    setThumbnailPreview(null);
+    setValue("thumbnail", image.url, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+    setValue("thumbnailFileId", image.fileId, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+    toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+  };
 
   if (solution?.thumbnail !== prevSolutionThumbnail) {
     setPrevSolutionThumbnail(solution?.thumbnail);
@@ -476,11 +485,30 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                       disabled={uploading}
                       className="w-full text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-text"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowGallery(true)}
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-muted"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                        <path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z" clipRule="evenodd" />
+                      </svg>
+                      Chọn từ thư viện
+                    </button>
                     {uploading && (
                       <p className="text-xs text-primary">Đang tải ảnh đại diện...</p>
                     )}
                     <input type="hidden" {...register("thumbnail")} />
                     <input type="hidden" {...register("thumbnailFileId")} />
+                    <ImagePickerModal
+                      isOpen={showGallery}
+                      onClose={() => setShowGallery(false)}
+                      onSelect={handleGallerySelect}
+                      defaultFolder="/vdcd/solutions"
+                      uploadFolder="solution"
+                      uploadOptions={{ subfolder: currentSubfolder, slug: currentSubfolder }}
+                      title="Chọn ảnh giải pháp"
+                    />
                   </CardContent>
                 </Card>
               </div>

@@ -156,8 +156,14 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: "Quản lý hệ thống",
     type: "section",
-    roles: ["superadmin"], // Chỉ hiện với superadmin
+    roles: ["superadmin", "editor"],
     children: [
+      {
+        label: "Quản lý hình ảnh",
+        href: "/media",
+        roles: ["superadmin", "editor"],
+        icon: <MediaLibraryIcon />,
+      },
       {
         label: "Tuyển dụng",
         href: "/jobs",
@@ -527,6 +533,17 @@ function SlideBlogIcon() {
       <path d="M6 6h10" />
       <path d="M6 10h10" />
       <path d="M6 14h6" />
+    </svg>
+  );
+}
+
+function MediaLibraryIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5">
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="m21 15-5-5L5 21" />
+      <path d="m14 14 3-3 4 4" />
     </svg>
   );
 }
