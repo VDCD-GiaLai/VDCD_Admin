@@ -154,7 +154,9 @@ export function ImagePickerModal({
   }, [dateFilter, debouncedSearch]);
 
   // Reset state when modal opens or defaultFolder changes
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setActiveTab("gallery");
       setCurrentFolder(defaultFolder);
@@ -164,7 +166,7 @@ export function ImagePickerModal({
       setDebouncedSearch("");
       setUploadPreview(null);
     }
-  }, [isOpen, defaultFolder]);
+  }
 
   // Query gallery images (infinite)
   const {
