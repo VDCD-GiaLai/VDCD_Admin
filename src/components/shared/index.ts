@@ -31,3 +31,14 @@ export type { PublishToggleProps } from "./PublishToggle";
 
 export { TablePagination } from "./TablePagination";
 export type { TablePaginationProps } from "./TablePagination";
+
+// ─── AttachmentViewer ────────────────────────────────────────
+
+export { AttachmentViewer, getAttachmentType, getFilename } from "./AttachmentViewer";
+export type { AttachmentViewerProps, AttachmentType } from "./AttachmentViewer";
+
+// ─── ImagePickerModal ────────────────────────────────────────
+
+export { ImagePickerModal } from "./ImagePickerModal";
+export type { ImagePickerModalProps, ImagePickerResult } from "./ImagePickerModal";
+

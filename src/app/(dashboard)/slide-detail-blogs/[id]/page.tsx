@@ -28,6 +28,7 @@ import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/B
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { BlogExportModal } from "@/features/slide-detail-blogs/components/ExportModal";
 import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { usePermission } from "@/hooks/usePermission";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
@@ -51,6 +52,16 @@ export default function EditSlideDetailBlogPage() {
   const [heroPreviewUrl, setHeroPreviewUrl] = useState<string | null>(null);
   const [failedHeroUrl, setFailedHeroUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showGallery, setShowGallery] = useState(false);
+
+  const handleGallerySelect = (image: ImagePickerResult) => {
+    setHeroPreviewUrl(image.url);
+    setUserSelectedMode("upload");
+    setFailedHeroUrl(null);
+    setValue("heroImageUrl", image.url, { shouldValidate: true, shouldDirty: true });
+    setValue("heroImageFileId", image.fileId, { shouldDirty: true });
+    toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+  };
 
   const heroMode = userSelectedMode ?? (blog && !blog.heroImageFileId && blog.heroImageUrl ? "url" : "upload");
 
@@ -713,6 +724,16 @@ export default function EditSlideDetailBlogPage() {
                         disabled={uploadingHero}
                       />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowGallery(true)}
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                        <path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z" clipRule="evenodd" />
+                      </svg>
+                      Chọn từ thư viện
+                    </button>
                     <span className="text-xs text-text-muted">
                       JPG, PNG, WebP • Tối đa 10MB • Lưu vào /vdcd/slides/{currentSubfolder}
                     </span>
@@ -752,6 +773,15 @@ export default function EditSlideDetailBlogPage() {
                   }}
                 />
               )}
+              <ImagePickerModal
+                isOpen={showGallery}
+                onClose={() => setShowGallery(false)}
+                onSelect={handleGallerySelect}
+                defaultFolder="/vdcd/slides"
+                uploadFolder="slide-detail-blog"
+                uploadOptions={{ subfolder: currentSubfolder, slug: currentSubfolder }}
+                title="Chọn ảnh Hero"
+              />
             </div>
 
             {/* SEO Settings Toggle */}

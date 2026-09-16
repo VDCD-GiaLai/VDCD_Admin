@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { AppButton, Spinner, Badge } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
@@ -17,6 +18,7 @@ import { usePermission } from "@/hooks/usePermission";
 import type { Contact } from "@/types/contact";
 
 export default function ContactsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   
   const hasWildcard = usePermission("contacts:*");
@@ -36,7 +38,6 @@ export default function ContactsPage() {
   const toggleMutation = useToggleReadContact();
   const deleteMutation = useDeleteContact();
 
-  const [viewTarget, setViewTarget] = useState<Contact | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -62,16 +63,6 @@ export default function ContactsPage() {
       );
     },
     [toggleMutation, toast]
-  );
-
-  const handleView = useCallback(
-    (contact: Contact) => {
-      setViewTarget(contact);
-      if (!contact.isRead) {
-        toggleMutation.mutate({ id: contact.id, isRead: true });
-      }
-    },
-    [toggleMutation]
   );
 
   const handleDelete = useCallback(() => {
@@ -147,9 +138,21 @@ export default function ContactsPage() {
       key: "subject",
       label: "Tiêu đề",
       render: (item) => (
-        <span className={`text-sm line-clamp-1 ${!item.isRead ? "font-bold text-text" : "text-text-muted"}`}>
-          {item.subject || "—"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-sm line-clamp-1 ${!item.isRead ? "font-bold text-text" : "text-text-muted"}`}>
+            {item.subject || "—"}
+          </span>
+          {item.attachment && (
+            <span
+              title="Có tệp đính kèm"
+              className="inline-flex items-center text-primary shrink-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
+              </svg>
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -181,7 +184,10 @@ export default function ContactsPage() {
             type="button"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10"
             aria-label="Xem chi tiết"
-            onClick={() => handleView(item)}
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/contacts/${item.id}`);
+            }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
@@ -280,73 +286,6 @@ export default function ContactsPage() {
           className="mt-4"
         />
       </div>
-
-      {/* View Detail Modal */}
-      <Modal isOpen={!!viewTarget} onClose={() => setViewTarget(null)}>
-        <ModalContent className="max-w-xl">
-          <ModalHeader>Chi tiết liên hệ</ModalHeader>
-          <ModalBody>
-            {viewTarget && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">HỌ TÊN</p>
-                    <p className="text-sm text-text">{viewTarget.fullName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">NGÀY GỬI</p>
-                    <p className="text-sm text-text">
-                      {new Date(viewTarget.createdAt).toLocaleString("vi-VN")}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">EMAIL</p>
-                    <p className="text-sm text-text">{viewTarget.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">SỐ ĐIỆN THOẠI</p>
-                    <p className="text-sm text-text">{viewTarget.phone}</p>
-                  </div>
-                </div>
-
-                {viewTarget.subject && (
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">TIÊU ĐỀ</p>
-                    <p className="text-sm text-text">{viewTarget.subject}</p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-xs font-semibold text-text-muted">NỘI DUNG LỜI NHẮN</p>
-                  <div className="mt-1 rounded-md border border-border bg-surface-muted p-3 text-sm text-text whitespace-pre-wrap">
-                    {viewTarget.message || "Không có lời nhắn."}
-                  </div>
-                </div>
-
-                {viewTarget.attachment && (
-                  <div>
-                    <p className="text-xs font-semibold text-text-muted">ĐÍNH KÈM</p>
-                    <a
-                      href={viewTarget.attachment}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                        <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
-                      </svg>
-                      Xem file đính kèm
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <AppButton variant="solid" onClick={() => setViewTarget(null)}>Đóng</AppButton>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
 
       {/* Delete modal */}
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
