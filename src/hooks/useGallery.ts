@@ -132,8 +132,11 @@ export function useGalleryImagesInfinite(
         skip: String(pageParam),
         limit: String(pageSize),
         sort: "DESC_CREATED",
-        fileType,
       });
+      // Only send fileType when it's not 'all' (backward compatible with older backends)
+      if (fileType && fileType !== "all") {
+        params.set("fileType", fileType);
+      }
       if (searchQuery) {
         params.set("searchQuery", searchQuery);
       }
