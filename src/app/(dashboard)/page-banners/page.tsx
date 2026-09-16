@@ -22,6 +22,7 @@ const PAGE_NAMES: Record<string, string> = {
   solutions: "Giải pháp (Solutions)",
   projects: "Dự án (Projects)",
   articles: "Tin tức (Articles)",
+  news: "Tin tức & Bài viết (News)",
   contact: "Liên hệ (Contact)",
   careers: "Tuyển dụng (Careers)",
 };
