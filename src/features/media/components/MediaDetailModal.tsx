@@ -76,16 +76,47 @@ export function MediaDetailModal({
 
         <ModalBody className="overflow-y-auto p-5">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
-            {/* Left: Image preview */}
-            <div className="flex flex-col items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-muted/40 p-2 md:col-span-7">
-              <div className="relative max-h-[400px] w-full overflow-hidden rounded-lg flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={image.url}
-                  alt={image.name}
-                  className="max-h-[380px] w-auto object-contain"
-                />
-              </div>
+            {/* Left: Image preview or Document preview */}
+            <div className="flex flex-col items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-muted/40 p-4 md:col-span-7 min-h-[260px]">
+              {image.fileType === "non-image" || Boolean(image.name.match(/\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt)$/i)) ? (
+                <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <div className="rounded-2xl bg-red-500/10 p-5 text-red-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-16 w-16"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0-1.5 0v-4.5a.75.75 0 0 0-1.5 0v4.5a2.25 2.25 0 0 0 4.5 0v-3a1.5 1.5 0 0 0-3 0v3Zm4.5-4.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Z"
+                        clipRule="evenodd"
+                      />
+                      <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                    </svg>
+                  </div>
+                  <span className="rounded-md bg-red-100 dark:bg-red-950/60 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                    Tệp đính kèm ({image.name.split(".").pop()?.toUpperCase() || "Tài liệu"})
+                  </span>
+                  <a
+                    href={image.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 text-xs font-semibold text-primary underline hover:text-primary-hover"
+                  >
+                    Mở tệp trong tab mới ↗
+                  </a>
+                </div>
+              ) : (
+                <div className="relative max-h-[400px] w-full overflow-hidden rounded-lg flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image.url}
+                    alt={image.name}
+                    className="max-h-[380px] w-auto object-contain"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Right: Metadata details */}
