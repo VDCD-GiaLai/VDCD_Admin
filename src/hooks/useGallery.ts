@@ -20,6 +20,8 @@ export interface GalleryFile {
   height?: number;
   createdAt: string;
   thumbnail: string;
+  fileType?: string;
+  mime?: string;
 }
 
 export interface GalleryFolder {
@@ -38,16 +40,18 @@ interface GalleryFoldersResponse {
 // ─── Predefined folders ──────────────────────────────────────
 
 export const PRESET_FOLDERS = [
-  { label: "Tất cả", path: "/vdcd", description: "Toàn bộ ảnh trên hệ thống" },
-  { label: "Hình ảnh chung", path: "/vdcd/images", description: "Ảnh dùng chung & banners" },
-  { label: "Slides", path: "/vdcd/slides", description: "Slide trang chủ & banner" },
-  { label: "Thumbnails", path: "/vdcd/thumbnails", description: "Ảnh đại diện, thu nhỏ" },
-  { label: "Đối tác", path: "/vdcd/partners", description: "Logo đối tác & tổ chức" },
-  { label: "Bài viết", path: "/vdcd/articles", description: "Ảnh minh họa bài viết tin tức" },
-  { label: "Chương trình", path: "/vdcd/programs", description: "Ảnh các chương trình hành động" },
-  { label: "Giải pháp", path: "/vdcd/solutions", description: "Ảnh các giải pháp chuyển đổi số" },
+  { label: "Tất cả", path: "/vdcd", description: "Toàn bộ ảnh & tệp trên hệ thống" },
   { label: "Dự án", path: "/vdcd/projects", description: "Ảnh tư liệu dự án & sản phẩm" },
-  { label: "Đính kèm", path: "/vdcd/attachments", description: "Tệp tải lên đính kèm khác" },
+  { label: "Giải pháp", path: "/vdcd/solutions", description: "Ảnh các giải pháp chuyển đổi số" },
+  { label: "Bài viết", path: "/vdcd/articles", description: "Ảnh minh họa bài viết tin tức" },
+  { label: "Slides", path: "/vdcd/slides", description: "Slide trang chủ & banner" },
+  { label: "Đối tác", path: "/vdcd/partners", description: "Logo đối tác & tổ chức" },
+  { label: "Giới thiệu", path: "/vdcd/about-us", description: "Ảnh giới thiệu về chúng tôi" },
+  { label: "Hình ảnh chung", path: "/vdcd/images", description: "Ảnh dùng chung & banners" },
+  { label: "Logo", path: "/vdcd/logo", description: "Logo nhận diện thương hiệu" },
+  { label: "Thumbnails", path: "/vdcd/thumbnails", description: "Ảnh đại diện, thu nhỏ" },
+  { label: "Chương trình", path: "/vdcd/programs", description: "Ảnh các chương trình hành động" },
+  { label: "Đính kèm", path: "/vdcd/attachments", description: "Tệp tải lên đính kèm, tài liệu PDF" },
 ] as const;
 
 // ─── Date filter presets ─────────────────────────────────────
@@ -93,8 +97,8 @@ export function getDateSearchQuery(filter: DateFilter): string | undefined {
 
 export const galleryKeys = {
   all: ["gallery"] as const,
-  files: (path: string, limit: number, searchQuery?: string) =>
-    [...galleryKeys.all, "files", path, limit, searchQuery ?? ""] as const,
+  files: (path: string, limit: number, searchQuery?: string, fileType?: string) =>
+    [...galleryKeys.all, "files", path, limit, searchQuery ?? "", fileType ?? "all"] as const,
   folders: (path: string) =>
     [...galleryKeys.all, "folders", path] as const,
 };
@@ -112,21 +116,23 @@ export function useGalleryImagesInfinite(
   path: string,
   options?: {
     searchQuery?: string;
+    fileType?: "all" | "image" | "non-image";
     enabled?: boolean;
     pageSize?: number;
   },
 ) {
   const pageSize = options?.pageSize ?? GALLERY_PAGE_SIZE;
-  const { searchQuery, enabled = true } = options ?? {};
+  const { searchQuery, fileType = "all", enabled = true } = options ?? {};
 
   return useInfiniteQuery<GalleryFile[], Error>({
-    queryKey: galleryKeys.files(path, pageSize, searchQuery),
+    queryKey: galleryKeys.files(path, pageSize, searchQuery, fileType),
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
         path,
         skip: String(pageParam),
         limit: String(pageSize),
         sort: "DESC_CREATED",
+        fileType,
       });
       if (searchQuery) {
         params.set("searchQuery", searchQuery);

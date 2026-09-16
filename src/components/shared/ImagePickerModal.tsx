@@ -48,14 +48,16 @@ export interface ImagePickerModalProps {
 
 const PRESET_FOLDERS = [
   { label: "Tất cả", path: "/vdcd" },
-  { label: "Hình ảnh chung", path: "/vdcd/images" },
-  { label: "Slides", path: "/vdcd/slides" },
-  { label: "Thumbnails", path: "/vdcd/thumbnails" },
-  { label: "Đối tác", path: "/vdcd/partners" },
-  { label: "Bài viết", path: "/vdcd/articles" },
-  { label: "Chương trình", path: "/vdcd/programs" },
-  { label: "Giải pháp", path: "/vdcd/solutions" },
   { label: "Dự án", path: "/vdcd/projects" },
+  { label: "Giải pháp", path: "/vdcd/solutions" },
+  { label: "Bài viết", path: "/vdcd/articles" },
+  { label: "Slides", path: "/vdcd/slides" },
+  { label: "Đối tác", path: "/vdcd/partners" },
+  { label: "Giới thiệu", path: "/vdcd/about-us" },
+  { label: "Hình ảnh chung", path: "/vdcd/images" },
+  { label: "Logo", path: "/vdcd/logo" },
+  { label: "Thumbnails", path: "/vdcd/thumbnails" },
+  { label: "Chương trình", path: "/vdcd/programs" },
   { label: "Đính kèm", path: "/vdcd/attachments" },
 ];
 

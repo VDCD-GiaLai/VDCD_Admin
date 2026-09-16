@@ -164,55 +164,85 @@ export function MediaGrid({
   return (
     <div className="p-4 sm:p-6">
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {images.map((img) => (
-          <div
-            key={img.fileId}
-            className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xs transition-all hover:border-primary/50 hover:shadow-md"
-          >
-            {/* Image Preview Container */}
+        {images.map((img) => {
+          const isDoc =
+            img.fileType === "non-image" ||
+            Boolean(img.name.match(/\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt)$/i));
+          const fileExt = img.name.split(".").pop()?.toUpperCase() || "";
+
+          return (
             <div
-              className="relative aspect-square w-full cursor-pointer overflow-hidden bg-surface-muted/60"
-              onClick={() => onSelectImage(img)}
+              key={img.fileId}
+              className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xs transition-all hover:border-primary/50 hover:shadow-md"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.thumbnail || img.url}
-                alt={img.name}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+              {/* Preview Container */}
+              <div
+                className="relative aspect-square w-full cursor-pointer overflow-hidden bg-surface-muted/60"
+                onClick={() => onSelectImage(img)}
+              >
+                {isDoc ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center p-3 text-center transition-transform duration-300 group-hover:scale-105">
+                    {img.thumbnail && img.thumbnail.includes("ik-thumbnail.jpg") ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={img.thumbnail}
+                        alt={img.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          // Hide image and show document fallback on error
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-text-muted">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className={`h-12 w-12 ${fileExt === "PDF" ? "text-red-500" : "text-primary"}`}
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0-1.5 0v-4.5a.75.75 0 0 0-1.5 0v4.5a2.25 2.25 0 0 0 4.5 0v-3a1.5 1.5 0 0 0-3 0v3Zm4.5-4.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Z"
+                          clipRule="evenodd"
+                        />
+                        <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                      </svg>
+                      <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-text">
+                        {fileExt || "TẬP TIN"}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={img.thumbnail || img.url}
+                    alt={img.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                )}
 
-              {/* Hover actions top right */}
-              <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCopyUrl(img.url);
-                  }}
-                  title="Sao chép URL"
-                  className="flex h-7 w-7 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur-xs transition-colors hover:bg-black/80"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12a1.5 1.5 0 0 1 .439 1.061V16.5A1.5 1.5 0 0 1 15.5 18h-7A1.5 1.5 0 0 1 7 16.5v-13Z" />
-                    <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h.75v11.5A3 3 0 0 0 9.25 19.5h6.25v.5a1.5 1.5 0 0 1-1.5 1.5h-8.5A1.5 1.5 0 0 1 4 20V6.5Z" />
-                  </svg>
-                </button>
+                {/* Badge top-left for documents or non-image files */}
+                {isDoc && (
+                  <div className="absolute left-1.5 top-1.5">
+                    <span className="rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-xs">
+                      {fileExt || "DOC"}
+                    </span>
+                  </div>
+                )}
 
-                {canDelete && onDeleteImage && (
+                {/* Hover actions top right */}
+                <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDeleteImage(img);
+                      onCopyUrl(img.url);
                     }}
-                    title="Xóa ảnh"
-                    className="flex h-7 w-7 items-center justify-center rounded-md bg-danger/80 text-white backdrop-blur-xs transition-colors hover:bg-danger"
+                    title="Sao chép URL"
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-black/60 text-white backdrop-blur-xs transition-colors hover:bg-black/80"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -220,37 +250,61 @@ export function MediaGrid({
                       fill="currentColor"
                       className="h-3.5 w-3.5"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 1 .75.74l.5 6.5a.75.75 0 1 1-1.498.115l-.5-6.5a.75.75 0 0 1 .748-.855Zm3.58.74a.75.75 0 0 0-1.498-.115l-.5 6.5a.75.75 0 1 0 1.498.115l.5-6.5Z"
-                        clipRule="evenodd"
-                      />
+                      <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12a1.5 1.5 0 0 1 .439 1.061V16.5A1.5 1.5 0 0 1 15.5 18h-7A1.5 1.5 0 0 1 7 16.5v-13Z" />
+                      <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h.75v11.5A3 3 0 0 0 9.25 19.5h6.25v.5a1.5 1.5 0 0 1-1.5 1.5h-8.5A1.5 1.5 0 0 1 4 20V6.5Z" />
                     </svg>
                   </button>
-                )}
-              </div>
-            </div>
 
-            {/* Info footer */}
-            <div
-              className="flex cursor-pointer flex-col p-2.5 transition-colors group-hover:bg-surface-muted/30"
-              onClick={() => onSelectImage(img)}
-            >
-              <p className="truncate text-xs font-medium text-text" title={img.name}>
-                {img.name}
-              </p>
-              <div className="mt-1 flex items-center justify-between text-[10px] text-text-muted">
-                <span>{formatFileSize(img.size)}</span>
-                {img.width && img.height && (
-                  <span>
-                    {img.width}×{img.height}
-                  </span>
-                )}
-                <span>{formatDate(img.createdAt)}</span>
+                  {canDelete && onDeleteImage && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteImage(img);
+                      }}
+                      title="Xóa tệp"
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-danger/80 text-white backdrop-blur-xs transition-colors hover:bg-danger"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 1 .75.74l.5 6.5a.75.75 0 1 1-1.498.115l-.5-6.5a.75.75 0 0 1 .748-.855Zm3.58.74a.75.75 0 0 0-1.498-.115l-.5 6.5a.75.75 0 1 0 1.498.115l.5-6.5Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Info footer */}
+              <div
+                className="flex cursor-pointer flex-col p-2.5 transition-colors group-hover:bg-surface-muted/30"
+                onClick={() => onSelectImage(img)}
+              >
+                <p className="truncate text-xs font-medium text-text" title={img.name}>
+                  {img.name}
+                </p>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-text-muted">
+                  <span>{formatFileSize(img.size)}</span>
+                  {img.width && img.height ? (
+                    <span>
+                      {img.width}×{img.height}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-text-muted/80">{fileExt || "Đính kèm"}</span>
+                  )}
+                  <span>{formatDate(img.createdAt)}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Infinite scroll sentinel */}

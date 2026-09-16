@@ -163,20 +163,33 @@ export function MediaTable({
             >
               {/* Thumbnail */}
               <td className="py-2.5 pl-4 pr-3">
-                <div className="h-11 w-11 overflow-hidden rounded-lg border border-border bg-surface-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.thumbnail || img.url}
-                    alt={img.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
+                <div className="h-11 w-11 overflow-hidden rounded-lg border border-border bg-surface-muted flex items-center justify-center">
+                  {img.fileType === "non-image" || img.name.match(/\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt)$/i) ? (
+                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-tight">
+                      {img.name.split(".").pop()?.toUpperCase() || "DOC"}
+                    </span>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={img.thumbnail || img.url}
+                      alt={img.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </div>
               </td>
 
               {/* Name */}
               <td className="px-3 py-2.5 font-medium text-text max-w-xs truncate">
-                <span title={img.name}>{img.name}</span>
+                <div className="flex items-center gap-1.5">
+                  <span title={img.name}>{img.name}</span>
+                  {(img.fileType === "non-image" || img.name.match(/\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt)$/i)) && (
+                    <span className="shrink-0 rounded bg-red-100 dark:bg-red-950/50 px-1 py-0.5 text-[9px] font-bold text-red-600 dark:text-red-400">
+                      {img.name.split(".").pop()?.toUpperCase() || "DOC"}
+                    </span>
+                  )}
+                </div>
               </td>
 
               {/* File Path */}
