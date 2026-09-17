@@ -76,7 +76,7 @@ const BLOCK_OPTIONS: BlockOption[] = [
     description: "Khối trích dẫn nổi bật kèm thông tin tác giả và nguồn",
     icon: (
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-serif text-lg font-bold text-primary">
-        "
+        &ldquo;
       </span>
     ),
   },

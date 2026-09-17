@@ -71,16 +71,6 @@ const BLOCK_OPTIONS: BlockOption[] = [
     ),
   },
   {
-    type: "ordered_list",
-    title: "Danh sách số (Ordered List)",
-    description: "Danh sách đánh số thứ tự (1, 2, 3...) hỗ trợ lồng cấp",
-    icon: (
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
-        1.
-      </span>
-    ),
-  },
-  {
     type: "quote",
     title: "Trích dẫn (Quote)",
     description: "Khối trích dẫn nổi bật kèm thông tin tác giả và nguồn",

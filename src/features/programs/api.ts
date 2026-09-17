@@ -90,8 +90,11 @@ export function useUpdateProgram(id: string) {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedProgram) => {
       queryClient.invalidateQueries({ queryKey: programKeys.all });
+      if (updatedProgram) {
+        queryClient.setQueryData(programKeys.detail(id), updatedProgram);
+      }
     },
   });
 }
@@ -102,14 +105,17 @@ export function useUpdateProgram(id: string) {
 export function usePublishProgram() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ApiError, { id: string; isPublished: boolean }>({
+  return useMutation<Program, ApiError, { id: string; isPublished: boolean }>({
     mutationFn: ({ id, isPublished }) =>
-      clientFetch<void>(`/api/programs/${id}/publish`, {
+      clientFetch<Program>(`/api/programs/${id}/publish`, {
         method: "PATCH",
         body: JSON.stringify({ isPublished }),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedProgram, { id }) => {
       queryClient.invalidateQueries({ queryKey: programKeys.all });
+      if (updatedProgram) {
+        queryClient.setQueryData(programKeys.detail(id), updatedProgram);
+      }
     },
   });
 }

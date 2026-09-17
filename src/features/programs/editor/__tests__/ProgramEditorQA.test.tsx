@@ -44,6 +44,19 @@ vi.mock("@/features/programs/api", () => ({
     mutate: mockUpdateMutate,
     isPending: false,
   }),
+  usePublishProgram: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useDeleteProgram: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+// Mock permission hook
+vi.mock("@/hooks/usePermission", () => ({
+  usePermission: () => true,
 }));
 
 const comprehensiveProgram: Program = {
@@ -127,8 +140,8 @@ describe("PHASE 10: Program Content Editor Comprehensive QA", () => {
       expect(screen.getByDisplayValue("Meta Title QA Test")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Meta Description QA Test")).toBeInTheDocument();
 
-      const checkbox = screen.getByLabelText("Xuất bản công khai");
-      expect(checkbox).toBeChecked();
+      // Publication status is now shown as a badge in the header (not a checkbox)
+      expect(screen.getByText("Đã xuất bản")).toBeInTheDocument();
     });
 
     it("allows updating metadata and sends structured document payload on save", async () => {
@@ -137,8 +150,9 @@ describe("PHASE 10: Program Content Editor Comprehensive QA", () => {
       const titleInput = screen.getByDisplayValue("Chương trình Kiểm thử Toàn diện");
       fireEvent.change(titleInput, { target: { value: "Tiêu Đề Mới Đã Cập Nhật" } });
 
-      const saveBtn = screen.getByRole("button", { name: "Lưu thay đổi" });
-      fireEvent.click(saveBtn);
+      // Both the form footer and FloatingSaveBar have "Lưu thay đổi" when isDirty
+      const saveBtns = screen.getAllByRole("button", { name: "Lưu thay đổi" });
+      fireEvent.click(saveBtns[0]);
 
       await waitFor(() => {
         expect(mockUpdateMutate).toHaveBeenCalled();

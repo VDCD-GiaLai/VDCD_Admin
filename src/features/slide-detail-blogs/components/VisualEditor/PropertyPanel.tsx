@@ -175,7 +175,63 @@ export function PropertyPanel({
   const handleHeadingLevelChange = useCallback(
     (level: 1 | 2 | 3 | 4 | 5 | 6) => {
       if (block?.type === "heading" && onBlockChange) {
-        onBlockChange({ ...block, level } as HeadingBlock);
+        // Snapshot the live DOM content before React re-renders the heading tag
+        // (h1 -> h2 etc.), which causes contentEditable to remount and lose any
+        // typing that hasn't triggered onBlur yet.
+        //
+        // Strategy: first try activeElement (fastest, preserves cursor context),
+        // then fall back to a direct DOM query by data-block-id.  This guards
+        // against intermittent focus-loss where activeElement is <body> or the
+        // button itself, which would leave liveText null and cause the stale
+        // block.text from state to be used — losing any unsaved typed content.
+        const activeEl = document.activeElement as HTMLElement | null;
+        const isThisHeading = Boolean(
+          activeEl?.isContentEditable &&
+          activeEl.dataset.blockId === block.id,
+        );
+
+        let liveText: string | null = null;
+        if (isThisHeading && activeEl) {
+          const trimmed = activeEl.textContent?.trim() ?? "";
+          liveText = trimmed ? activeEl.innerHTML : "";
+        } else {
+          // Fallback: query the heading element directly from the DOM
+          const headingEl = document.querySelector<HTMLElement>(
+            `[data-block-id="${block.id}"]`,
+          );
+          if (headingEl) {
+            const trimmed = headingEl.textContent?.trim() ?? "";
+            liveText = trimmed ? headingEl.innerHTML : "";
+          }
+        }
+
+        onBlockChange({
+          ...block,
+          level,
+          ...(liveText !== null ? { text: liveText } : {}),
+        } as HeadingBlock);
+
+        // If the heading was focused, restore focus and caret to the new heading tag
+        if (isThisHeading) {
+          requestAnimationFrame(() => {
+            const newHeading = document.querySelector<HTMLElement>(
+              `[data-block-id="${block.id}"]`,
+            );
+            if (newHeading) {
+              newHeading.focus();
+              try {
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(newHeading);
+                range.collapse(false);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              } catch {
+                // ignore selection error
+              }
+            }
+          });
+        }
       }
     },
     [block, onBlockChange],
@@ -812,6 +868,8 @@ export function PropertyPanel({
                 <button
                   key={level}
                   type="button"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleHeadingLevelChange(level)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
                     (block as HeadingBlock).level === level

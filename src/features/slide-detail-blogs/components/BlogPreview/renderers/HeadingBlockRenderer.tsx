@@ -19,14 +19,26 @@ export function HeadingBlockRenderer({
   const { handleInput } = useContentEditableSync(ref, {
     html: block.text || "",
     enabled: editable,
+    nodeKey: block.level,
   });
 
-  const handleBlur = useCallback(() => {
-    if (ref.current && onTextChange) {
-      const text = ref.current.textContent?.trim() ?? "";
-      onTextChange(text ? ref.current.innerHTML : "");
-    }
-  }, [onTextChange]);
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLHeadingElement>) => {
+      // If tag is switching (e.g. h2 -> h1) or element is detached from DOM, ignore blur
+      if (
+        !e.currentTarget ||
+        !e.currentTarget.isConnected ||
+        e.currentTarget.tagName.toLowerCase() !== `h${block.level}`
+      ) {
+        return;
+      }
+      if (onTextChange) {
+        const text = e.currentTarget.textContent?.trim() ?? "";
+        onTextChange(text ? e.currentTarget.innerHTML : "");
+      }
+    },
+    [block.level, onTextChange],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -65,6 +77,7 @@ export function HeadingBlockRenderer({
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         data-placeholder="Nhập tiêu đề mục..."
+        data-block-id={block.id}
       />
     );
   }

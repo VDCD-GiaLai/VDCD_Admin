@@ -163,48 +163,7 @@ export function BlogPreviewContainer({
               const heroPlacement = heroMeta?.placement ?? "above_title";
               const heroPosition = heroMeta?.position ?? "center";
               const heroCaption = heroMeta?.caption ?? "";
-
-              const renderHeroMedia = () => (
-                <div>
-                  {heroImageUrl ? (
-                    <div className="blog-preview-hero-image-wrapper">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={heroImageUrl}
-                        alt={title || "Hero image"}
-                        className="blog-preview-hero-image"
-                        style={{ objectPosition: heroPosition }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-surface-muted to-border/30">
-                      <div className="text-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1"
-                          className="mx-auto mb-2 h-10 w-10 text-text-muted/30"
-                        >
-                          <path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V4.5a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5v15a1.5 1.5 0 001.5 1.5z" />
-                        </svg>
-                        <span className="text-xs text-text-muted/40">
-                          Chưa có ảnh hero
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hero caption (below hero image) */}
-                  {heroCaption && (
-                    <figcaption
-                      className="blog-preview-hero-caption"
-                      dangerouslySetInnerHTML={{ __html: heroCaption }}
-                    />
-                  )}
-                </div>
-              );
+              const hasHeroImage = Boolean(heroImageUrl && heroImageUrl.trim());
 
               const renderHeroHeader = () => (
                 <div className="space-y-2">
@@ -235,6 +194,38 @@ export function BlogPreviewContainer({
                     <p
                       className="blog-preview-excerpt"
                       dangerouslySetInnerHTML={{ __html: excerpt }}
+                    />
+                  )}
+                </div>
+              );
+
+              // In Reader mode: If there is no hero image, hide the hero image block completely
+              if (!hasHeroImage) {
+                return (
+                  <div className="blog-preview-hero-text">
+                    {renderHeroHeader()}
+                    {renderHeroExcerpt()}
+                  </div>
+                );
+              }
+
+              const renderHeroMedia = () => (
+                <div>
+                  <div className="blog-preview-hero-image-wrapper">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={heroImageUrl!}
+                      alt={title || "Hero image"}
+                      className="blog-preview-hero-image"
+                      style={{ objectPosition: heroPosition }}
+                    />
+                  </div>
+
+                  {/* Hero caption (below hero image) */}
+                  {heroCaption && (
+                    <figcaption
+                      className="blog-preview-hero-caption"
+                      dangerouslySetInnerHTML={{ __html: heroCaption }}
                     />
                   )}
                 </div>
@@ -280,9 +271,11 @@ export function BlogPreviewContainer({
           </div>
 
           {/* Content Body */}
-          <div className="blog-preview-body">
-            <BlogContentRenderer blocks={blocks} />
-          </div>
+          {blocks.length > 0 && (
+            <div className="blog-preview-body">
+              <BlogContentRenderer blocks={blocks} />
+            </div>
+          )}
         </div>
       </div>
     </div>

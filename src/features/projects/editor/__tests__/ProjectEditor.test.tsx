@@ -44,6 +44,9 @@ vi.mock("@/features/provinces/api", () => ({
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockUpdateImageMutate = vi.fn();
+const mockPublishMutate = vi.fn();
+const mockDeleteMutate = vi.fn();
+
 vi.mock("@/features/projects/api", () => ({
   useProjects: () => ({
     data: { items: [], total: 0 },
@@ -54,6 +57,15 @@ vi.mock("@/features/projects/api", () => ({
   }),
   useUpdateProject: () => ({
     mutate: mockUpdateMutate,
+    isPending: false,
+  }),
+  usePublishProject: () => ({
+    mutate: mockPublishMutate,
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  }),
+  useDeleteProject: () => ({
+    mutate: mockDeleteMutate,
     isPending: false,
   }),
   useUploadProjectImages: () => ({
@@ -72,6 +84,10 @@ vi.mock("@/features/projects/api", () => ({
     mutate: mockUpdateImageMutate,
     isPending: false,
   }),
+}));
+
+vi.mock("@/hooks/usePermission", () => ({
+  usePermission: () => true,
 }));
 
 const comprehensiveProject: Project = {
@@ -469,9 +485,9 @@ describe("PHASE 12, 13 & 14 — ProjectEditor & ProjectReader Integration Tests"
     const titleInput = screen.getByPlaceholderText("Nhập tên dự án...");
     fireEvent.change(titleInput, { target: { value: "Dự án mới Pleiku" } });
 
-    // Click "Tạo dự án"
-    const submitBtn = screen.getByRole("button", { name: "Tạo dự án" });
-    fireEvent.click(submitBtn);
+    // Click "Lưu bản nháp"
+    const saveDraftBtns = screen.getAllByRole("button", { name: "Lưu bản nháp" });
+    fireEvent.click(saveDraftBtns[0]);
 
     await waitFor(() => {
       expect(mockCreateMutate).toHaveBeenCalledTimes(1);
@@ -492,5 +508,27 @@ describe("PHASE 12, 13 & 14 — ProjectEditor & ProjectReader Integration Tests"
     expect(submitPayload.visualContent).toBeUndefined();
     expect(submitPayload.previewContent).toBeUndefined();
     expect(submitPayload.readerContent).toBeUndefined();
+  });
+
+  it("supports optional thumbnail with soft delete mechanism (Hero image pattern)", () => {
+    renderWithClient(
+      <ProjectEditor mode="edit" project={comprehensiveProject} />,
+    );
+
+    // Initial thumbnail exists
+    const deleteThumbBtn = screen.getByRole("button", { name: /Xoá ảnh đại diện/i });
+    expect(deleteThumbBtn).toBeInTheDocument();
+
+    // Click delete thumbnail
+    fireEvent.click(deleteThumbBtn);
+
+    // Thumbnail preview should be removed, dropzone should appear
+    expect(screen.queryByAltText("Thumbnail preview")).not.toBeInTheDocument();
+    expect(screen.getByText("Tải lên ảnh đại diện")).toBeInTheDocument();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Đã gỡ ảnh đại diện",
+      }),
+    );
   });
 });

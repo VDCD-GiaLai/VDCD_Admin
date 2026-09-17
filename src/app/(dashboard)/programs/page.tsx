@@ -93,27 +93,6 @@ export default function ProgramsPage() {
 
   const columns: ColumnDef<Program>[] = [
     {
-      key: "thumbnail",
-      label: "Ảnh",
-      width: "w-20",
-      render: (item) => (
-        <div className="h-12 w-16 overflow-hidden rounded-md border border-border bg-surface-muted">
-          {item.thumbnail ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={item.thumbnail}
-              alt={item.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-text-muted">
-              —
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
       key: "title",
       label: "Tiêu đề",
       render: (item) => (

@@ -171,4 +171,132 @@ describe("HTML Formatting Rendering in Slide Detail Blog (Visual Editor & Reader
       expect.stringContaining("<mark>Quy hoạch</mark>"),
     );
   });
+
+  it("VisualEditorCanvas preserves heading text when switching heading level (H2 -> H3 -> H4)", () => {
+    const onContentChange = vi.fn();
+
+    const headingId = "head_level_test_1";
+    const initialContent = {
+      version: 1 as const,
+      blocks: [
+        {
+          id: headingId,
+          type: "heading" as const,
+          level: 2 as const,
+          text: "Tiêu đề ban đầu",
+        },
+      ],
+    };
+
+    const { container } = render(
+      <ToastProvider>
+        <SlideDetailBlogUploadProvider subfolder="test-folder">
+          <VisualEditorCanvas
+            title="Title"
+            content={initialContent}
+            onContentChange={onContentChange}
+            onTitleChange={vi.fn()}
+            onSubtitleChange={vi.fn()}
+          />
+        </SlideDetailBlogUploadProvider>
+      </ToastProvider>,
+    );
+
+    // Find the heading block and click it to open PropertyPanel
+    const headingBlockContainer = container.querySelector(`[data-block-id="${headingId}"]`);
+    expect(headingBlockContainer).not.toBeNull();
+    fireEvent.click(headingBlockContainer!);
+
+    // Check heading tag is H2
+    expect(headingBlockContainer?.tagName).toBe("H2");
+
+    // Modify heading text via typing simulation (contentEditable input)
+    headingBlockContainer!.innerHTML = "Tiêu đề sau khi chỉnh sửa";
+    fireEvent.input(headingBlockContainer!);
+
+    // Focus heading element
+    (headingBlockContainer as HTMLElement).focus();
+
+    // Click H3 button in PropertyPanel without blurring
+    const h3Button = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "H3",
+    );
+    expect(h3Button).toBeDefined();
+    fireEvent.click(h3Button!);
+
+    // onContentChange should have been called with level: 3 and preserved text
+    expect(onContentChange).toHaveBeenCalledTimes(1);
+    const updatedContent = onContentChange.mock.calls[0][0];
+    const updatedHeading = updatedContent.blocks[0];
+    expect(updatedHeading.level).toBe(3);
+    expect(updatedHeading.text).toBe("Tiêu đề sau khi chỉnh sửa");
+  });
+
+  it("BlogPreviewContainer (Đọc bài) hides hero block when heroImageUrl is empty or undefined", () => {
+    const { container } = render(
+      <BlogPreviewContainer
+        title="Tiêu đề bài viết"
+        subtitle="Phụ đề bài viết"
+        excerpt="Tóm tắt nội dung"
+        heroImageUrl={null}
+        content={{
+          version: 1,
+          blocks: [],
+        }}
+      />,
+    );
+
+    // Should NOT contain hero image wrapper or placeholder
+    expect(container.querySelector(".blog-preview-hero-image-wrapper")).toBeNull();
+    expect(container.querySelector(".blog-preview-hero-image")).toBeNull();
+    expect(container.textContent).not.toContain("Chưa có ảnh hero");
+
+    // Title and excerpt should still be rendered cleanly
+    expect(container.querySelector(".blog-preview-title")?.textContent).toBe("Tiêu đề bài viết");
+    expect(container.querySelector(".blog-preview-excerpt")?.textContent).toBe("Tóm tắt nội dung");
+  });
+
+  it("VisualEditorCanvas (Trình chỉnh sửa trực quan) displays hero upload placeholder when heroImageUrl is empty", () => {
+    const { container } = render(
+      <ToastProvider>
+        <SlideDetailBlogUploadProvider subfolder="test-folder">
+          <VisualEditorCanvas
+            title="Tiêu đề bài viết"
+            heroImageUrl={null}
+            content={{
+              version: 1,
+              blocks: [],
+            }}
+            onContentChange={vi.fn()}
+            onTitleChange={vi.fn()}
+            onSubtitleChange={vi.fn()}
+          />
+        </SlideDetailBlogUploadProvider>
+      </ToastProvider>,
+    );
+
+    // Hero upload placeholder should be visible in Visual Editor
+    expect(container.textContent).toContain("Nhấn để tải ảnh bìa Hero từ máy tính");
+  });
+
+  it("BlogPreviewContainer (Đọc bài) hides content body and empty message when blocks array is empty", () => {
+    const { container } = render(
+      <BlogPreviewContainer
+        title="Tiêu đề bài viết"
+        subtitle="Phụ đề bài viết"
+        excerpt="Tóm tắt nội dung"
+        content={{
+          version: 1,
+          blocks: [],
+        }}
+      />,
+    );
+
+    // blog-preview-body should not exist
+    expect(container.querySelector(".blog-preview-body")).toBeNull();
+    // Placeholder message should not exist
+    expect(container.textContent).not.toContain("Bài viết chưa có khối nội dung nào");
+    expect(container.textContent).not.toContain("Chuyển sang tab \"Nội dung\" để thêm khối");
+  });
 });
+

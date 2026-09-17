@@ -203,3 +203,192 @@ describe("PropertyPanel component (VisualEditor - List Block Controls)", () => {
     expect(updated.items).toHaveLength(3);
   });
 });
+
+describe("PropertyPanel component (VisualEditor - Heading Block Level Controls)", () => {
+  const headingBlock = {
+    id: "head_test_1",
+    type: "heading" as const,
+    level: 2 as const,
+    text: "Tiêu đề ban đầu",
+  };
+
+  it("preserves live heading text when switching level while heading is active/focused", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    // Create a mock DOM element acting as the active focused contentEditable heading
+    const activeHeadingEl = document.createElement("h2");
+    activeHeadingEl.contentEditable = "true";
+    activeHeadingEl.dataset.blockId = headingBlock.id;
+    activeHeadingEl.innerHTML = "Nội dung vừa gõ chưa lưu blur";
+    document.body.appendChild(activeHeadingEl);
+    activeHeadingEl.focus();
+
+    render(
+      <PropertyPanel
+        block={headingBlock}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    // Click H3 button
+    fireEvent.click(screen.getByText("H3"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(3);
+    expect(updated.text).toBe("Nội dung vừa gõ chưa lưu blur");
+
+    document.body.removeChild(activeHeadingEl);
+  });
+
+  it("preserves live heading text when switching from H2 to H1 while focused", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    const activeHeadingEl = document.createElement("h2");
+    activeHeadingEl.contentEditable = "true";
+    activeHeadingEl.dataset.blockId = headingBlock.id;
+    activeHeadingEl.innerHTML = "Tiêu đề chuyển sang H1";
+    document.body.appendChild(activeHeadingEl);
+    activeHeadingEl.focus();
+
+    render(
+      <PropertyPanel
+        block={headingBlock}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("H1"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(1);
+    expect(updated.text).toBe("Tiêu đề chuyển sang H1");
+
+    document.body.removeChild(activeHeadingEl);
+  });
+
+  it("preserves live heading text when switching from H2 to H4 while focused", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    const activeHeadingEl = document.createElement("h2");
+    activeHeadingEl.contentEditable = "true";
+    activeHeadingEl.dataset.blockId = headingBlock.id;
+    activeHeadingEl.innerHTML = "Tiêu đề chuyển sang H4";
+    document.body.appendChild(activeHeadingEl);
+    activeHeadingEl.focus();
+
+    render(
+      <PropertyPanel
+        block={headingBlock}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("H4"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(4);
+    expect(updated.text).toBe("Tiêu đề chuyển sang H4");
+
+    document.body.removeChild(activeHeadingEl);
+  });
+
+  it("preserves live heading text when switching from H2 to H5 while focused", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    const activeHeadingEl = document.createElement("h2");
+    activeHeadingEl.contentEditable = "true";
+    activeHeadingEl.dataset.blockId = headingBlock.id;
+    activeHeadingEl.innerHTML = "Tiêu đề chuyển sang H5";
+    document.body.appendChild(activeHeadingEl);
+    activeHeadingEl.focus();
+
+    render(
+      <PropertyPanel
+        block={headingBlock}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("H5"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(5);
+    expect(updated.text).toBe("Tiêu đề chuyển sang H5");
+
+    document.body.removeChild(activeHeadingEl);
+  });
+
+  it("preserves heading text via DOM query fallback when switching level while unfocused", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    // Create a mock DOM heading element in the canvas, but NOT focused
+    const headingEl = document.createElement("h3");
+    headingEl.contentEditable = "true";
+    headingEl.dataset.blockId = headingBlock.id;
+    headingEl.innerHTML = "Nội dung đang có trong canvas";
+    document.body.appendChild(headingEl);
+
+    // Ensure activeElement is body, not heading
+    (document.activeElement as HTMLElement)?.blur();
+
+    render(
+      <PropertyPanel
+        block={{ ...headingBlock, level: 3, text: "Tiêu đề cũ" }}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    // Click H4 button while unfocused
+    fireEvent.click(screen.getByText("H4"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(4);
+    expect(updated.text).toBe("Nội dung đang có trong canvas");
+
+    document.body.removeChild(headingEl);
+  });
+
+  it("correctly sets empty text when heading has been cleared by user", () => {
+    const onBlockChange = vi.fn();
+    const onClose = vi.fn();
+
+    const headingEl = document.createElement("h2");
+    headingEl.contentEditable = "true";
+    headingEl.dataset.blockId = headingBlock.id;
+    headingEl.innerHTML = "<br>"; // browser empty contentEditable artifact
+    document.body.appendChild(headingEl);
+
+    render(
+      <PropertyPanel
+        block={headingBlock}
+        onBlockChange={onBlockChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("H5"));
+
+    expect(onBlockChange).toHaveBeenCalledTimes(1);
+    const updated = onBlockChange.mock.calls[0][0];
+    expect(updated.level).toBe(5);
+    expect(updated.text).toBe("");
+
+    document.body.removeChild(headingEl);
+  });
+});
+

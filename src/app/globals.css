@@ -352,7 +352,6 @@ h5.blog-preview-heading {
 h6.blog-preview-heading {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-text-muted, #6B7B8D);
 }
 
 /* ── Paragraph Blocks ── */
@@ -768,4 +767,21 @@ ol.blog-preview-list {
   color: var(--color-text-muted, #6C7E96);
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ── Form Error Field Highlight Animation ── */
+@keyframes error-field-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 103, 87, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 103, 87, 0.35);
+  }
+}
+
+.field-error-highlight {
+  animation: error-field-pulse 0.75s ease-in-out 3;
+  outline: 2px solid var(--color-danger, #FF6757) !important;
+  outline-offset: 3px;
+  border-radius: 0.5rem;
 }

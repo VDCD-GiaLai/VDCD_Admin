@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { VisualEditorToolbar } from "./VisualEditorToolbar";
@@ -155,20 +155,26 @@ function VisualEditorBlockInner({
     [onSelect],
   );
 
+  const blockRef = useRef(block);
+  useLayoutEffect(() => {
+    blockRef.current = block;
+  });
+
   // Block-specific change handlers
   const handleTextChange = useCallback(
     (text: string) => {
-      if (block.type === "heading") {
-        onBlockChange(index, { ...block, text } as HeadingBlock);
-      } else if (block.type === "paragraph") {
-        onBlockChange(index, { ...block, text } as ParagraphBlock);
-      } else if (block.type === "quote") {
-        onBlockChange(index, { ...block, text } as QuoteBlock);
-      } else if (block.type === "highlight") {
-        onBlockChange(index, { ...block, text } as HighlightBlock);
+      const currentBlock = blockRef.current;
+      if (currentBlock.type === "heading") {
+        onBlockChange(index, { ...currentBlock, text } as HeadingBlock);
+      } else if (currentBlock.type === "paragraph") {
+        onBlockChange(index, { ...currentBlock, text } as ParagraphBlock);
+      } else if (currentBlock.type === "quote") {
+        onBlockChange(index, { ...currentBlock, text } as QuoteBlock);
+      } else if (currentBlock.type === "highlight") {
+        onBlockChange(index, { ...currentBlock, text } as HighlightBlock);
       }
     },
-    [block, index, onBlockChange],
+    [index, onBlockChange],
   );
 
   const handleItemsChange = useCallback(

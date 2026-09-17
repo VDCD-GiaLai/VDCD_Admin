@@ -76,8 +76,11 @@ export function useUpdateArticle(id: string) {
             : data,
         ),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedArticle) => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
+      if (updatedArticle) {
+        queryClient.setQueryData(articleKeys.detail(id), updatedArticle);
+      }
     },
   });
 }
@@ -85,14 +88,17 @@ export function useUpdateArticle(id: string) {
 
 export function usePublishArticle() {
   const queryClient = useQueryClient();
-  return useMutation<void, ApiError, { id: string; isPublished: boolean }>({
+  return useMutation<Article, ApiError, { id: string; isPublished: boolean }>({
     mutationFn: ({ id, isPublished }) =>
-      clientFetch<void>(`/api/articles/${id}/publish`, {
+      clientFetch<Article>(`/api/articles/${id}/publish`, {
         method: "PATCH",
         body: JSON.stringify({ isPublished }),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedArticle, { id }) => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
+      if (updatedArticle) {
+        queryClient.setQueryData(articleKeys.detail(id), updatedArticle);
+      }
     },
   });
 }

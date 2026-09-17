@@ -39,6 +39,19 @@ vi.mock("@/features/programs/api", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  usePublishProgram: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useDeleteProgram: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+// Mock permission hook
+vi.mock("@/hooks/usePermission", () => ({
+  usePermission: () => true,
 }));
 
 const mockProgram: Program = {

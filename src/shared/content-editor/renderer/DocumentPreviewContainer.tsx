@@ -171,28 +171,7 @@ export function DocumentPreviewContainer({
               const heroPosition = heroMeta?.position ?? "center";
               const heroCaption = heroMeta?.caption ?? "";
 
-              const renderHeroMedia = () => (
-                <div>
-                  {heroImageUrl ? (
-                    <div className="blog-preview-hero-image-wrapper">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={heroImageUrl}
-                        alt={title || "Thumbnail"}
-                        className="blog-preview-hero-image"
-                        style={{ objectPosition: heroPosition }}
-                      />
-                    </div>
-                  ) : null}
-
-                  {heroCaption && (
-                    <figcaption
-                      className="blog-preview-hero-caption"
-                      dangerouslySetInnerHTML={{ __html: heroCaption }}
-                    />
-                  )}
-                </div>
-              );
+              const hasHeroImage = Boolean(heroImageUrl && heroImageUrl.trim());
 
               const renderHeroHeader = () => (
                 <div className="space-y-2">
@@ -228,6 +207,37 @@ export function DocumentPreviewContainer({
                     <p
                       className="blog-preview-excerpt"
                       dangerouslySetInnerHTML={{ __html: displayExcerpt }}
+                    />
+                  )}
+                </div>
+              );
+
+              // In Reader mode: If there is no hero image, hide the hero image block completely
+              if (!hasHeroImage) {
+                return (
+                  <div className="blog-preview-hero-text">
+                    {renderHeroHeader()}
+                    {renderHeroExcerpt()}
+                  </div>
+                );
+              }
+
+              const renderHeroMedia = () => (
+                <div>
+                  <div className="blog-preview-hero-image-wrapper">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={heroImageUrl!}
+                      alt={title || "Thumbnail"}
+                      className="blog-preview-hero-image"
+                      style={{ objectPosition: heroPosition }}
+                    />
+                  </div>
+
+                  {heroCaption && (
+                    <figcaption
+                      className="blog-preview-hero-caption"
+                      dangerouslySetInnerHTML={{ __html: heroCaption }}
                     />
                   )}
                 </div>

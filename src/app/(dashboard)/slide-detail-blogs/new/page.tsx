@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useTransition, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, useTransition, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -221,6 +221,37 @@ function NewSlideDetailBlogContent() {
     );
   };
 
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: TabMode = "editor") => {
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+      }
+
+      setTimeout(() => {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("field-error-highlight");
+          const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
+            "button, input, select, textarea, [contenteditable='true']",
+          );
+          if (focusable) {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch {
+              // Ignore focus error
+            }
+          }
+          setTimeout(() => {
+            el.classList.remove("field-error-highlight");
+          }, 3000);
+        }
+      }, 100);
+    },
+    [activeTab],
+  );
+
   // Submit Handler
   const onSubmit = (data: SlideDetailBlogFormData, publish = false) => {
     const payload: SlideDetailBlogFormData = {
@@ -231,18 +262,30 @@ function NewSlideDetailBlogContent() {
 
     if (publish) {
       if (!payload.title?.trim()) {
+        scrollToErrorField("field-title", "editor");
         toast({
           title: "Không thể xuất bản",
-          description: "Tiêu đề bài viết không được để trống",
+          description: "Tiêu đề bài viết không được để trống (tại Tab 'Nội dung' > Mục 2).",
           color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới tiêu đề",
+            onClick: () => scrollToErrorField("field-title", "editor"),
+          },
         });
         return;
       }
       if (!payload.content?.blocks || payload.content.blocks.length === 0) {
+        scrollToErrorField("card-content-blocks", "editor");
         toast({
           title: "Không thể xuất bản",
-          description: "Bài viết phải có ít nhất 1 khối nội dung",
+          description: "Bài viết phải có ít nhất 1 khối nội dung (tại Tab 'Nội dung' > Mục 3).",
           color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới khối nội dung",
+            onClick: () => scrollToErrorField("card-content-blocks", "editor"),
+          },
         });
         return;
       }
@@ -273,6 +316,7 @@ function NewSlideDetailBlogContent() {
 
         let friendlyTitle = "Tạo bài viết thất bại";
         let friendlyDescription = rawMessage;
+        let targetElementId: string | undefined;
 
         if (blockMatch) {
           const blockIdx = parseInt(blockMatch[1], 10);
@@ -289,10 +333,8 @@ function NewSlideDetailBlogContent() {
           const targetId = targetBlock?.id || parentBlock?.id;
 
           if (targetId) {
-            const el = document.getElementById(`block-${targetId}`);
-            if (el) {
-              el.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
+            targetElementId = `block-${targetId}`;
+            scrollToErrorField(targetElementId, activeTab === "visual" ? "visual" : "editor");
           }
 
           if (itemIdx !== undefined || rawReason.toLowerCase().includes("item text")) {
@@ -316,6 +358,15 @@ function NewSlideDetailBlogContent() {
           title: friendlyTitle,
           description: friendlyDescription,
           color: "danger",
+          duration: 8000,
+          ...(targetElementId
+            ? {
+                action: {
+                  label: "Đi tới khối lỗi",
+                  onClick: () => scrollToErrorField(targetElementId!, activeTab === "visual" ? "visual" : "editor"),
+                },
+              }
+            : {}),
         });
       },
     });
@@ -323,57 +374,89 @@ function NewSlideDetailBlogContent() {
 
   // Validation Error Handler (triggered when form has invalid fields or empty blocks)
   const onInvalid = (fieldErrors: FieldErrors<SlideDetailBlogFormData>) => {
-    // Check if error comes from content blocks
+    // 1. Check if error comes from content blocks
     const contentErrors = fieldErrors.content as unknown as { blocks?: Record<string, unknown> } | undefined;
     const blockErrors = contentErrors?.blocks;
 
     if (blockErrors) {
-      // Find the first invalid block to scroll to it
       const errorKeys = Object.keys(blockErrors);
       const firstIndex = Number(errorKeys[0]);
       const currentBlocks = (previewContent?.blocks || []) as SlideDetailBlogBlock[];
       const targetBlock = currentBlocks[firstIndex];
+      const targetId = targetBlock ? `block-${targetBlock.id}` : "card-content-blocks";
 
-      if (targetBlock) {
-        const el = document.getElementById(`block-${targetBlock.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
+      scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor");
 
       toast({
         title: "Không thể lưu bài viết",
         description: "Có khối nội dung đang để trống. Vui lòng nhập nội dung hoặc xoá khối đó đi trước khi lưu.",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới khối lỗi",
+          onClick: () => scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor"),
+        },
       });
       return;
     }
 
+    // 2. Check if error is missing title
     if (fieldErrors.title) {
+      scrollToErrorField("field-title", "editor");
+
       toast({
         title: "Thiếu tiêu đề bài viết",
-        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống.",
+        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống (tại Tab 'Nội dung' > Mục 2).",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới tiêu đề",
+          onClick: () => scrollToErrorField("field-title", "editor"),
+        },
       });
       return;
     }
 
+    // 3. Check if error is missing slideId
     if (fieldErrors.slideId) {
+      scrollToErrorField("field-slide-id", "editor");
+
       toast({
         title: "Chưa chọn slide liên kết",
-        description: fieldErrors.slideId.message || "Vui lòng chọn slide để liên kết bài viết.",
+        description: "Bài viết Slide bắt buộc phải liên kết với 1 slide trên trang chủ (tại Tab 'Nội dung' > Mục 1. Slide liên kết).",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới mục chọn slide",
+          onClick: () => scrollToErrorField("field-slide-id", "editor"),
+        },
       });
       return;
     }
 
-    // Default error message
+    // 4. Default error message
+    const firstErrorKey = Object.keys(fieldErrors)[0];
     const firstError = Object.values(fieldErrors)[0];
     const message = firstError?.message;
+    const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
+
+    if (targetElementId) {
+      scrollToErrorField(targetElementId, "editor");
+    }
+
     toast({
       title: "Không thể lưu bài viết",
-      description: typeof message === "string" ? message : "Có khối nội dung hoặc trường thông tin chưa hợp lệ. Vui lòng kiểm tra lại.",
+      description: typeof message === "string" ? message : "Có khối nội dung hoặc trường thông tin chưa hợp lệ. Vui lòng kiểm tra lại tại Tab 'Nội dung'.",
       color: "danger",
+      duration: 8000,
+      ...(targetElementId
+        ? {
+            action: {
+              label: "Đi tới vị trí lỗi",
+              onClick: () => scrollToErrorField(targetElementId, "editor"),
+            },
+          }
+        : {}),
     });
   };
 
@@ -508,14 +591,14 @@ function NewSlideDetailBlogContent() {
       {/* 1. Form Editor Tab */}
       <form className={`space-y-6 ${activeTab !== "editor" ? "hidden" : ""}`}>
         {/* 1. Chọn Slide Liên Kết */}
-        <Card className="border border-border bg-surface shadow-xs">
+        <Card id="card-slide-select" className="border border-border bg-surface shadow-xs transition-all duration-300">
           <CardHeader className="border-b border-border px-5 py-3.5">
             <CardTitle className="text-base font-semibold text-text">
               1. Slide liên kết (bắt buộc)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
-            <div>
+            <div id="field-slide-id" className="rounded-lg p-1 -m-1 transition-all duration-300">
               <label className="mb-1.5 block text-xs font-semibold text-text">
                 Chọn Slide <span className="text-danger">*</span>
               </label>
@@ -570,7 +653,7 @@ function NewSlideDetailBlogContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
-            <div className="space-y-1.5">
+            <div id="field-title" className="space-y-1.5 rounded-lg p-1 -m-1 transition-all duration-300">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-semibold text-text">
                   Tiêu đề bài viết (H1) <span className="text-danger">*</span>
@@ -615,13 +698,15 @@ function NewSlideDetailBlogContent() {
                   onKeyDown={handleSubtitleKeyDown}
                 />
               </div>
-              <FormInput
-                label="Đường dẫn tĩnh (Slug)"
-                placeholder="Tự sinh từ tiêu đề nếu để trống..."
-                helperText="Chỉ dùng chữ cái thường không dấu, số và dấu gạch ngang"
-                errorMessage={errors.slug?.message}
-                {...register("slug")}
-              />
+              <div id="field-slug" className="rounded-lg p-1 -m-1 transition-all duration-300">
+                <FormInput
+                  label="Đường dẫn tĩnh (Slug)"
+                  placeholder="Tự sinh từ tiêu đề nếu để trống..."
+                  helperText="Chỉ dùng chữ cái thường không dấu, số và dấu gạch ngang"
+                  errorMessage={errors.slug?.message}
+                  {...register("slug")}
+                />
+              </div>
             </div>
 
             {/* Subfolder ImageKit Preview */}
@@ -901,7 +986,7 @@ function NewSlideDetailBlogContent() {
         </Card>
 
         {/* 3. Nội dung theo Block */}
-        <Card className="border border-border bg-surface shadow-xs">
+        <Card id="card-content-blocks" className="border border-border bg-surface shadow-xs transition-all duration-300">
           <CardHeader className="border-b border-border px-5 py-3.5">
             <CardTitle className="text-base font-semibold text-text">
               3. Nội dung chi tiết (Visual Block Editor)

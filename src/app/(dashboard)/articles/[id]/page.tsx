@@ -1,20 +1,30 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useTransition } from "react";
+import { useState, useEffect, useMemo, useRef, useTransition, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, Controller, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@heroui/react";
 import {
   FormInput,
   FormTextarea,
-  FormCheckbox,
   AppButton,
   Spinner,
   DropdownSelect,
+  useToast,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@/components/ui";
-import { useToast } from "@/components/ui";
-import { useArticle, useUpdateArticle } from "@/features/articles/api";
+import { useArticle, useUpdateArticle, usePublishArticle, useDeleteArticle } from "@/features/articles/api";
+import { usePermission } from "@/hooks/usePermission";
 import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
@@ -24,7 +34,7 @@ import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/c
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
-import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
+import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
 import { FloatingSaveBar } from "@/components/shared";
@@ -39,8 +49,15 @@ export default function EditArticlePage() {
   const { toast } = useToast();
   const [, startTransition] = useTransition();
 
+  const canDelete = usePermission("articles:delete");
+
   const { data: article, isLoading } = useArticle(id);
   const updateMutation = useUpdateArticle(id);
+  const publishMutation = usePublishArticle();
+  const deleteMutation = useDeleteArticle();
+  const isSubmitting = updateMutation.isPending || publishMutation.isPending;
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Load lists for linking
   const { data: projectsData } = useProjects({ limit: 100 });
@@ -63,10 +80,15 @@ export default function EditArticlePage() {
   // Paste normalization for text inputs
   const { handlePaste: handlePlainPaste } = useSanitizedPaste({ preserveLineBreaks: false });
 
+  // Soft-delete tracking: fileIds staged for deletion on successful save
+  const [discardedThumbFileIds, setDiscardedThumbFileIds] = useState<string[]>([]);
+  const [discardedBlockFileIds, setDiscardedBlockFileIds] = useState<string[]>([]);
+
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     reset,
     control,
     formState: { errors, isDirty },
@@ -189,6 +211,14 @@ export default function EditArticlePage() {
       return;
     }
 
+    // Soft-delete: track old thumbnail fileId before replacing
+    const previousFileId = getValues("thumbnailFileId");
+    if (previousFileId) {
+      setDiscardedThumbFileIds((prev) =>
+        prev.includes(previousFileId) ? prev : [...prev, previousFileId],
+      );
+    }
+
     setThumbPreviewUrl(URL.createObjectURL(file));
     setThumbMode("upload");
     setFailedThumbUrl(null);
@@ -215,21 +245,177 @@ export default function EditArticlePage() {
     }
   };
 
-  // Submit Handler
-  const onSubmit = (data: ArticleFormData, publish?: boolean) => {
-    const willPublish = publish !== undefined ? publish : data.isPublished;
+  // Handle Soft-Delete Thumbnail (from Visual Editor hero image delete button)
+  const handleDeleteHeroImage = () => {
+    const currentFileId = getValues("thumbnailFileId");
+    if (currentFileId) {
+      setDiscardedThumbFileIds((prev) =>
+        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
+      );
+    }
+    setValue("thumbnail", null, { shouldValidate: true, shouldDirty: true });
+    setValue("thumbnailFileId", null, { shouldDirty: true });
+    setThumbPreviewUrl(null);
+    setFailedThumbUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast({
+      title: "Đã gỡ ảnh đại diện",
+      description: "Nhấn \"Lưu thay đổi\" để hoàn tất gỡ bỏ trên ImageKit.",
+      color: "warning",
+    });
+  };
 
+  // Handle Soft-Delete of Image Blocks (image block removed or image replaced)
+  const handleImageBlockDiscard = (fileId: string) => {
+    setDiscardedBlockFileIds((prev) =>
+      prev.includes(fileId) ? prev : [...prev, fileId],
+    );
+  };
+
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: TabMode = "editor") => {
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+      }
+
+      setTimeout(() => {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("field-error-highlight");
+          const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
+            "button, input, select, textarea, [contenteditable='true']",
+          );
+          if (focusable) {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch {
+              // Ignore focus error
+            }
+          }
+          setTimeout(() => {
+            el.classList.remove("field-error-highlight");
+          }, 3000);
+        }
+      }, 100);
+    },
+    [activeTab],
+  );
+
+  // Submit Handler
+  const onSubmit = (data: ArticleFormData) => {
     const payload: ArticleFormData = {
       ...data,
-      isPublished: willPublish,
-      publishedAt: willPublish ? data.publishedAt || new Date().toISOString() : data.publishedAt || null,
+      isPublished: article?.isPublished ?? data.isPublished ?? false,
+      publishedAt: data.publishedAt || (article?.isPublished ? new Date().toISOString() : null),
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
     };
 
-    if (willPublish) {
-      if (!payload.title?.trim()) {
+    // Collect all fileIds currently in the content blocks to protect them from deletion
+    const activeBlockFileIds = new Set<string>();
+    for (const b of (data.content?.blocks || []) as SlideDetailBlogBlock[]) {
+      if (b.type === "image" && b.fileId) activeBlockFileIds.add(b.fileId);
+      if (b.type === "section") {
+        for (const child of (b as import("@/types/slide-detail-blog").SectionBlock).children || []) {
+          if (child.type === "image" && child.fileId) activeBlockFileIds.add(child.fileId);
+        }
+      }
+    }
+
+    updateMutation.mutate(payload, {
+      onSuccess: () => {
+        // Cleanup discarded thumbnail files
+        for (const fid of discardedThumbFileIds) {
+          deleteUploadedImage(fid).catch((err) =>
+            console.warn("Lỗi dọn rác thumbnail ImageKit:", err),
+          );
+        }
+        setDiscardedThumbFileIds([]);
+
+        // Cleanup discarded image block files
+        for (const fid of discardedBlockFileIds) {
+          if (!activeBlockFileIds.has(fid)) {
+            deleteUploadedImage(fid).catch((err) =>
+              console.warn("Lỗi dọn rác image block ImageKit:", err),
+            );
+          }
+        }
+        setDiscardedBlockFileIds([]);
+
+        toast({ title: "Đã lưu thay đổi", color: "success" });
+      },
+      onError: (error) => {
+        const rawMessage = error.message || "";
+        const blockMatch = rawMessage.match(
+          /blocks\[(\d+)\](?:\.children\[(\d+)\])?(?:\.items\[(\d+)\])?(?:\.(\w+))?:?\s*(.*)/i,
+        );
+
+        let friendlyTitle = "Lưu bài viết thất bại";
+        let friendlyDescription = rawMessage;
+        let targetElementId: string | undefined;
+
+        if (blockMatch) {
+          const blockIdx = parseInt(blockMatch[1], 10);
+          const childIdx = blockMatch[2] ? parseInt(blockMatch[2], 10) : undefined;
+          const itemIdx = blockMatch[3] ? parseInt(blockMatch[3], 10) : undefined;
+          const rawReason = blockMatch[5] || "";
+
+          const currentBlocks = (data.content?.blocks || []) as SlideDetailBlogBlock[];
+          const parentBlock = currentBlocks[blockIdx];
+          const targetBlock =
+            childIdx !== undefined && parentBlock?.type === "section"
+              ? (parentBlock as import("@/types/slide-detail-blog").SectionBlock).children?.[childIdx]
+              : parentBlock;
+          const targetId = targetBlock?.id || parentBlock?.id;
+
+          if (targetId) {
+            targetElementId = `block-${targetId}`;
+            scrollToErrorField(targetElementId, activeTab === "visual" ? "visual" : "editor");
+          }
+
+          if (itemIdx !== undefined || rawReason.toLowerCase().includes("item text")) {
+            friendlyTitle = "Mục danh sách đang để trống";
+            friendlyDescription = `Mục số ${Number(itemIdx ?? 0) + 1} của danh sách (Khối ${blockIdx + 1}) chưa có nội dung. Vui lòng nhập nội dung cho mục này hoặc xoá mục này đi.`;
+          } else {
+            friendlyTitle = `Khối nội dung ${blockIdx + 1} chưa hợp lệ`;
+            friendlyDescription = rawReason.replace(
+              /Item text không được để trống/i,
+              "Mục danh sách không được để trống",
+            );
+          }
+        } else {
+          friendlyDescription = rawMessage.replace(
+            /Item text không được để trống/i,
+            "Mục danh sách không được để trống",
+          );
+        }
+
+        toast({
+          title: friendlyTitle,
+          description: friendlyDescription,
+          color: "danger",
+          duration: 8000,
+          ...(targetElementId
+            ? {
+                action: {
+                  label: "Đi tới khối lỗi",
+                  onClick: () => scrollToErrorField(targetElementId!, activeTab === "visual" ? "visual" : "editor"),
+                },
+              }
+            : {}),
+        });
+      },
+    });
+  };
+
+  // Toggle Publish
+  const handleTogglePublish = (publish: boolean) => {
+    if (publish) {
+      const currentTitle = watchedTitle || article?.title;
+      if (!currentTitle?.trim()) {
         toast({
           title: "Không thể xuất bản",
           description: "Tiêu đề bài viết không được để trống",
@@ -237,7 +423,8 @@ export default function EditArticlePage() {
         });
         return;
       }
-      if (!payload.content?.blocks || payload.content.blocks.length === 0) {
+      const blocks = watchedContent?.blocks || parseArticleContent(article?.content).content?.blocks || [];
+      if (!blocks || blocks.length === 0) {
         toast({
           title: "Không thể xuất bản",
           description: "Bài viết phải có ít nhất 1 khối nội dung",
@@ -247,19 +434,46 @@ export default function EditArticlePage() {
       }
     }
 
-    updateMutation.mutate(payload, {
+    publishMutation.mutate(
+      { id, isPublished: publish },
+      {
+        onSuccess: () => {
+          setValue("isPublished", publish);
+          toast({
+            title: publish ? "Đã xuất bản bài viết" : "Đã chuyển về bản nháp",
+            color: "success",
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Thao tác thất bại",
+            description: error.message,
+            color: "danger",
+          });
+        },
+      },
+    );
+  };
+
+  // Handle Delete
+  const handleDelete = () => {
+    if (!article) return;
+    deleteMutation.mutate(id, {
       onSuccess: () => {
-        toast({
-          title: "Cập nhật bài viết thành công",
-          color: "success",
-        });
+        const thumbFileId = getValues("thumbnailFileId") || article.thumbnailFileId;
+        if (thumbFileId) {
+          deleteUploadedImage(thumbFileId).catch((err) =>
+            console.warn("Lỗi dọn rác thumbnail ImageKit:", err),
+          );
+        }
+        toast({ title: "Đã xoá bài viết thành công", color: "success" });
         startTransition(() => {
           router.push("/articles");
         });
       },
       onError: (error) => {
         toast({
-          title: "Cập nhật thất bại",
+          title: "Xoá thất bại",
           description: error.message,
           color: "danger",
         });
@@ -277,37 +491,61 @@ export default function EditArticlePage() {
       const firstIndex = Number(errorKeys[0]);
       const currentBlocks = (watchedContent?.blocks || []) as SlideDetailBlogBlock[];
       const targetBlock = currentBlocks[firstIndex];
+      const targetId = targetBlock ? `block-${targetBlock.id}` : "card-content-blocks";
 
-      if (targetBlock) {
-        const el = document.getElementById(`block-${targetBlock.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
+      scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor");
 
       toast({
         title: "Không thể lưu bài viết",
-        description: "Có khối nội dung đang để trống. Vui lòng kiểm tra lại.",
+        description: "Có khối nội dung đang để trống. Vui lòng kiểm tra lại tại Tab 'Nội dung'.",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới khối lỗi",
+          onClick: () => scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor"),
+        },
       });
       return;
     }
 
     if (fieldErrors.title) {
+      scrollToErrorField("field-title", "editor");
+
       toast({
         title: "Thiếu tiêu đề bài viết",
-        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống.",
+        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống (tại Tab 'Nội dung' > Mục 1).",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới tiêu đề",
+          onClick: () => scrollToErrorField("field-title", "editor"),
+        },
       });
       return;
     }
 
+    const firstErrorKey = Object.keys(fieldErrors)[0];
     const firstError = Object.values(fieldErrors)[0];
     const message = firstError?.message;
+    const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
+
+    if (targetElementId) {
+      scrollToErrorField(targetElementId, "editor");
+    }
+
     toast({
       title: "Không thể lưu bài viết",
-      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ.",
+      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ. Vui lòng kiểm tra lại tại Tab 'Nội dung'.",
       color: "danger",
+      duration: 8000,
+      ...(targetElementId
+        ? {
+            action: {
+              label: "Đi tới vị trí lỗi",
+              onClick: () => scrollToErrorField(targetElementId, "editor"),
+            },
+          }
+        : {}),
     });
   };
 
@@ -322,17 +560,50 @@ export default function EditArticlePage() {
   return (
     <SlideDetailBlogUploadProvider folder="article" subfolder={currentSubfolder}>
       <div className="space-y-6 pb-12">
-        {/* Header */}
+        {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-text">Chỉnh sửa bài viết</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-text">Chỉnh sửa bài viết</h1>
+              <span
+                className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                  article.isPublished
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                }`}
+              >
+                {article.isPublished ? "Đã xuất bản" : "Bản nháp"}
+              </span>
+            </div>
             <p className="text-sm text-text-muted">
               Cập nhật nội dung bài viết bằng hệ thống Block Editor.
             </p>
           </div>
-          <AppButton variant="ghost" onClick={() => router.back()}>
-            ← Quay lại
-          </AppButton>
+
+          <div className="flex items-center gap-2">
+            {article.isPublished ? (
+              <AppButton
+                variant="ghost"
+                isLoading={publishMutation.isPending}
+                onClick={() => handleTogglePublish(false)}
+                className="border border-border text-xs"
+              >
+                Gỡ xuất bản (Về nháp)
+              </AppButton>
+            ) : (
+              <AppButton
+                color="success"
+                isLoading={publishMutation.isPending}
+                onClick={() => handleTogglePublish(true)}
+                className="text-xs text-white"
+              >
+                Xuất bản bài viết
+              </AppButton>
+            )}
+            <AppButton variant="ghost" onClick={() => router.back()}>
+              ← Quay lại
+            </AppButton>
+          </div>
         </div>
 
         {/* Tab Switcher: [ Nội dung ] [ Đọc bài ] [ Trình chỉnh sửa trực quan ] */}
@@ -408,16 +679,28 @@ export default function EditArticlePage() {
             onSubtitleChange={(s) => setValue("subtitle", s, { shouldDirty: true })}
             onExcerptChange={(e) => setValue("excerpt", e, { shouldDirty: true })}
             onHeroImageChange={(url, fileId) => {
+              // Soft-delete: track old thumbnail fileId before replacing
+              const oldFileId = getValues("thumbnailFileId");
+              if (oldFileId && oldFileId !== fileId) {
+                setDiscardedThumbFileIds((prev) =>
+                  prev.includes(oldFileId) ? prev : [...prev, oldFileId],
+                );
+              }
               setValue("thumbnail", url, { shouldValidate: true, shouldDirty: true });
               if (fileId) setValue("thumbnailFileId", fileId, { shouldDirty: true });
               setThumbPreviewUrl(url);
               setFailedThumbUrl(null);
             }}
+            onHeroImageDelete={handleDeleteHeroImage}
+            onImageDiscard={handleImageBlockDiscard}
           />
         )}
 
         {/* 1. Form Editor Tab (Phase 07 & 10) */}
-        <form className={`space-y-6 ${activeTab !== "editor" ? "hidden" : ""}`}>
+        <form
+          onSubmit={handleSubmit(onSubmit, onInvalid)}
+          className={`space-y-6 ${activeTab !== "editor" ? "hidden" : ""}`}
+        >
           {/* Card 1: Thông tin bài viết */}
           <Card className="border border-border bg-surface shadow-xs">
             <CardHeader className="border-b border-border px-5 py-3.5">
@@ -426,7 +709,7 @@ export default function EditArticlePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-5">
-              <div className="space-y-1.5">
+              <div id="field-title" className="space-y-1.5 rounded-lg p-1 -m-1 transition-all duration-300">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-xs font-semibold text-text">
                     Tiêu đề bài viết (Title) <span className="text-danger">*</span>
@@ -733,7 +1016,7 @@ export default function EditArticlePage() {
           </Card>
 
           {/* Card 6: Khối nội dung chi tiết (Block Editor) */}
-          <Card className="border border-border bg-surface shadow-xs">
+          <Card id="card-content-blocks" className="border border-border bg-surface shadow-xs transition-all duration-300">
             <CardHeader className="border-b border-border px-5 py-3.5">
               <CardTitle className="text-base font-semibold text-text">
                 6. Nội dung bài viết (Block Editor)
@@ -753,19 +1036,18 @@ export default function EditArticlePage() {
             </CardContent>
           </Card>
 
-          {/* Card 7: Xuất bản & Ngày xuất bản */}
+          {/* Card 7: Thời gian xuất bản */}
           <Card className="border border-border bg-surface shadow-xs">
             <CardHeader className="border-b border-border px-5 py-3.5">
               <CardTitle className="text-base font-semibold text-text">
-                7. Xuất bản
+                7. Thời gian xuất bản
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-5">
-              <FormCheckbox label="Xuất bản bài viết ngay" {...register("isPublished")} />
               <FormInput
                 type="datetime-local"
-                label="Ngày xuất bản"
-                helperText="Nếu để trống, sẽ tự động lấy thời điểm hiện tại khi xuất bản"
+                label="Ngày giờ xuất bản"
+                helperText="Tuỳ chỉnh ngày giờ xuất bản (nếu để trống, hệ thống sẽ lấy thời điểm hiện tại khi xuất bản)."
                 errorMessage={errors.publishedAt?.message}
                 {...register("publishedAt")}
               />
@@ -773,51 +1055,72 @@ export default function EditArticlePage() {
           </Card>
 
           {/* Footer Form Actions */}
-          <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
-            <AppButton variant="ghost" type="button" onClick={() => router.back()}>
-              Huỷ
-            </AppButton>
-            <AppButton
-              type="button"
-              variant="ghost"
-              isLoading={updateMutation.isPending}
-              onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
-              className="border border-border"
-            >
-              Lưu bản nháp
-            </AppButton>
-            <AppButton
-              type="button"
-              isLoading={updateMutation.isPending}
-              onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
-            >
-              Lưu & Xuất bản
-            </AppButton>
+          <div data-bottom-save-bar className="flex items-center justify-between pt-2">
+            {canDelete ? (
+              <AppButton
+                type="button"
+                variant="ghost"
+                color="danger"
+                onClick={() => setShowDeleteModal(true)}
+                className="text-xs text-danger hover:bg-danger/10"
+              >
+                Xoá bài viết
+              </AppButton>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              {isDirty && (
+                <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+              )}
+              <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                Huỷ
+              </AppButton>
+              <AppButton
+                type="submit"
+                isLoading={updateMutation.isPending}
+                disabled={!isDirty || isSubmitting || uploadingThumb}
+              >
+                Lưu thay đổi
+              </AppButton>
+            </div>
           </div>
         </form>
 
         {/* Floating/Fixed Footer when in Reader or Visual Tab */}
         {activeTab !== "editor" && (
-          <div data-bottom-save-bar className="flex items-center justify-end gap-3 pt-2">
-            <AppButton variant="ghost" type="button" onClick={() => router.back()}>
-              Huỷ
-            </AppButton>
-            <AppButton
-              type="button"
-              variant="ghost"
-              isLoading={updateMutation.isPending}
-              onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
-              className="border border-border"
-            >
-              Lưu bản nháp
-            </AppButton>
-            <AppButton
-              type="button"
-              isLoading={updateMutation.isPending}
-              onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
-            >
-              Lưu & Xuất bản
-            </AppButton>
+          <div data-bottom-save-bar className="flex items-center justify-between pt-2">
+            {canDelete ? (
+              <AppButton
+                type="button"
+                variant="ghost"
+                color="danger"
+                onClick={() => setShowDeleteModal(true)}
+                className="text-xs text-danger hover:bg-danger/10"
+              >
+                Xoá bài viết
+              </AppButton>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              {isDirty && (
+                <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+              )}
+              <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                Huỷ
+              </AppButton>
+              <AppButton
+                type="button"
+                isLoading={updateMutation.isPending}
+                disabled={!isDirty || isSubmitting || uploadingThumb}
+                onClick={handleSubmit(onSubmit, onInvalid)}
+              >
+                Lưu thay đổi
+              </AppButton>
+            </div>
           </div>
         )}
 
@@ -828,22 +1131,42 @@ export default function EditArticlePage() {
         >
           <AppButton
             type="button"
-            variant="ghost"
             isLoading={updateMutation.isPending}
-            onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
-            className="border border-border bg-surface text-xs"
-          >
-            Lưu bản nháp
-          </AppButton>
-          <AppButton
-            type="button"
-            isLoading={updateMutation.isPending}
-            onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
+            disabled={!isDirty || isSubmitting || uploadingThumb}
+            onClick={handleSubmit(onSubmit, onInvalid)}
             className="text-xs"
           >
-            Lưu & Xuất bản
+            Lưu thay đổi
           </AppButton>
         </FloatingSaveBar>
+
+        {/* Modal xác nhận xoá bài viết */}
+        <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+          <ModalContent>
+            <ModalHeader>Xác nhận xoá bài viết</ModalHeader>
+            <ModalBody>
+              <p>
+                Bạn có chắc muốn xoá vĩnh viễn bài viết{" "}
+                <strong>{article.title}</strong>?
+              </p>
+              <p className="mt-2 text-xs text-text-muted">
+                Lưu ý: Hành động này không thể hoàn tác. Tất cả ảnh trên ImageKit thuộc bài viết sẽ được tự động dọn dẹp.
+              </p>
+            </ModalBody>
+            <ModalFooter>
+              <AppButton variant="ghost" onClick={() => setShowDeleteModal(false)}>
+                Huỷ
+              </AppButton>
+              <AppButton
+                color="danger"
+                isLoading={deleteMutation.isPending}
+                onClick={handleDelete}
+              >
+                Xoá vĩnh viễn
+              </AppButton>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </div>
     </SlideDetailBlogUploadProvider>
   );

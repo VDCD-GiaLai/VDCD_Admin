@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useTransition } from "react";
+import { useState, useMemo, useRef, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,7 @@ import {
   DropdownSelect,
 } from "@/components/ui";
 import { useToast } from "@/components/ui";
-import { useCreateArticle } from "@/features/articles/api";
+import { useCreateArticle, usePublishArticle } from "@/features/articles/api";
 import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
@@ -22,7 +22,7 @@ import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/c
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
-import { uploadImage, validateImageFile, slugifyVietnamese, type UploadResult } from "@/lib/upload";
+import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
 import { FloatingSaveBar } from "@/components/shared";
@@ -35,6 +35,8 @@ export default function CreateArticlePage() {
   const { toast } = useToast();
   const [, startTransition] = useTransition();
   const createMutation = useCreateArticle();
+  const publishMutation = usePublishArticle();
+  const isSubmitting = createMutation.isPending || publishMutation.isPending;
 
   // Load lists for linking
   const { data: projectsData } = useProjects({ limit: 100 });
@@ -57,10 +59,15 @@ export default function CreateArticlePage() {
   // Paste normalization for text inputs
   const { handlePaste: handlePlainPaste } = useSanitizedPaste({ preserveLineBreaks: false });
 
+  // Soft-delete tracking: fileIds staged for deletion on successful save
+  const [discardedThumbFileIds, setDiscardedThumbFileIds] = useState<string[]>([]);
+  const [discardedBlockFileIds, setDiscardedBlockFileIds] = useState<string[]>([]);
+
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     control,
     formState: { errors, isDirty },
   } = useForm<ArticleFormData>({
@@ -150,6 +157,14 @@ export default function CreateArticlePage() {
       return;
     }
 
+    // Soft-delete: track old thumbnail fileId before replacing
+    const previousFileId = getValues("thumbnailFileId");
+    if (previousFileId) {
+      setDiscardedThumbFileIds((prev) =>
+        prev.includes(previousFileId) ? prev : [...prev, previousFileId],
+      );
+    }
+
     setThumbPreviewUrl(URL.createObjectURL(file));
     setThumbMode("upload");
     setFailedThumbUrl(null);
@@ -176,6 +191,66 @@ export default function CreateArticlePage() {
     }
   };
 
+  // Handle Soft-Delete Thumbnail (from Visual Editor hero image delete button)
+  // For new articles, the original thumbnail upload is already tracked via upload_temp.
+  // We still need to soft-delete if the user swaps the thumbnail before saving.
+  const handleDeleteHeroImage = () => {
+    const currentFileId = getValues("thumbnailFileId");
+    if (currentFileId) {
+      setDiscardedThumbFileIds((prev) =>
+        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
+      );
+    }
+    setValue("thumbnail", null, { shouldValidate: true, shouldDirty: true });
+    setValue("thumbnailFileId", null, { shouldDirty: true });
+    setThumbPreviewUrl(null);
+    setFailedThumbUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast({
+      title: "Đã gỡ ảnh đại diện",
+      description: "Nhấn \"Lưu\"/\"Xuất bản\" để hoàn tất.",
+      color: "warning",
+    });
+  };
+
+  // Handle Soft-Delete of Image Blocks
+  const handleImageBlockDiscard = (fileId: string) => {
+    setDiscardedBlockFileIds((prev) =>
+      prev.includes(fileId) ? prev : [...prev, fileId],
+    );
+  };
+
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: TabMode = "editor") => {
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+      }
+
+      setTimeout(() => {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("field-error-highlight");
+          const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
+            "button, input, select, textarea, [contenteditable='true']",
+          );
+          if (focusable) {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch {
+              // Ignore focus error
+            }
+          }
+          setTimeout(() => {
+            el.classList.remove("field-error-highlight");
+          }, 3000);
+        }
+      }, 100);
+    },
+    [activeTab],
+  );
+
   // Submit Handler
   const onSubmit = (data: ArticleFormData, publish = false) => {
     const payload: ArticleFormData = {
@@ -189,25 +264,61 @@ export default function CreateArticlePage() {
 
     if (publish) {
       if (!payload.title?.trim()) {
+        scrollToErrorField("field-title", "editor");
         toast({
           title: "Không thể xuất bản",
-          description: "Tiêu đề bài viết không được để trống",
+          description: "Tiêu đề bài viết không được để trống (tại Tab 'Nội dung' > Mục 1).",
           color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới tiêu đề",
+            onClick: () => scrollToErrorField("field-title", "editor"),
+          },
         });
         return;
       }
       if (!payload.content?.blocks || payload.content.blocks.length === 0) {
+        scrollToErrorField("card-content-blocks", "editor");
         toast({
           title: "Không thể xuất bản",
-          description: "Bài viết phải có ít nhất 1 khối nội dung",
+          description: "Bài viết phải có ít nhất 1 khối nội dung (tại Tab 'Nội dung' > Mục 6).",
           color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới khối nội dung",
+            onClick: () => scrollToErrorField("card-content-blocks", "editor"),
+          },
         });
         return;
       }
     }
 
     createMutation.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: async (createdArticle) => {
+        // Nếu chọn xuất bản, đảm bảo đồng bộ trạng thái xuất bản qua endpoint /publish nếu backend chưa bật
+        if (publish && createdArticle?.id && !createdArticle.isPublished) {
+          try {
+            await publishMutation.mutateAsync({ id: createdArticle.id, isPublished: true });
+          } catch (pubErr) {
+            console.warn("Lỗi đồng bộ trạng thái xuất bản:", pubErr);
+          }
+        }
+
+        // Cleanup discarded thumbnail files (replaced thumbnails during session)
+        for (const fid of discardedThumbFileIds) {
+          deleteUploadedImage(fid).catch((err) =>
+            console.warn("Lỗi dọn rác thumbnail ImageKit:", err),
+          );
+        }
+        setDiscardedThumbFileIds([]);
+        // Cleanup discarded image block files
+        for (const fid of discardedBlockFileIds) {
+          deleteUploadedImage(fid).catch((err) =>
+            console.warn("Lỗi dọn rác image block ImageKit:", err),
+          );
+        }
+        setDiscardedBlockFileIds([]);
+
         toast({
           title: publish ? "Đã xuất bản bài viết" : "Đã lưu bản nháp",
           color: "success",
@@ -236,37 +347,61 @@ export default function CreateArticlePage() {
       const firstIndex = Number(errorKeys[0]);
       const currentBlocks = (watchedContent?.blocks || []) as SlideDetailBlogBlock[];
       const targetBlock = currentBlocks[firstIndex];
+      const targetId = targetBlock ? `block-${targetBlock.id}` : "card-content-blocks";
 
-      if (targetBlock) {
-        const el = document.getElementById(`block-${targetBlock.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
+      scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor");
 
       toast({
         title: "Không thể lưu bài viết",
-        description: "Có khối nội dung đang để trống. Vui lòng kiểm tra lại.",
+        description: "Có khối nội dung đang để trống. Vui lòng kiểm tra lại tại Tab 'Nội dung'.",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới khối lỗi",
+          onClick: () => scrollToErrorField(targetId, activeTab === "visual" ? "visual" : "editor"),
+        },
       });
       return;
     }
 
     if (fieldErrors.title) {
+      scrollToErrorField("field-title", "editor");
+
       toast({
         title: "Thiếu tiêu đề bài viết",
-        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống.",
+        description: fieldErrors.title.message || "Tiêu đề bài viết không được để trống (tại Tab 'Nội dung' > Mục 1).",
         color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới tiêu đề",
+          onClick: () => scrollToErrorField("field-title", "editor"),
+        },
       });
       return;
     }
 
+    const firstErrorKey = Object.keys(fieldErrors)[0];
     const firstError = Object.values(fieldErrors)[0];
     const message = firstError?.message;
+    const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
+
+    if (targetElementId) {
+      scrollToErrorField(targetElementId, "editor");
+    }
+
     toast({
       title: "Không thể lưu bài viết",
-      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ.",
+      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ. Vui lòng kiểm tra lại tại Tab 'Nội dung'.",
       color: "danger",
+      duration: 8000,
+      ...(targetElementId
+        ? {
+            action: {
+              label: "Đi tới vị trí lỗi",
+              onClick: () => scrollToErrorField(targetElementId, "editor"),
+            },
+          }
+        : {}),
     });
   };
 
@@ -359,11 +494,20 @@ export default function CreateArticlePage() {
             onSubtitleChange={(s) => setValue("subtitle", s, { shouldDirty: true })}
             onExcerptChange={(e) => setValue("excerpt", e, { shouldDirty: true })}
             onHeroImageChange={(url, fileId) => {
+              // Soft-delete: track old thumbnail fileId before replacing
+              const oldFileId = getValues("thumbnailFileId");
+              if (oldFileId && oldFileId !== fileId) {
+                setDiscardedThumbFileIds((prev) =>
+                  prev.includes(oldFileId) ? prev : [...prev, oldFileId],
+                );
+              }
               setValue("thumbnail", url, { shouldValidate: true, shouldDirty: true });
               if (fileId) setValue("thumbnailFileId", fileId, { shouldDirty: true });
               setThumbPreviewUrl(url);
               setFailedThumbUrl(null);
             }}
+            onHeroImageDelete={handleDeleteHeroImage}
+            onImageDiscard={handleImageBlockDiscard}
           />
         )}
 
@@ -377,7 +521,7 @@ export default function CreateArticlePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-5">
-              <div className="space-y-1.5">
+              <div id="field-title" className="space-y-1.5 rounded-lg p-1 -m-1 transition-all duration-300">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-xs font-semibold text-text">
                     Tiêu đề bài viết (Title) <span className="text-danger">*</span>
@@ -683,8 +827,8 @@ export default function CreateArticlePage() {
             )}
           </Card>
 
-          {/* Card 6: Khối nội dung chi tiết (Block Editor) */}
-          <Card className="border border-border bg-surface shadow-xs">
+          {/* Card 6: Nội dung bài viết (Block Editor) */}
+          <Card id="card-content-blocks" className="border border-border bg-surface shadow-xs transition-all duration-300">
             <CardHeader className="border-b border-border px-5 py-3.5">
               <CardTitle className="text-base font-semibold text-text">
                 6. Nội dung bài viết (Block Editor)
@@ -731,7 +875,7 @@ export default function CreateArticlePage() {
             <AppButton
               type="button"
               variant="ghost"
-              isLoading={createMutation.isPending}
+              isLoading={isSubmitting}
               onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
               className="border border-border"
             >
@@ -739,7 +883,7 @@ export default function CreateArticlePage() {
             </AppButton>
             <AppButton
               type="button"
-              isLoading={createMutation.isPending}
+              isLoading={isSubmitting}
               onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
             >
               Xuất bản bài viết
@@ -756,7 +900,7 @@ export default function CreateArticlePage() {
             <AppButton
               type="button"
               variant="ghost"
-              isLoading={createMutation.isPending}
+              isLoading={isSubmitting}
               onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
               className="border border-border"
             >
@@ -764,7 +908,7 @@ export default function CreateArticlePage() {
             </AppButton>
             <AppButton
               type="button"
-              isLoading={createMutation.isPending}
+              isLoading={isSubmitting}
               onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
             >
               Xuất bản bài viết
@@ -780,7 +924,7 @@ export default function CreateArticlePage() {
           <AppButton
             type="button"
             variant="ghost"
-            isLoading={createMutation.isPending}
+            isLoading={isSubmitting}
             onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
             className="border border-border bg-surface text-xs"
           >
@@ -788,7 +932,7 @@ export default function CreateArticlePage() {
           </AppButton>
           <AppButton
             type="button"
-            isLoading={createMutation.isPending}
+            isLoading={isSubmitting}
             onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
             className="text-xs"
           >

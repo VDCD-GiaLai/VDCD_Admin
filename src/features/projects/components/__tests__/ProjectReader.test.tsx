@@ -68,7 +68,6 @@ describe("PHASE 12 & 13 — ProjectReader Component Tests", () => {
         services={["Khảo sát 3D", "Lập bản đồ số"]}
         technicalHighlights={[{ label: "Độ chính xác", value: "±2cm" }]}
         challenge="Địa hình đồi núi phức tạp khó tiếp cận."
-        challengeImage="https://example.com/chal.webp"
         content={mockContent}
         galleryImages={mockGalleryImages}
       />,
@@ -81,6 +80,10 @@ describe("PHASE 12 & 13 — ProjectReader Component Tests", () => {
     expect(screen.getByText("Đô thị thông minh")).toBeInTheDocument();
     expect(screen.getByText("📍 Gia Lai")).toBeInTheDocument();
     expect(screen.getByText("🗓️ 2026")).toBeInTheDocument();
+
+    // Breadcrumb and Reading Meta Bar
+    expect(screen.getByText("Trang chủ")).toBeInTheDocument();
+    expect(screen.getByText(/phút đọc/)).toBeInTheDocument();
 
     // Simulated browser URL
     expect(
@@ -122,6 +125,16 @@ describe("PHASE 12 & 13 — ProjectReader Component Tests", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Thiết bị bay LiDAR quét 3D")).toBeInTheDocument();
 
+    // Social Sharing Bar & Related Projects & Common CTA
+    expect(screen.getByText("Chia sẻ dự án:")).toBeInTheDocument();
+    expect(screen.getByText("Xem tất cả dự án")).toBeInTheDocument();
+    expect(screen.getByText("Dự án liên quan")).toBeInTheDocument();
+    expect(screen.getByText(/Quay lại danh sách dự án/)).toBeInTheDocument();
+    expect(screen.getByText("Triển khai thực tế")).toBeInTheDocument();
+    expect(
+      screen.getByText("BẠN CẦN GIẢI PHÁP TƯƠNG TỰ CHO CÔNG TRÌNH CỦA MÌNH?"),
+    ).toBeInTheDocument();
+
     // Strict Read-Only verification: NO editing buttons or toolbar
     expect(screen.queryByText(/Thêm khối/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Xoá ảnh/i)).not.toBeInTheDocument();
@@ -153,7 +166,7 @@ describe("PHASE 12 & 13 — ProjectReader Component Tests", () => {
     expect(tabletBtn).toHaveClass("bg-surface");
   });
 
-  it("handles empty or missing optional fields gracefully", () => {
+  it("handles empty or missing optional fields gracefully without showing placeholder block", () => {
     const emptyContent: DocumentContent = { version: 1, blocks: [] };
     render(
       <ProjectReader
@@ -164,7 +177,25 @@ describe("PHASE 12 & 13 — ProjectReader Component Tests", () => {
 
     expect(screen.getByText("(Chưa có tên dự án)")).toBeInTheDocument();
     expect(
-      screen.getByText("Chưa có khối nội dung nào trong bài viết."),
-    ).toBeInTheDocument();
+      screen.queryByText("Chưa có khối nội dung nào trong bài viết."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders transformation before & after images when provided", () => {
+    const emptyContent: DocumentContent = { version: 1, blocks: [] };
+    render(
+      <ProjectReader
+        title="Dự án Becamex Bình Dương"
+        transformationBefore="https://example.com/before.jpg"
+        transformationAfter="https://example.com/after.jpg"
+        content={emptyContent}
+      />,
+    );
+
+    expect(screen.getByText("Chuyển đổi số & Giải pháp công nghệ")).toBeInTheDocument();
+    expect(screen.getByText("Hiện trạng trước số hóa")).toBeInTheDocument();
+    expect(screen.getByText("Giải pháp công nghệ ứng dụng")).toBeInTheDocument();
+    expect(screen.getByAltText("Hiện trạng trước số hóa")).toHaveAttribute("src", "https://example.com/before.jpg");
+    expect(screen.getByAltText("Giải pháp công nghệ ứng dụng")).toHaveAttribute("src", "https://example.com/after.jpg");
   });
 });

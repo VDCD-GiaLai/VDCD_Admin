@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,19 +8,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import {
   FormInput,
   FormTextarea,
-  FormCheckbox,
   AppButton,
+  useToast,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@/components/ui";
-import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api-client";
-import { RichTextEditor } from "@/components/shared";
+import { RichTextEditor, FloatingSaveBar } from "@/components/shared";
 import { useOperationFields } from "@/features/operation-fields/api";
 import { useProvinces } from "@/features/provinces/api";
 import {
   useCreateProject,
   useUpdateProject,
+  usePublishProject,
+  useDeleteProject,
   useProjects,
 } from "../api";
+import { usePermission } from "@/hooks/usePermission";
 import { projectSchema, type ProjectFormData } from "../schema";
 import {
   parseProjectContent,
@@ -38,6 +45,7 @@ import {
   uploadImage,
   validateImageFile,
   slugifyVietnamese,
+  deleteUploadedImage,
 } from "@/lib/upload";
 import { generateProjectSessionKey } from "../context/ProjectUploadContext";
 import {
@@ -62,27 +70,44 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const { toast } = useToast();
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject(project?.id ?? "");
+  const publishMutation = usePublishProject();
+  const deleteMutation = useDeleteProject();
   const { data: operationFields } = useOperationFields();
   const { data: provinces } = useProvinces();
   const { data: projectsData } = useProjects({ limit: 100 });
 
+  const canDelete = usePermission("projects:delete");
+  const [, startTransition] = useTransition();
+
   const [activeTab, setActiveTab] = useState<EditorTab>("info");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
     () => project?.thumbnail ?? null,
   );
-  const [challengePreview, setChallengePreview] = useState<string | null>(
-    () => project?.challengeImage ?? null,
+  const [transformationBeforePreview, setTransformationBeforePreview] = useState<string | null>(
+    () => project?.transformationBefore ?? null,
   );
+  const [transformationAfterPreview, setTransformationAfterPreview] = useState<string | null>(
+    () => project?.transformationAfter ?? null,
+  );
+  const transBeforeInputRef = useRef<HTMLInputElement>(null);
+  const transAfterInputRef = useRef<HTMLInputElement>(null);
   const [galleryImages, setGalleryImages] = useState<ProjectImage[]>(
     () => project?.images ?? [],
   );
+
+  const [discardedThumbnailFileIds, setDiscardedThumbnailFileIds] = useState<string[]>([]);
+  const [discardedContentFileIds, setDiscardedContentFileIds] = useState<string[]>([]);
+
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const [prevProject, setPrevProject] = useState(project);
   if (project !== prevProject) {
     setPrevProject(project);
     setThumbnailPreview(project?.thumbnail ?? null);
-    setChallengePreview(project?.challengeImage ?? null);
+    setTransformationBeforePreview(project?.transformationBefore ?? null);
+    setTransformationAfterPreview(project?.transformationAfter ?? null);
     setGalleryImages(project?.images ?? []);
   }
 
@@ -102,6 +127,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     register,
     handleSubmit,
     setValue,
+    getValues,
     control,
     reset,
     formState: { errors, isDirty },
@@ -224,7 +250,8 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const watchedDiscipline = useWatch({ control, name: "discipline" }) ?? "";
   const watchedServices = useWatch({ control, name: "services" }) ?? [];
   const watchedHighlights = useWatch({ control, name: "technicalHighlights" }) ?? [];
-  const watchedChallengeImage = useWatch({ control, name: "challengeImage" }) ?? "";
+  const watchedMetaTitle = useWatch({ control, name: "metaTitle" }) ?? "";
+  const watchedMetaDescription = useWatch({ control, name: "metaDescription" }) ?? "";
 
   const selectedProvince = useMemo(() => {
     return provinces?.find((p) => p.id === watchedProvinceId);
@@ -247,8 +274,8 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
 
   const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: "thumbnail" | "challengeImage",
-    fileIdField: "thumbnailFileId" | "challengeImageFileId",
+    field: "thumbnail",
+    fileIdField: "thumbnailFileId",
     setPreview: (url: string | null) => void,
   ) => {
     const file = e.target.files?.[0];
@@ -281,7 +308,37 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     }
   };
 
-  const jumpToElement = useCallback((tab: "info" | "blocks" | "gallery", elementId?: string) => {
+  // Handle Soft-Delete Thumbnail (like Hero in slide-detail-blogs)
+  const handleDeleteThumbnail = () => {
+    const currentFileId = getValues("thumbnailFileId");
+    if (currentFileId) {
+      setDiscardedThumbnailFileIds((prev) =>
+        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
+      );
+    }
+    setValue("thumbnail", "", { shouldDirty: true, shouldValidate: true });
+    setValue("thumbnailFileId", null, { shouldDirty: true });
+    setThumbnailPreview(null);
+    if (thumbnailInputRef.current) {
+      thumbnailInputRef.current.value = "";
+    }
+    toast({
+      title: "Đã gỡ ảnh đại diện",
+      description: 'Nhấn "Lưu thay đổi" để hoàn tất gỡ bỏ trên hệ thống.',
+      color: "warning",
+    });
+  };
+
+  // Soft-delete content block images
+  const handleImageBlockDiscard = (fileId: string) => {
+    if (fileId) {
+      setDiscardedContentFileIds((prev) =>
+        prev.includes(fileId) ? prev : [...prev, fileId],
+      );
+    }
+  };
+
+  const jumpToElement = useCallback((tab: EditorTab, elementId?: string) => {
     setActiveTab(tab);
 
     if (elementId) {
@@ -302,9 +359,40 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     }
   }, []);
 
-  const onSubmit = (data: ProjectFormData) => {
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: EditorTab = "info") => {
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+      }
+
+      setTimeout(() => {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
+          const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
+            "button, input, select, textarea, [contenteditable='true']",
+          );
+          if (focusable) {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch {
+              // Ignore focus error
+            }
+          }
+          setTimeout(() => {
+            el.classList.remove("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
+          }, 3000);
+        }
+      }, 100);
+    },
+    [activeTab],
+  );
+
+  const onSubmit = (data: ProjectFormData, publish = false) => {
     const submitData = serializeProjectPayload({
       ...data,
+      isPublished: mode === "create" ? publish : data.isPublished,
       tempFolderKey: sessionFolderKey,
       content: currentDocumentContent,
     });
@@ -320,7 +408,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
 
       let friendlyTitle = "Lưu dự án thất bại";
       let friendlyDescription = rawMessage;
-      let targetTab: "info" | "blocks" | "gallery" = "info";
+      let targetTab: EditorTab = "info";
       let targetDomId: string | undefined;
 
       if (blockMatch) {
@@ -413,26 +501,130 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     };
 
     if (mode === "create") {
-      createMutation.mutate(submitData, {
-        onSuccess: (newProject) => {
-          toast({ title: "Tạo dự án thành công", color: "success" });
-          router.push(`/projects/${newProject.id}`);
+      if (publish && !data.title?.trim()) {
+        scrollToErrorField("field-title", "info");
+        toast({
+          title: "Không thể xuất bản",
+          description: "Tiêu đề dự án không được để trống.",
+          color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới tiêu đề",
+            onClick: () => scrollToErrorField("field-title", "info"),
+          },
+        });
+        return;
+      }
+
+      createMutation.mutate(submitData as unknown as ProjectFormData, {
+        onSuccess: async (createdProject) => {
+          if (publish && createdProject?.id && !createdProject.isPublished) {
+            try {
+              await publishMutation.mutateAsync({ id: createdProject.id, isPublished: true });
+            } catch (pubErr) {
+              console.warn("Lỗi đồng bộ trạng thái xuất bản:", pubErr);
+            }
+          }
+
+          toast({
+            title: publish ? "Đã xuất bản dự án" : "Đã lưu bản nháp",
+            color: "success",
+          });
+          startTransition(() => {
+            router.push("/projects");
+          });
         },
         onError: (err) => handleMutationError(err),
       });
     } else {
-      updateMutation.mutate(submitData, {
+      updateMutation.mutate(submitData as unknown as Partial<ProjectFormData>, {
         onSuccess: () => {
-          toast({ title: "Cập nhật dự án thành công", color: "success" });
-          router.push("/projects");
+          const allDiscarded = [...discardedThumbnailFileIds, ...discardedContentFileIds];
+          if (allDiscarded.length > 0) {
+            for (const fid of allDiscarded) {
+              deleteUploadedImage(fid).catch((err) =>
+                console.warn("Lỗi dọn rác ảnh ImageKit:", err),
+              );
+            }
+            setDiscardedThumbnailFileIds([]);
+            setDiscardedContentFileIds([]);
+          }
+          toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (err) => handleMutationError(err),
       });
     }
   };
 
+  // Toggle Publish (edit mode only)
+  const handleTogglePublish = (publish: boolean) => {
+    if (!project) return;
+
+    if (publish && !watchedTitle?.trim()) {
+      toast({
+        title: "Không thể xuất bản",
+        description: "Tiêu đề dự án không được để trống",
+        color: "danger",
+      });
+      return;
+    }
+
+    publishMutation.mutate(
+      { id: project.id, isPublished: publish },
+      {
+        onSuccess: () => {
+          setValue("isPublished", publish);
+          toast({
+            title: publish ? "Đã xuất bản dự án" : "Đã chuyển về bản nháp",
+            color: "success",
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Thao tác thất bại",
+            description: error.message,
+            color: "danger",
+          });
+        },
+      },
+    );
+  };
+
+  // Handle Delete (edit mode only)
+  const handleDelete = () => {
+    if (!project) return;
+    deleteMutation.mutate(project.id, {
+      onSuccess: () => {
+        toast({ title: "Đã xoá dự án thành công", color: "success" });
+        router.push("/projects");
+      },
+      onError: (error) => {
+        toast({
+          title: "Xoá thất bại",
+          description: error.message,
+          color: "danger",
+        });
+      },
+    });
+  };
+
   const onFormError = (fieldErrors: FieldErrors<ProjectFormData>) => {
     console.error("ProjectEditor form validation errors:", fieldErrors);
+
+    if (fieldErrors.title) {
+      scrollToErrorField("field-title", "info");
+      toast({
+        title: "Thiếu tiêu đề dự án",
+        description: fieldErrors.title.message || "Tiêu đề dự án không được để trống.",
+        color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới tiêu đề",
+          onClick: () => scrollToErrorField("field-title", "info"),
+        },
+      });
+      return;
+    }
 
     const FIELD_METADATA: Record<string, { label: string; tab: "info" | "blocks" | "gallery" }> = {
       title: { label: "Tiêu đề dự án", tab: "info" },
@@ -443,7 +635,6 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       discipline: { label: "Lĩnh vực chuyên môn", tab: "info" },
       overview: { label: "Tổng quan dự án", tab: "info" },
       challenge: { label: "Thách thức dự án", tab: "info" },
-      challengeImage: { label: "Ảnh minh họa thách thức", tab: "info" },
       thumbnail: { label: "Ảnh đại diện (thumbnail)", tab: "info" },
       metaTitle: { label: "Thẻ tiêu đề SEO (Meta Title)", tab: "info" },
       metaDescription: { label: "Thẻ mô tả SEO (Meta Description)", tab: "info" },
@@ -621,7 +812,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     }
   };
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || publishMutation.isPending;
   const otherProjects = projectsData?.items?.filter((p) => p.id !== project?.id) ?? [];
 
   return (
@@ -630,53 +821,67 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       folder="project"
       tempFolderKey={sessionFolderKey}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 pb-12">
         {/* Top Header & Global Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-text">
-              {mode === "create"
-                ? "Thêm dự án mới"
-                : `Sửa dự án: ${project?.title || ""}`}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-text">
+                {mode === "create"
+                  ? "Thêm dự án mới"
+                  : `Sửa dự án: ${project?.title || ""}`}
+              </h1>
+              {mode === "edit" && project && (
+                <span
+                  className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                    project.isPublished
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                  }`}
+                >
+                  {project.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-text-muted">
               Quản lý thông tin, khối nội dung, chế độ đọc và trình chỉnh sửa trực quan.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {isDirty && (
-              <span className="text-xs font-medium text-warning">
-                Có thay đổi chưa lưu
-              </span>
+          <div className="flex items-center gap-2">
+            {mode === "edit" && project && (
+              project.isPublished ? (
+                <AppButton
+                  variant="ghost"
+                  isLoading={publishMutation.isPending}
+                  onClick={() => handleTogglePublish(false)}
+                  className="border border-border text-xs"
+                >
+                  Gỡ xuất bản (Về nháp)
+                </AppButton>
+              ) : (
+                <AppButton
+                  color="success"
+                  isLoading={publishMutation.isPending}
+                  onClick={() => handleTogglePublish(true)}
+                  className="text-xs text-white"
+                >
+                  Xuất bản
+                </AppButton>
+              )
             )}
-            <AppButton
-              variant="outline"
-              onClick={() => router.push("/projects")}
-              disabled={isSubmitting}
-            >
-              Hủy
-            </AppButton>
-            <AppButton
-              color="primary"
-              onClick={handleSubmit(onSubmit, onFormError)}
-              disabled={isSubmitting}
-            >
-              {isSubmitting
-                ? "Đang lưu..."
-                : mode === "create"
-                  ? "Tạo dự án"
-                  : "Lưu thay đổi"}
+            <AppButton variant="ghost" onClick={() => router.back()}>
+              ← Quay lại
             </AppButton>
           </div>
         </div>
 
         {/* 5 Tabs Navigation Bar */}
-        <div className="flex border-b border-border bg-surface px-2">
+        <div className="flex items-center border-b border-border">
           <button
             type="button"
             onClick={() => setActiveTab("info")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === "info"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -687,7 +892,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("blocks")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === "blocks"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -698,7 +903,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("visual")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === "visual"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -709,7 +914,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("reader")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === "reader"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -720,7 +925,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("gallery")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === "gallery"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -732,7 +937,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
 
         {/* TAB 1: THÔNG TIN DỰ ÁN (METADATA) */}
         {activeTab === "info" && (
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit((data) => onSubmit(data))}>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* Left Column (2/3) */}
               <div className="space-y-6 lg:col-span-2">
@@ -744,22 +949,26 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 p-5">
-                    <FormInput
-                      label="Tên dự án"
-                      isRequired
-                      placeholder="Nhập tên dự án..."
-                      errorMessage={errors.title?.message}
-                      {...register("title")}
-                    />
-                    <FormInput
-                      label="Slug (URL)"
-                      placeholder="du-an-do-thi-thong-minh"
-                      helperText="Để trống để tự động tạo từ tiêu đề."
-                      errorMessage={errors.slug?.message}
-                      {...register("slug")}
-                    />
+                    <div id="field-title" className="rounded-lg p-1 -m-1 transition-all duration-300">
+                      <FormInput
+                        label="Tên dự án"
+                        isRequired
+                        placeholder="Nhập tên dự án..."
+                        errorMessage={errors.title?.message}
+                        {...register("title")}
+                      />
+                    </div>
+                    <div id="field-slug">
+                      <FormInput
+                        label="Slug (URL)"
+                        placeholder="du-an-do-thi-thong-minh"
+                        helperText="Để trống để tự động tạo từ tiêu đề."
+                        errorMessage={errors.slug?.message}
+                        {...register("slug")}
+                      />
+                    </div>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
+                      <div id="field-provinceId">
                         <label className="mb-1.5 block text-sm font-medium text-text">
                           Tỉnh / Thành phố
                         </label>
@@ -776,19 +985,23 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                           ))}
                         </select>
                       </div>
+                      <div id="field-year">
+                        <FormInput
+                          type="number"
+                          label="Năm triển khai"
+                          errorMessage={errors.year?.message}
+                          {...register("year", { valueAsNumber: true })}
+                        />
+                      </div>
+                    </div>
+                    <div id="field-discipline">
                       <FormInput
-                        type="number"
-                        label="Năm triển khai"
-                        errorMessage={errors.year?.message}
-                        {...register("year", { valueAsNumber: true })}
+                        label="Lĩnh vực chuyên môn / Chuyên ngành"
+                        placeholder="VD: Khảo sát & Giám sát số"
+                        errorMessage={errors.discipline?.message}
+                        {...register("discipline")}
                       />
                     </div>
-                    <FormInput
-                      label="Lĩnh vực chuyên môn / Chuyên ngành"
-                      placeholder="VD: Khảo sát & Giám sát số"
-                      errorMessage={errors.discipline?.message}
-                      {...register("discipline")}
-                    />
                   </CardContent>
                 </Card>
 
@@ -800,7 +1013,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 p-5">
-                    <div>
+                    <div id="field-overview">
                       <label className="mb-1.5 block text-sm font-medium text-text">
                         Tổng quan dự án
                       </label>
@@ -812,7 +1025,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                         placeholder="Nhập tổng quan dự án..."
                       />
                     </div>
-                    <div>
+                    <div id="field-services">
                       <div className="mb-2 flex items-center justify-between">
                         <label className="text-sm font-medium text-text">
                           Dịch vụ cung cấp
@@ -858,7 +1071,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 p-5">
-                    <div>
+                    <div id="field-challenge">
                       <label className="mb-1.5 block text-sm font-medium text-text">
                         Mô tả thách thức
                       </label>
@@ -870,45 +1083,10 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                         placeholder="Bài toán thực tế của dự án..."
                       />
                     </div>
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-text">
-                        Ảnh minh hoạ thách thức
-                      </label>
-                      {challengePreview && (
-                        <div className="mb-2 overflow-hidden rounded-md border border-border">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={challengePreview}
-                            alt="Challenge"
-                            className="h-40 w-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          handleImageUpload(
-                            e,
-                            "challengeImage",
-                            "challengeImageFileId",
-                            setChallengePreview,
-                          )
-                        }
-                        disabled={uploading.challengeImage}
-                        className="w-full text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-text"
-                      />
-                      {uploading.challengeImage && (
-                        <p className="text-xs text-primary">Đang tải ảnh...</p>
-                      )}
-                      <input type="hidden" {...register("challengeImage")} />
-                      <input type="hidden" {...register("challengeImageFileId")} />
-                    </div>
                   </CardContent>
                 </Card>
 
-
-                {/* ── 5. Technical Highlights ── */}
+                {/* ── 4. Technical Highlights ── */}
                 <Card className="border border-border bg-surface shadow-sm">
                   <CardHeader className="border-b border-border px-5 py-3.5">
                     <div className="flex w-full flex-row items-center justify-between">
@@ -928,126 +1106,197 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3 p-5">
-                    {highlightFields.length === 0 ? (
-                      <p className="text-sm text-text-muted">
-                        Chưa có thông số nào.
-                      </p>
-                    ) : (
-                      highlightFields.map((field, index) => (
-                        <div
-                          key={field.id}
-                          className="flex items-start gap-3 rounded-lg border border-border p-3"
-                        >
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <FormInput
-                              label="Tên thông số"
-                              placeholder="VD: Diện tích khảo sát"
-                              errorMessage={
-                                errors.technicalHighlights?.[index]?.label?.message
-                              }
-                              {...register(`technicalHighlights.${index}.label`)}
-                            />
-                            <FormInput
-                              label="Giá trị"
-                              placeholder="VD: 120 ha"
-                              errorMessage={
-                                errors.technicalHighlights?.[index]?.value?.message
-                              }
-                              {...register(`technicalHighlights.${index}.value`)}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeHighlight(index)}
-                            className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10 cursor-pointer"
+                    <div id="field-technicalHighlights">
+                      {highlightFields.length === 0 ? (
+                        <p className="text-sm text-text-muted">
+                          Chưa có thông số nào.
+                        </p>
+                      ) : (
+                        highlightFields.map((field, index) => (
+                          <div
+                            key={field.id}
+                            className="mb-3 flex items-start gap-3 rounded-lg border border-border p-3"
                           >
-                            ✕
-                          </button>
-                        </div>
-                      ))
-                    )}
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <FormInput
+                                label="Tên thông số"
+                                placeholder="VD: Diện tích khảo sát"
+                                errorMessage={
+                                  errors.technicalHighlights?.[index]?.label?.message
+                                }
+                                {...register(`technicalHighlights.${index}.label`)}
+                              />
+                              <FormInput
+                                label="Giá trị"
+                                placeholder="VD: 120 ha"
+                                errorMessage={
+                                  errors.technicalHighlights?.[index]?.value?.message
+                                }
+                                {...register(`technicalHighlights.${index}.value`)}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeHighlight(index)}
+                              className="mt-7 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger/10 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Right Sidebar (1/3) */}
               <div className="space-y-6">
-                {/* Publish Status */}
-                <Card className="border border-border bg-surface shadow-sm">
-                  <CardHeader className="border-b border-border px-5 py-3.5">
-                    <CardTitle className="text-base font-semibold text-text">
-                      Xuất bản
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 p-5">
-                    <FormCheckbox
-                      label="Xuất bản ngay"
-                      description="Hiển thị dự án trên website công khai."
-                      {...register("isPublished")}
-                    />
-                  </CardContent>
-                </Card>
-
                 {/* Operation Field */}
                 <Card className="border border-border bg-surface shadow-sm">
                   <CardHeader className="border-b border-border px-5 py-3.5">
                     <CardTitle className="text-base font-semibold text-text">
-                      Lĩnh vực
+                      Lĩnh vực hoạt động
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-5">
-                    <select
-                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
-                      {...register("fieldId")}
-                      defaultValue=""
-                    >
-                      <option value="">— Chọn lĩnh vực —</option>
-                      {operationFields?.map((field) => (
-                        <option key={field.id} value={field.id}>
-                          {field.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div id="field-fieldId">
+                      <select
+                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+                        {...register("fieldId")}
+                        defaultValue=""
+                      >
+                        <option value="">— Chọn lĩnh vực —</option>
+                        {operationFields?.map((field) => (
+                          <option key={field.id} value={field.id}>
+                            {field.name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedField && (
+                        <p className="mt-2 text-xs text-text-muted">
+                          Đã chọn: <span className="font-medium text-text">{selectedField.name}</span>
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Thumbnail */}
+                {/* Thumbnail — Optional with Delete mechanism */}
                 <Card className="border border-border bg-surface shadow-sm">
                   <CardHeader className="border-b border-border px-5 py-3.5">
-                    <CardTitle className="text-base font-semibold text-text">
-                      Ảnh đại diện (Thumbnail)
-                    </CardTitle>
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="text-base font-semibold text-text">
+                        Ảnh đại diện (Thumbnail)
+                      </CardTitle>
+                      <span className="text-xs text-text-muted">Tuỳ chọn</span>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3 p-5">
-                    {currentThumbnail && (
-                      <div className="overflow-hidden rounded-md border border-border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={currentThumbnail}
-                          alt="Thumbnail preview"
-                          className="h-40 w-full object-cover"
-                        />
+                    {currentThumbnail ? (
+                      <div className="space-y-3">
+                        <div className="group relative overflow-hidden rounded-lg border border-border bg-surface-muted">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={currentThumbnail}
+                            alt="Thumbnail preview"
+                            className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5 text-primary"
+                            >
+                              <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                            </svg>
+                            {uploading.thumbnail ? "Đang tải..." : "Thay đổi ảnh"}
+                            <input
+                              ref={thumbnailInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="hidden"
+                              onChange={(e) =>
+                                handleImageUpload(
+                                  e,
+                                  "thumbnail",
+                                  "thumbnailFileId",
+                                  setThumbnailPreview,
+                                )
+                              }
+                              disabled={uploading.thumbnail}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleDeleteThumbnail}
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Xoá ảnh đại diện
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/50 cursor-pointer transition-colors bg-surface-muted/30">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-8 w-8 text-text-muted mb-2"
+                        >
+                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                        <span className="text-xs font-medium text-text">
+                          {uploading.thumbnail ? "Đang tải ảnh lên..." : "Tải lên ảnh đại diện"}
+                        </span>
+                        <span className="text-[11px] text-text-muted mt-1">
+                          JPG, PNG, WebP • Tối đa 10MB (Tuỳ chọn)
+                        </span>
+                        <input
+                          ref={thumbnailInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleImageUpload(
+                              e,
+                              "thumbnail",
+                              "thumbnailFileId",
+                              setThumbnailPreview,
+                            )
+                          }
+                          disabled={uploading.thumbnail}
+                        />
+                      </label>
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) =>
-                        handleImageUpload(
-                          e,
-                          "thumbnail",
-                          "thumbnailFileId",
-                          setThumbnailPreview,
-                        )
-                      }
-                      disabled={uploading.thumbnail}
-                      className="w-full text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-text"
-                    />
-                    {uploading.thumbnail && (
-                      <p className="text-xs text-primary">Đang tải ảnh...</p>
-                    )}
+                    <p className="text-[11px] text-text-muted">
+                      Lưu vào /vdcd/projects/{currentSubfolder}
+                    </p>
                     <input type="hidden" {...register("thumbnail")} />
                     <input type="hidden" {...register("thumbnailFileId")} />
+                    <input type="hidden" {...register("isPublished")} />
                   </CardContent>
                 </Card>
 
@@ -1097,12 +1346,97 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                     />
                   </CardContent>
                 </Card>
+
+                {/* Quick Stats — only in edit mode */}
+                {mode === "edit" && project && (
+                  <Card className="border border-border bg-surface shadow-sm">
+                    <CardHeader className="border-b border-border px-5 py-3.5">
+                      <CardTitle className="text-base font-semibold text-text">
+                        Thông tin bổ sung
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Số khối nội dung</span>
+                        <span className="text-sm font-semibold text-text">
+                          {currentDocumentContent.blocks.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Ngày tạo</span>
+                        <span className="text-xs text-text">
+                          {new Date(project.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-muted">Cập nhật lần cuối</span>
+                        <span className="text-xs text-text">
+                          {new Date(project.updatedAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+
+            {/* Footer — Tab "Thông tin" (inside <form>) */}
+            <div data-bottom-save-bar className="flex items-center justify-between pt-6">
+              {mode === "edit" && canDelete ? (
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  color="danger"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-xs text-danger hover:bg-danger/10"
+                >
+                  Xoá dự án
+                </AppButton>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-3">
+                {isDirty && (
+                  <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+                )}
+                <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                  Huỷ
+                </AppButton>
+                {mode === "create" ? (
+                  <>
+                    <AppButton
+                      type="button"
+                      variant="ghost"
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit((data) => onSubmit(data, false), onFormError)}
+                      className="border border-border"
+                    >
+                      Lưu bản nháp
+                    </AppButton>
+                    <AppButton
+                      type="button"
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit((data) => onSubmit(data, true), onFormError)}
+                    >
+                      Xuất bản
+                    </AppButton>
+                  </>
+                ) : (
+                  <AppButton
+                    type="submit"
+                    isLoading={isSubmitting}
+                    disabled={!isDirty || isSubmitting}
+                  >
+                    Lưu thay đổi
+                  </AppButton>
+                )}
               </div>
             </div>
           </form>
         )}
 
-        {/* TAB 2: NỘI DUNG (BLOCK EDITOR VỚI 9 BLOCKS) */}
+        {/* TAB 2: NỘI DUNG (BLOCK EDITOR) */}
         {activeTab === "blocks" && (
           <Card className="border border-border bg-surface shadow-sm">
             <CardContent className="p-5">
@@ -1120,7 +1454,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             <VisualEditorCanvas
               title={watchedTitle}
               excerpt={watchedOverview}
-              heroImageUrl={currentThumbnail}
+              heroImageUrl={currentThumbnail || null}
               content={currentDocumentContent}
               onContentChange={handleContentChange}
               onTitleChange={(t) => setValue("title", t, { shouldDirty: true })}
@@ -1141,6 +1475,8 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                   shouldTouch: true,
                 });
               }}
+              onHeroImageDelete={handleDeleteThumbnail}
+              onImageDiscard={handleImageBlockDiscard}
               simulatedUrl={
                 watchedSlug
                   ? `vdcd.vn/du-an/${watchedSlug}`
@@ -1189,82 +1525,10 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                   {/* Thách thức dự án (hỗ trợ chỉnh sửa trực tiếp trên Canvas) */}
                   <ProjectChallengeSection
                     challenge={watchedChallenge}
-                    challengeImage={
-                      challengePreview ?? watchedChallengeImage
-                    }
                     interactive
                     onChallengeChange={(val) =>
                       setValue("challenge", val, { shouldDirty: true })
                     }
-                    onImageUpload={async (file) => {
-                      const error = validateImageFile(file);
-                      if (error) {
-                        toast({
-                          title: "File không hợp lệ",
-                          description: error,
-                          color: "danger",
-                        });
-                        return;
-                      }
-                      setUploading((prev) => ({
-                        ...prev,
-                        challengeImage: true,
-                      }));
-                      try {
-                        const result = await uploadImage(file, "project", {
-                          subfolder: currentSubfolder,
-                          slug: currentSubfolder,
-                          tempFolderKey: sessionFolderKey,
-                        });
-                        setValue("challengeImage", result.url, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                          shouldTouch: true,
-                        });
-                        setValue(
-                          "challengeImageFileId",
-                          result.fileId,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                            shouldTouch: true,
-                          },
-                        );
-                        setChallengePreview(result.url);
-                        toast({
-                          title: "Tải ảnh thách thức thành công",
-                          color: "success",
-                        });
-                      } catch {
-                        toast({
-                          title: "Tải ảnh thất bại",
-                          color: "danger",
-                        });
-                      } finally {
-                        setUploading((prev) => ({
-                          ...prev,
-                          challengeImage: false,
-                        }));
-                      }
-                    }}
-                    onImageRemove={() => {
-                      setValue("challengeImage", "", {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                        shouldTouch: true,
-                      });
-                      setValue("challengeImageFileId", null, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                        shouldTouch: true,
-                      });
-                      setChallengePreview(null);
-                      toast({
-                        title: "Đã xoá ảnh thách thức",
-                        color: "default",
-                      });
-                    }}
-                    isUploadingImage={Boolean(uploading.challengeImage)}
                     className="border-b border-border/50 rounded-none border-x-0 border-t-0"
                   />
                 </div>
@@ -1295,7 +1559,13 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             services={watchedServices}
             technicalHighlights={watchedHighlights}
             challenge={watchedChallenge}
-            challengeImage={challengePreview ?? watchedChallengeImage}
+            transformationBefore={transformationBeforePreview ?? watchedTransBefore}
+            transformationAfter={transformationAfterPreview ?? watchedTransAfter}
+            createdAt={project?.createdAt}
+            publishedAt={project?.isPublished ? (project?.updatedAt || project?.createdAt) : undefined}
+            metaTitle={watchedMetaTitle}
+            metaDescription={watchedMetaDescription}
+            heroMeta={currentDocumentContent.heroMeta}
             content={currentDocumentContent}
             galleryImages={galleryImages}
           />
@@ -1308,6 +1578,134 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             images={galleryImages}
             onUpdateCache={setGalleryImages}
           />
+        )}
+
+        {/* Footer — visible when NOT on the "Thông tin" tab */}
+        {activeTab !== "info" && (
+          <div data-bottom-save-bar className="flex items-center justify-between pt-4">
+            {mode === "edit" && canDelete ? (
+              <AppButton
+                type="button"
+                variant="ghost"
+                color="danger"
+                onClick={() => setShowDeleteModal(true)}
+                className="text-xs text-danger hover:bg-danger/10"
+              >
+                Xoá dự án
+              </AppButton>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              {isDirty && (
+                <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+              )}
+              <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                Huỷ
+              </AppButton>
+              {mode === "create" ? (
+                <>
+                  <AppButton
+                    type="button"
+                    variant="ghost"
+                    isLoading={isSubmitting}
+                    onClick={handleSubmit((data) => onSubmit(data, false), onFormError)}
+                    className="border border-border"
+                  >
+                    Lưu bản nháp
+                  </AppButton>
+                  <AppButton
+                    type="button"
+                    isLoading={isSubmitting}
+                    onClick={handleSubmit((data) => onSubmit(data, true), onFormError)}
+                  >
+                    Xuất bản
+                  </AppButton>
+                </>
+              ) : (
+                <AppButton
+                  type="button"
+                  isLoading={isSubmitting}
+                  disabled={!isDirty || isSubmitting}
+                  onClick={handleSubmit((data) => onSubmit(data))}
+                >
+                  Lưu thay đổi
+                </AppButton>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Floating Save Bar — visible in both create and edit mode when isDirty */}
+        <FloatingSaveBar
+          isVisible={isDirty}
+          statusText="Có thay đổi chưa lưu"
+        >
+          {mode === "create" ? (
+            <>
+              <AppButton
+                type="button"
+                variant="ghost"
+                isLoading={isSubmitting}
+                onClick={handleSubmit((data) => onSubmit(data, false), onFormError)}
+                className="border border-border bg-surface text-xs"
+              >
+                Lưu bản nháp
+              </AppButton>
+              <AppButton
+                type="button"
+                isLoading={isSubmitting}
+                onClick={handleSubmit((data) => onSubmit(data, true), onFormError)}
+                className="text-xs"
+              >
+                Xuất bản
+              </AppButton>
+            </>
+          ) : (
+            <AppButton
+              type="button"
+              isLoading={updateMutation.isPending}
+              disabled={!isDirty || isSubmitting}
+              onClick={handleSubmit((data) => onSubmit(data))}
+              className="text-xs"
+            >
+              Lưu thay đổi
+            </AppButton>
+          )}
+        </FloatingSaveBar>
+
+        {/* Modal xác nhận xoá dự án */}
+        {mode === "edit" && project && (
+          <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+            <ModalContent>
+              <ModalHeader>Xác nhận xoá dự án</ModalHeader>
+              <ModalBody>
+                <p>
+                  Bạn có chắc muốn xoá vĩnh viễn dự án{" "}
+                  <strong>{project.title}</strong>?
+                </p>
+                <p className="text-sm text-text-muted">
+                  Hành động này không thể hoàn tác.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <AppButton
+                  variant="ghost"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Huỷ
+                </AppButton>
+                <AppButton
+                  color="danger"
+                  isLoading={deleteMutation.isPending}
+                  onClick={handleDelete}
+                >
+                  Xoá vĩnh viễn
+                </AppButton>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
         )}
       </div>
     </DocumentUploadProvider>

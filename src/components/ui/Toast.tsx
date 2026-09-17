@@ -125,6 +125,8 @@ function ToastItem({
       dividerClass = "border-current opacity-20";
       actionBtnClass = "bg-surface text-text hover:bg-surface-muted";
       headerTextClass = tokens.textSoft;
+    } else {
+      actionBtnClass = `${tokens.solid} ${tokens.textSolid} hover:opacity-90`;
     }
   }
 
@@ -145,7 +147,7 @@ function ToastItem({
             <div className="flex items-center gap-2">
               {icon && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary text-white">{icon}</span>}
               {!icon && (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${color === "danger" ? "text-danger" : "text-primary"}`}>
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                 </svg>
               )}
@@ -156,7 +158,7 @@ function ToastItem({
               type="button"
               className={`ml-2 p-1 transition-colors ${closeBtnClass}`}
               onClick={onClose}
-              aria-label="Close"
+              aria-label="Đóng"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -183,7 +185,7 @@ function ToastItem({
                   className="rounded bg-surface-muted px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-border"
                   onClick={onClose}
                 >
-                  Close
+                  Đóng
                 </button>
               </div>
             )}

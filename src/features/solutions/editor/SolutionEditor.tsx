@@ -1,20 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import {
   FormInput,
   FormTextarea,
-  FormCheckbox,
   AppButton,
+  useToast,
   DropdownSelect,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@/components/ui";
-import { useToast } from "@/components/ui";
+import { FloatingSaveBar } from "@/components/shared";
 import { useOperationFields } from "@/features/operation-fields/api";
-import { useCreateSolution, useUpdateSolution } from "../api";
+import { useCreateSolution, useUpdateSolution, usePublishSolution, useDeleteSolution } from "../api";
+import { usePermission } from "@/hooks/usePermission";
 import { solutionSchema, type SolutionFormData } from "../schema";
 import {
   parseSolutionContent,
@@ -28,7 +34,7 @@ import {
   createDefaultDocumentContent,
   type DocumentContent,
 } from "@/shared/content-editor";
-import { uploadImage, validateImageFile, slugifyVietnamese } from "@/lib/upload";
+import { slugifyVietnamese } from "@/lib/upload";
 import type { Solution } from "@/types/solution";
 
 type EditorTab = "info" | "blocks" | "reader" | "visual";
@@ -43,17 +49,14 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const { toast } = useToast();
   const createMutation = useCreateSolution();
   const updateMutation = useUpdateSolution(solution?.id ?? "");
+  const publishMutation = usePublishSolution();
+  const deleteMutation = useDeleteSolution();
   const { data: operationFields } = useOperationFields();
 
-  const [activeTab, setActiveTab] = useState<EditorTab>("info");
-  const [uploading, setUploading] = useState(false);
-  const [prevSolutionThumbnail, setPrevSolutionThumbnail] = useState(solution?.thumbnail);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const canDelete = usePermission("solutions:delete");
 
-  if (solution?.thumbnail !== prevSolutionThumbnail) {
-    setPrevSolutionThumbnail(solution?.thumbnail);
-    setThumbnailPreview(null);
-  }
+  const [activeTab, setActiveTab] = useState<EditorTab>("info");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Initialize initial DocumentContent from legacy plain text or JSONB
   const initialContent = useMemo(() => {
@@ -76,8 +79,8 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
       slug: solution?.slug ?? "",
       shortDescription: solution?.shortDescription ?? "",
       content: initialContent,
-      thumbnail: solution?.thumbnail ?? "",
-      thumbnailFileId: solution?.thumbnailFileId ?? null,
+      thumbnail: "",
+      thumbnailFileId: null,
       fieldId: solution?.field?.id ?? null,
       websiteUrl: solution?.websiteUrl ?? "",
       metaTitle: solution?.metaTitle ?? "",
@@ -95,8 +98,8 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
         slug: solution.slug,
         shortDescription: solution.shortDescription ?? "",
         content: parsed,
-        thumbnail: solution.thumbnail ?? "",
-        thumbnailFileId: solution.thumbnailFileId ?? null,
+        thumbnail: "",
+        thumbnailFileId: null,
         fieldId: solution.field?.id ?? null,
         websiteUrl: solution.websiteUrl ?? "",
         metaTitle: solution.metaTitle ?? "",
@@ -109,12 +112,9 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   // Live form state watching — Single Source of Truth
   const watchedTitle = useWatch({ control, name: "title" }) ?? "";
   const watchedShortDescription = useWatch({ control, name: "shortDescription" }) ?? "";
-  const watchedThumbnail = useWatch({ control, name: "thumbnail" }) ?? "";
   const watchedSlug = useWatch({ control, name: "slug" }) ?? "";
   const watchedFieldId = useWatch({ control, name: "fieldId" });
   const rawWatchedContent = useWatch({ control, name: "content" });
-
-  const currentThumbnail = thumbnailPreview ?? watchedThumbnail ?? solution?.thumbnail ?? "";
 
   const currentDocumentContent: DocumentContent = useMemo(() => {
     if (
@@ -159,52 +159,85 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
     [setValue],
   );
 
-  // Thumbnail upload
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [, startTransition] = useTransition();
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || publishMutation.isPending;
 
-    const error = validateImageFile(file);
-    if (error) {
-      toast({ title: "File không hợp lệ", description: error, color: "danger" });
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(file);
-    setThumbnailPreview(objectUrl);
-    setUploading(true);
-    try {
-      const result = await uploadImage(file, "solution", {
-        subfolder: currentSubfolder,
-        slug: currentSubfolder,
-        title: watchedTitle || undefined,
-      });
-      setThumbnailPreview(result.url);
-      setValue("thumbnail", result.url, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-      setValue("thumbnailFileId", result.fileId, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-      toast({ title: "Tải ảnh đại diện thành công", color: "success" });
-    } catch {
-      setThumbnailPreview(solution?.thumbnail ?? null);
-      toast({ title: "Tải ảnh thất bại", color: "danger" });
-    } finally {
-      setUploading(false);
-      if (e.target) {
-        e.target.value = "";
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: EditorTab = "info") => {
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
       }
-    }
-  };
 
-  const onSubmit = (data: SolutionFormData) => {
+      setTimeout(() => {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("field-error-highlight");
+          const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
+            "button, input, select, textarea, [contenteditable='true']",
+          );
+          if (focusable) {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch {
+              // Ignore focus error
+            }
+          }
+          setTimeout(() => {
+            el.classList.remove("field-error-highlight");
+          }, 3000);
+        }
+      }, 100);
+    },
+    [activeTab],
+  );
+
+  // Submit Handler — supports both draft and publish in create mode
+  const onSubmit = (data: SolutionFormData, publish = false) => {
     const submitData = serializeSolutionPayload({
       ...data,
+      isPublished: publish,
       tempFolderKey: randomFallbackSubfolder,
     });
 
     if (mode === "create") {
+      // Publish validation in create mode
+      if (publish) {
+        if (!data.title?.trim()) {
+          scrollToErrorField("field-title", "info");
+          toast({
+            title: "Không thể xuất bản",
+            description: "Tiêu đề giải pháp không được để trống.",
+            color: "danger",
+            duration: 8000,
+            action: {
+              label: "Đi tới tiêu đề",
+              onClick: () => scrollToErrorField("field-title", "info"),
+            },
+          });
+          return;
+        }
+      }
+
       createMutation.mutate(submitData as unknown as SolutionFormData, {
-        onSuccess: () => {
-          toast({ title: "Tạo giải pháp thành công", color: "success" });
-          router.push("/solutions");
+        onSuccess: async (createdSolution) => {
+          // If publish is requested, ensure it's published via /publish endpoint
+          if (publish && createdSolution?.id && !createdSolution.isPublished) {
+            try {
+              await publishMutation.mutateAsync({ id: createdSolution.id, isPublished: true });
+            } catch (pubErr) {
+              console.warn("Lỗi đồng bộ trạng thái xuất bản:", pubErr);
+            }
+          }
+
+          toast({
+            title: publish ? "Đã xuất bản giải pháp" : "Đã lưu bản nháp",
+            color: "success",
+          });
+          startTransition(() => {
+            router.push("/solutions");
+          });
         },
         onError: (err) => {
           toast({
@@ -215,14 +248,14 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
         },
       });
     } else {
+      // Edit mode: save content without redirect, keep user on page
       updateMutation.mutate(submitData as unknown as SolutionFormData, {
         onSuccess: () => {
-          toast({ title: "Cập nhật giải pháp thành công", color: "success" });
-          router.push("/solutions");
+          toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (err) => {
           toast({
-            title: "Cập nhật thất bại",
+            title: "Lưu thất bại",
             description: err.message,
             color: "danger",
           });
@@ -231,57 +264,163 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
     }
   };
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  // Validation Error Handler (for create mode forms)
+  const onInvalid = useCallback((fieldErrors: FieldErrors<SolutionFormData>) => {
+    if (fieldErrors.title) {
+      scrollToErrorField("field-title", "info");
+      toast({
+        title: "Thiếu tiêu đề giải pháp",
+        description: fieldErrors.title.message || "Tiêu đề giải pháp không được để trống.",
+        color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi tới tiêu đề",
+          onClick: () => scrollToErrorField("field-title", "info"),
+        },
+      });
+      return;
+    }
+
+    const firstErrorKey = Object.keys(fieldErrors)[0];
+    const firstError = Object.values(fieldErrors)[0];
+    const message = firstError?.message;
+    const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
+
+    if (targetElementId) {
+      scrollToErrorField(targetElementId, "info");
+    }
+
+    toast({
+      title: "Không thể lưu giải pháp",
+      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ. Vui lòng kiểm tra lại.",
+      color: "danger",
+      duration: 8000,
+      ...(targetElementId
+        ? {
+            action: {
+              label: "Đi tới vị trí lỗi",
+              onClick: () => scrollToErrorField(targetElementId, "info"),
+            },
+          }
+        : {}),
+    });
+  }, [scrollToErrorField, toast]);
+
+  // Toggle Publish (edit mode only)
+  const handleTogglePublish = (publish: boolean) => {
+    if (!solution) return;
+
+    if (publish) {
+      if (!watchedTitle?.trim()) {
+        toast({
+          title: "Không thể xuất bản",
+          description: "Tiêu đề giải pháp không được để trống",
+          color: "danger",
+        });
+        return;
+      }
+    }
+
+    publishMutation.mutate(
+      { id: solution.id, isPublished: publish },
+      {
+        onSuccess: () => {
+          setValue("isPublished", publish);
+          toast({
+            title: publish ? "Đã xuất bản giải pháp" : "Đã chuyển về bản nháp",
+            color: "success",
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Thao tác thất bại",
+            description: error.message,
+            color: "danger",
+          });
+        },
+      },
+    );
+  };
+
+  // Handle Delete (edit mode only)
+  const handleDelete = () => {
+    if (!solution) return;
+    deleteMutation.mutate(solution.id, {
+      onSuccess: () => {
+        toast({ title: "Đã xoá giải pháp thành công", color: "success" });
+        router.push("/solutions");
+      },
+      onError: (error) => {
+        toast({
+          title: "Xoá thất bại",
+          description: error.message,
+          color: "danger",
+        });
+      },
+    });
+  };
 
   return (
     <DocumentUploadProvider subfolder={currentSubfolder} folder="solution">
-      <div className="space-y-6">
+      <div className="space-y-6 pb-12">
         {/* Top Header & Global Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-text">
-              {mode === "create"
-                ? "Thêm giải pháp mới"
-                : `Sửa giải pháp: ${solution?.title || ""}`}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-text">
+                {mode === "create" ? "Thêm giải pháp mới" : `Sửa giải pháp: ${solution?.title || ""}`}
+              </h1>
+              {mode === "edit" && solution && (
+                <span
+                  className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                    solution.isPublished
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                  }`}
+                >
+                  {solution.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-text-muted">
               Quản lý thông tin, khối nội dung, chế độ đọc và trình chỉnh sửa trực quan.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {isDirty && (
-              <span className="text-xs font-medium text-warning">
-                Có thay đổi chưa lưu
-              </span>
+          <div className="flex items-center gap-2">
+            {mode === "edit" && solution && (
+              solution.isPublished ? (
+                <AppButton
+                  variant="ghost"
+                  isLoading={publishMutation.isPending}
+                  onClick={() => handleTogglePublish(false)}
+                  className="border border-border text-xs"
+                >
+                  Gỡ xuất bản (Về nháp)
+                </AppButton>
+              ) : (
+                <AppButton
+                  color="success"
+                  isLoading={publishMutation.isPending}
+                  onClick={() => handleTogglePublish(true)}
+                  className="text-xs text-white"
+                >
+                  Xuất bản
+                </AppButton>
+              )
             )}
-            <AppButton
-              variant="outline"
-              onClick={() => router.push("/solutions")}
-              disabled={isSubmitting}
-            >
-              Hủy
-            </AppButton>
-            <AppButton
-              color="primary"
-              onClick={handleSubmit(onSubmit)}
-              disabled={isSubmitting}
-            >
-              {isSubmitting
-                ? "Đang lưu..."
-                : mode === "create"
-                  ? "Tạo giải pháp"
-                  : "Lưu thay đổi"}
+            <AppButton variant="ghost" onClick={() => router.back()}>
+              ← Quay lại
             </AppButton>
           </div>
         </div>
 
-        {/* 4 Tabs Bar */}
-        <div className="flex border-b border-border bg-surface px-2">
+        {/* 4 Tabs Navigation Bar */}
+        <div className="flex items-center border-b border-border">
           <button
             type="button"
             onClick={() => setActiveTab("info")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === "info"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -292,7 +431,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("blocks")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === "blocks"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -303,7 +442,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("reader")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === "reader"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
@@ -314,41 +453,43 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
           <button
             type="button"
             onClick={() => setActiveTab("visual")}
-            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === "visual"
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text"
             }`}
           >
-            Chỉnh sửa trực quan
+            Trình chỉnh sửa trực quan
           </button>
         </div>
 
-        {/* TAB 1: THÔNG TIN (METADATA) */}
+        {/* TAB 1: THÔNG TIN — 2-column layout without thumbnail */}
         {activeTab === "info" && (
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit((data) => onSubmit(data))}>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* Left Column (2/3) */}
+              {/* Main Column — Thông tin cơ bản */}
               <div className="space-y-6 lg:col-span-2">
                 <Card className="border border-border bg-surface shadow-sm">
                   <CardHeader className="border-b border-border px-5 py-3.5">
                     <CardTitle className="text-base font-semibold text-text">
-                      Thông tin chính
+                      Thông tin cơ bản
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 p-5">
-                    <FormInput
-                      label="Tiêu đề giải pháp"
-                      isRequired
-                      placeholder="Nhập tiêu đề giải pháp..."
-                      errorMessage={errors.title?.message}
-                      {...register("title")}
-                    />
+                    <div id="field-title" className="rounded-lg p-1 -m-1 transition-all duration-300">
+                      <FormInput
+                        label="Tiêu đề giải pháp"
+                        isRequired
+                        placeholder="Nhập tiêu đề giải pháp..."
+                        errorMessage={errors.title?.message}
+                        {...register("title")}
+                      />
+                    </div>
 
                     <FormInput
-                      label="Slug (URL)"
+                      label="Slug (Đường dẫn tĩnh)"
                       placeholder="giai-phap-chuyen-doi-so"
-                      helperText="Để trống để tự động tạo từ tiêu đề."
+                      helperText="Để trống để tự động tạo từ tiêu đề"
                       errorMessage={errors.slug?.message}
                       {...register("slug")}
                     />
@@ -389,8 +530,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
 
                     <FormTextarea
                       label="Meta Description"
-                      rows={3}
-                      placeholder="Mô tả tóm tắt giải pháp cho công cụ tìm kiếm..."
+                      rows={2}
                       helperText="Tối đa 160 ký tự"
                       errorMessage={errors.metaDescription?.message}
                       {...register("metaDescription")}
@@ -399,25 +539,8 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                 </Card>
               </div>
 
-              {/* Right Column (1/3) */}
+              {/* Sidebar Column — Lĩnh vực + Thống kê */}
               <div className="space-y-6">
-                {/* Publish status */}
-                <Card className="border border-border bg-surface shadow-sm">
-                  <CardHeader className="border-b border-border px-5 py-3.5">
-                    <CardTitle className="text-base font-semibold text-text">
-                      Xuất bản
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 p-5">
-                    <FormCheckbox
-                      label="Xuất bản ngay"
-                      description="Hiển thị giải pháp trên trang chủ và danh mục giải pháp công khai."
-                      {...register("isPublished")}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Operation Field */}
                 <Card className="border border-border bg-surface shadow-sm">
                   <CardHeader className="border-b border-border px-5 py-3.5">
                     <CardTitle className="text-base font-semibold text-text">
@@ -425,9 +548,6 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-5">
-                    <label className="mb-1.5 block text-sm font-medium text-text">
-                      Chọn lĩnh vực
-                    </label>
                     <DropdownSelect
                       placeholder="-- Chọn lĩnh vực --"
                       options={[
@@ -451,44 +571,100 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                   </CardContent>
                 </Card>
 
-                {/* Thumbnail */}
-                <Card className="border border-border bg-surface shadow-sm">
-                  <CardHeader className="border-b border-border px-5 py-3.5">
-                    <CardTitle className="text-base font-semibold text-text">
-                      Ảnh đại diện (Thumbnail)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 p-5">
-                    {currentThumbnail && (
-                      <div className="overflow-hidden rounded-md border border-border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={currentThumbnail}
-                          alt="Thumbnail preview"
-                          className="h-40 w-full object-cover"
-                        />
+                {/* Stats Card (edit mode) */}
+                {mode === "edit" && solution && (
+                  <Card className="border border-border bg-surface shadow-sm">
+                    <CardHeader className="border-b border-border px-5 py-3.5">
+                      <CardTitle className="text-base font-semibold text-text">
+                        Thông tin bổ sung
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-muted">Trạng thái</span>
+                        <span className={`font-semibold ${solution.isPublished ? "text-emerald-600" : "text-amber-600"}`}>
+                          {solution.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                        </span>
                       </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleThumbnailUpload}
-                      disabled={uploading}
-                      className="w-full text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-text"
-                    />
-                    {uploading && (
-                      <p className="text-xs text-primary">Đang tải ảnh đại diện...</p>
-                    )}
-                    <input type="hidden" {...register("thumbnail")} />
-                    <input type="hidden" {...register("thumbnailFileId")} />
-                  </CardContent>
-                </Card>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-muted">Slug</span>
+                        <span className="font-mono text-xs text-text">{watchedSlug || "—"}</span>
+                      </div>
+                      {solution.createdAt && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-muted">Ngày tạo</span>
+                          <span className="text-text">{new Date(solution.createdAt).toLocaleDateString("vi-VN")}</span>
+                        </div>
+                      )}
+                      {solution.updatedAt && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-muted">Cập nhật</span>
+                          <span className="text-text">{new Date(solution.updatedAt).toLocaleDateString("vi-VN")}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+
+            {/* Footer — Tab "Thông tin" (inside <form>) */}
+            <div data-bottom-save-bar className="flex items-center justify-between pt-6">
+              {mode === "edit" && canDelete ? (
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  color="danger"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-xs text-danger hover:bg-danger/10"
+                >
+                  Xoá giải pháp
+                </AppButton>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-3">
+                {isDirty && (
+                  <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+                )}
+                <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                  Huỷ
+                </AppButton>
+                {mode === "create" ? (
+                  <>
+                    <AppButton
+                      type="button"
+                      variant="ghost"
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
+                      className="border border-border"
+                    >
+                      Lưu bản nháp
+                    </AppButton>
+                    <AppButton
+                      type="button"
+                      isLoading={isSubmitting}
+                      onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
+                    >
+                      Xuất bản
+                    </AppButton>
+                  </>
+                ) : (
+                  <AppButton
+                    type="submit"
+                    isLoading={isSubmitting}
+                    disabled={!isDirty || isSubmitting}
+                  >
+                    Lưu thay đổi
+                  </AppButton>
+                )}
               </div>
             </div>
           </form>
         )}
 
-        {/* TAB 2: NỘI DUNG (BLOCK EDITOR VỚI INLINE LIST UX) */}
+        {/* TAB 2: NỘI DUNG (BLOCK EDITOR) */}
         {activeTab === "blocks" && (
           <Card className="border border-border bg-surface shadow-sm">
             <CardContent className="p-5">
@@ -517,7 +693,6 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
             <DocumentPreviewContainer
               title={watchedTitle}
               excerpt={watchedShortDescription}
-              heroImageUrl={currentThumbnail}
               content={currentDocumentContent}
               slug={watchedSlug}
               badge={selectedField?.name}
@@ -526,27 +701,149 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
           </div>
         )}
 
-        {/* TAB 4: TRÌNH CHỈNH SỬA TRỰC QUAN (VISUAL EDITOR CANVAS) */}
+        {/* TAB 4: TRÌNH CHỈNH SỬA TRỰC QUAN (VISUAL EDITOR) */}
         {activeTab === "visual" && (
           <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
             <VisualEditorCanvas
               title={watchedTitle}
               excerpt={watchedShortDescription}
-              heroImageUrl={currentThumbnail}
               content={currentDocumentContent}
               onContentChange={handleContentChange}
               onTitleChange={(t) => setValue("title", t, { shouldDirty: true })}
               onSubtitleChange={() => {}}
-              onExcerptChange={(e) =>
-                setValue("shortDescription", e, { shouldDirty: true })
-              }
-              onHeroImageChange={(url, fileId) => {
-                setThumbnailPreview(url);
-                setValue("thumbnail", url, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-                setValue("thumbnailFileId", fileId ?? null, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-              }}
+              onExcerptChange={(e) => setValue("shortDescription", e, { shouldDirty: true })}
+              onHeroImageChange={() => {}}
+              simulatedUrl={`vdcd.vn/giai-phap/${watchedSlug || "..."}`}
             />
           </div>
+        )}
+
+        {/* Footer — visible when NOT on the "Thông tin" tab (which has its own footer inside <form>) */}
+        {activeTab !== "info" && (
+          <div data-bottom-save-bar className="flex items-center justify-between pt-2">
+            {mode === "edit" && canDelete ? (
+              <AppButton
+                type="button"
+                variant="ghost"
+                color="danger"
+                onClick={() => setShowDeleteModal(true)}
+                className="text-xs text-danger hover:bg-danger/10"
+              >
+                Xoá giải pháp
+              </AppButton>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              {isDirty && (
+                <p className="text-xs text-warning">Có thay đổi chưa lưu</p>
+              )}
+              <AppButton variant="ghost" type="button" onClick={() => router.back()}>
+                Huỷ
+              </AppButton>
+              {mode === "create" ? (
+                <>
+                  <AppButton
+                    type="button"
+                    variant="ghost"
+                    isLoading={isSubmitting}
+                    onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
+                    className="border border-border"
+                  >
+                    Lưu bản nháp
+                  </AppButton>
+                  <AppButton
+                    type="button"
+                    isLoading={isSubmitting}
+                    onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
+                  >
+                    Xuất bản
+                  </AppButton>
+                </>
+              ) : (
+                <AppButton
+                  type="button"
+                  isLoading={isSubmitting}
+                  disabled={!isDirty || isSubmitting}
+                  onClick={handleSubmit((data) => onSubmit(data))}
+                >
+                  Lưu thay đổi
+                </AppButton>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Floating Save Bar — visible in both create and edit mode when isDirty */}
+        <FloatingSaveBar
+          isVisible={isDirty}
+          statusText="Có thay đổi chưa lưu"
+        >
+          {mode === "create" ? (
+            <>
+              <AppButton
+                type="button"
+                variant="ghost"
+                isLoading={isSubmitting}
+                onClick={handleSubmit((data) => onSubmit(data, false), onInvalid)}
+                className="border border-border bg-surface text-xs"
+              >
+                Lưu bản nháp
+              </AppButton>
+              <AppButton
+                type="button"
+                isLoading={isSubmitting}
+                onClick={handleSubmit((data) => onSubmit(data, true), onInvalid)}
+                className="text-xs"
+              >
+                Xuất bản
+              </AppButton>
+            </>
+          ) : (
+            <AppButton
+              type="button"
+              isLoading={updateMutation.isPending}
+              disabled={!isDirty || isSubmitting}
+              onClick={handleSubmit((data) => onSubmit(data))}
+              className="text-xs"
+            >
+              Lưu thay đổi
+            </AppButton>
+          )}
+        </FloatingSaveBar>
+
+        {/* Modal xác nhận xoá giải pháp */}
+        {mode === "edit" && solution && (
+          <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+            <ModalContent>
+              <ModalHeader>Xác nhận xoá giải pháp</ModalHeader>
+              <ModalBody>
+                <p>
+                  Bạn có chắc muốn xoá vĩnh viễn giải pháp{" "}
+                  <strong>{solution.title}</strong>?
+                </p>
+                <p className="text-sm text-text-muted">
+                  Hành động này không thể hoàn tác.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <AppButton
+                  variant="ghost"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Huỷ
+                </AppButton>
+                <AppButton
+                  color="danger"
+                  isLoading={deleteMutation.isPending}
+                  onClick={handleDelete}
+                >
+                  Xoá vĩnh viễn
+                </AppButton>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
         )}
       </div>
     </DocumentUploadProvider>

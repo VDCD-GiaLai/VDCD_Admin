@@ -6,6 +6,8 @@ import { uploadImage, type UploadResult, type UploadFolder } from "@/lib/upload"
 export interface DocumentUploadContextValue {
   /** The target subfolder (e.g. slug of the article or program) */
   subfolder: string;
+  /** The upload folder type (e.g. "slide-detail-blog", "program", "article", "project") */
+  folder: UploadFolder;
   /** Uploads an image to the specific subfolder */
   uploadDocumentImage: (file: File) => Promise<UploadResult>;
 }
@@ -61,9 +63,10 @@ export function DocumentUploadProvider({
   const value = useMemo(
     () => ({
       subfolder: cleanSubfolder,
+      folder,
       uploadDocumentImage,
     }),
-    [cleanSubfolder, uploadDocumentImage],
+    [cleanSubfolder, folder, uploadDocumentImage],
   );
 
   return (
@@ -88,6 +91,7 @@ export function useDocumentUpload() {
   if (!context) {
     return {
       subfolder: "content-media",
+      folder: "image" as UploadFolder,
       uploadDocumentImage: fallbackUpload,
     };
   }

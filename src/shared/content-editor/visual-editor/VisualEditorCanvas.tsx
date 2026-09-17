@@ -47,6 +47,23 @@ import { BlockFormatToolbar } from "../blocks/BlockFormatToolbar";
 
 type ViewportMode = "desktop" | "tablet" | "mobile";
 
+/** Maps UploadFolder type to the display path shown in the UI */
+function folderDisplayPath(folder: string): string {
+  const map: Record<string, string> = {
+    "slide-detail-blog": "slides",
+    slide: "slides",
+    program: "programs",
+    article: "articles",
+    project: "projects",
+    solution: "solutions",
+    image: "images",
+    thumbnail: "thumbnails",
+    partner: "partners",
+    "about-us": "about-us",
+  };
+  return map[folder] ?? folder;
+}
+
 export interface VisualEditorCanvasProps {
   title: string;
   subtitle?: string | null;
@@ -178,7 +195,7 @@ export function VisualEditorCanvas({
   } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { subfolder, uploadDocumentImage: uploadBlogImage } = useDocumentUpload();
+  const { subfolder, folder: uploadFolder, uploadDocumentImage: uploadBlogImage } = useDocumentUpload();
   const { handlePaste: handleMetaPaste } = useSanitizedPaste({ preserveLineBreaks: false });
 
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -881,7 +898,7 @@ export function VisualEditorCanvas({
                 </svg>
               </div>
               <span className="text-xs font-semibold text-text">
-                Nhấn để tải ảnh bìa Hero từ máy tính (thư mục /vdcd/slides/{subfolder})
+                Nhấn để tải ảnh bìa Hero từ máy tính (thư mục /vdcd/{folderDisplayPath(uploadFolder)}/{subfolder})
               </span>
               <span className="text-[11px] text-text-muted">
                 Hỗ trợ JPG, PNG, WebP, GIF (tối đa 10MB)

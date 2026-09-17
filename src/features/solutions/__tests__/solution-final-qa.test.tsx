@@ -52,7 +52,7 @@ vi.mock("@/components/ui", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/permissions", () => ({
+vi.mock("@/hooks/usePermission", () => ({
   usePermission: () => true,
 }));
 
@@ -204,7 +204,8 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
         target: { value: "Giải pháp Mới 2026" },
       });
 
-      fireEvent.click(screen.getByRole("button", { name: "Tạo giải pháp" }));
+      const saveBtns = screen.getAllByRole("button", { name: "Lưu bản nháp" });
+      fireEvent.click(saveBtns[0]);
 
       await waitFor(() => {
         expect(mockCreateMutate).toHaveBeenCalled();
@@ -227,7 +228,8 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
         target: { value: "https://smartcity-v2.vdcd.vn" },
       });
 
-      fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+      const saveBtns = screen.getAllByRole("button", { name: "Lưu thay đổi" });
+      fireEvent.click(saveBtns[0]);
 
       await waitFor(() => {
         expect(mockUpdateMutate).toHaveBeenCalled();
@@ -253,7 +255,7 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
       expect(screen.getByRole("button", { name: "Thông tin" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Nội dung" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Đọc bài" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Chỉnh sửa trực quan" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" })).toBeInTheDocument();
     });
 
     it("switches to Block Editor (Tab 2) and displays editable block inputs", () => {
@@ -300,7 +302,7 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
         </QueryClientProvider>,
       );
 
-      fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa trực quan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" }));
 
       expect(screen.getByText("Kiến trúc Đô thị Thông minh")).toBeInTheDocument();
       expect(screen.getByText("Khung năng lực số")).toBeInTheDocument();
@@ -327,7 +329,7 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
       expect(screen.getByText("Đô thị Thông minh Cấp tỉnh")).toBeInTheDocument();
 
       // 4. Switch to Tab 4 (Visual Editor) - updated title appears
-      fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa trực quan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" }));
       expect(screen.getAllByText("Đô thị Thông minh Cấp tỉnh").length).toBeGreaterThan(0);
 
       // 5. Switch back to Tab 1 (Thông tin) - input value intact

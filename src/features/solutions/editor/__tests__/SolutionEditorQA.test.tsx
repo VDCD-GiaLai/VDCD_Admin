@@ -33,6 +33,8 @@ vi.mock("@/features/operation-fields/api", () => ({
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+const mockPublishMutate = vi.fn();
+const mockDeleteMutate = vi.fn();
 vi.mock("@/features/solutions/api", () => ({
   useCreateSolution: () => ({
     mutate: mockCreateMutate,
@@ -42,6 +44,19 @@ vi.mock("@/features/solutions/api", () => ({
     mutate: mockUpdateMutate,
     isPending: false,
   }),
+  usePublishSolution: () => ({
+    mutate: mockPublishMutate,
+    mutateAsync: mockPublishMutate,
+    isPending: false,
+  }),
+  useDeleteSolution: () => ({
+    mutate: mockDeleteMutate,
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/hooks/usePermission", () => ({
+  usePermission: () => true,
 }));
 
 const comprehensiveSolution: Solution = {
@@ -119,7 +134,7 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       expect(screen.getByRole("button", { name: "Thông tin" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Nội dung" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Đọc bài" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Chỉnh sửa trực quan" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" })).toBeInTheDocument();
     });
 
     it("defaults to Tab 1 (Thông tin) on initial load", () => {
@@ -144,8 +159,8 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       expect(screen.getByDisplayValue("Giải pháp Quản trị Năng lượng Thông minh | VDCD")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Giảm thiểu chi phí điện năng và tối ưu hóa vận hành nhà máy với nền tảng IoT của VDCD.")).toBeInTheDocument();
 
-      const checkbox = screen.getByLabelText("Xuất bản ngay");
-      expect(checkbox).toBeChecked();
+      // Status badge should be shown for published solution
+      expect(screen.getAllByText("Đã xuất bản").length).toBeGreaterThan(0);
     });
 
     it("allows updating metadata and sends structured document payload with websiteUrl on save", async () => {
@@ -157,8 +172,8 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       const websiteUrlInput = screen.getByDisplayValue("https://smartenergy.vdcd.vn");
       fireEvent.change(websiteUrlInput, { target: { value: "https://v2.smartenergy.vdcd.vn" } });
 
-      const saveBtn = screen.getByRole("button", { name: "Lưu thay đổi" });
-      fireEvent.click(saveBtn);
+      const saveBtns = screen.getAllByRole("button", { name: "Lưu thay đổi" });
+      fireEvent.click(saveBtns[0]);
 
       await waitFor(() => {
         expect(mockUpdateMutate).toHaveBeenCalled();
@@ -178,8 +193,8 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       const titleInput = screen.getByLabelText(/Tiêu đề giải pháp/i);
       fireEvent.change(titleInput, { target: { value: "Giải pháp Mới 2026" } });
 
-      const saveBtn = screen.getByRole("button", { name: "Tạo giải pháp" });
-      fireEvent.click(saveBtn);
+      const saveBtns = screen.getAllByRole("button", { name: "Lưu bản nháp" });
+      fireEvent.click(saveBtns[0]);
 
       await waitFor(() => {
         expect(mockCreateMutate).toHaveBeenCalled();
@@ -297,7 +312,7 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
     it("renders Visual Editor Canvas with document blocks and inline editing", () => {
       renderSolutionQAEditor();
 
-      fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa trực quan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" }));
 
       // Visual canvas renders title and blocks
       expect(screen.getByText("Tổng quan Giải pháp Năng lượng")).toBeInTheDocument();
@@ -325,7 +340,7 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       expect(screen.getByText("Tiêu đề đồng bộ tức thì")).toBeInTheDocument();
 
       // 4. Switch to Tab 4 (Visual Editor) - title updated live in visual canvas!
-      fireEvent.click(screen.getByRole("button", { name: "Chỉnh sửa trực quan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Trình chỉnh sửa trực quan" }));
       expect(screen.getAllByText("Tiêu đề đồng bộ tức thì").length).toBeGreaterThan(0);
 
       // 5. Switch back to Tab 1 (Thông tin) - input value preserved!

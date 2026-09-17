@@ -24,17 +24,17 @@ export function ProjectHeaderBadges({
   return (
     <div className={`flex flex-wrap items-center gap-2.5 ${className}`}>
       {fieldName && (
-        <span className="inline-flex items-center rounded-full bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary border border-primary/20 shadow-2xs font-mono">
+        <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400 border border-red-100/80 dark:border-red-900/40 font-mono">
           {fieldName}
         </span>
       )}
       {provinceName && (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-muted border border-border px-3 py-1 text-xs font-medium text-text-muted shadow-2xs font-mono">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100/90 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700 font-mono">
           📍 {provinceName}
         </span>
       )}
       {year && (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-muted border border-border px-3 py-1 text-xs font-medium text-text-muted shadow-2xs font-mono">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100/90 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700 font-mono">
           🗓️ {year}
         </span>
       )}
