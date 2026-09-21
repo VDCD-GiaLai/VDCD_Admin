@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState } from "react";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { useSlideDetailBlogUpload } from "../../../context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "../../../hooks/useSanitizedPaste";
 import { useContentEditableSync } from "../../../hooks/useContentEditableSync";
@@ -12,7 +13,7 @@ interface ImageBlockRendererProps {
   editable?: boolean;
   onSelect?: () => void;
   onCaptionChange?: (caption: string) => void;
-  onImageUpdate?: (url: string, fileId?: string) => void;
+  onImageUpdate?: (url: string, fileId?: string | null) => void;
   /** Called with the old fileId when an image is replaced/removed, for soft-delete tracking */
   onImageDiscard?: (fileId: string) => void;
 }
@@ -28,9 +29,12 @@ export function ImageBlockRenderer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const { toast } = useToast();
-  const { subfolder, uploadBlogImage } = useSlideDetailBlogUpload();
+  const { subfolder, folder, uploadBlogImage, onGalleryFileSelect } = useSlideDetailBlogUpload();
   const { handlePaste } = useSanitizedPaste({ preserveLineBreaks: false });
+
+  const defaultFolder = folder === "article" ? "/vdcd/articles" : "/vdcd/slides";
 
   // Sync caption from block prop safely (won't overwrite user typing mid-edit)
   const { handleInput: handleCaptionInput } = useContentEditableSync(
@@ -103,12 +107,12 @@ export function ImageBlockRenderer({
           />
         )}
         <div
-          className={`relative flex h-52 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-surface-muted/30 transition-all ${
+          className={`relative flex min-h-52 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-surface-muted/30 p-4 transition-all ${
             editable
-              ? "cursor-pointer hover:border-primary/50 hover:bg-primary/5"
+              ? "hover:border-primary/50 hover:bg-primary/5"
               : ""
           }`}
-          onClick={editable ? (e) => { triggerUpload(e); onSelect?.(); } : undefined}
+          onClick={editable ? onSelect : undefined}
           role={editable ? "button" : undefined}
           tabIndex={editable ? 0 : undefined}
           aria-label={editable ? "Tải ảnh lên" : undefined}
@@ -135,16 +139,81 @@ export function ImageBlockRenderer({
                 </svg>
               </div>
               <span className="text-xs font-medium text-text">
-                {editable ? `Nhấn để tải ảnh lên (thư mục /vdcd/slides/${subfolder})` : "(Chưa có hình ảnh)"}
+                {editable ? "Thêm hình ảnh vào khối" : "(Chưa có hình ảnh)"}
               </span>
               {editable && (
-                <span className="text-[11px] text-text-muted">
-                  JPG, PNG, WebP, GIF (tối đa 10MB)
-                </span>
+                <>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={triggerUpload}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4 w-4 text-primary"
+                      >
+                        <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                        <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                      </svg>
+                      Tải ảnh lên
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowGallery(true);
+                        onSelect?.();
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4 w-4 text-primary"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Chọn từ thư viện
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-text-muted">
+                    Lưu vào {defaultFolder}/{subfolder} (tối đa 10MB)
+                  </span>
+                </>
               )}
             </>
           )}
         </div>
+
+        {editable && showGallery && (
+          <ImagePickerModal
+            isOpen={showGallery}
+            onClose={() => setShowGallery(false)}
+            onSelect={(image: ImagePickerResult) => {
+              if (block.fileId) {
+                onImageDiscard?.(block.fileId);
+              }
+              if (image.fileId) {
+                onGalleryFileSelect?.(image.fileId);
+              }
+              onImageUpdate?.(image.url, null);
+              setShowGallery(false);
+              toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+            }}
+            defaultFolder={defaultFolder}
+            uploadFolder={folder || "slide-detail-blog"}
+            uploadOptions={{ subfolder, slug: subfolder }}
+            title="Chọn ảnh khối nội dung"
+          />
+        )}
       </figure>
     );
   }
@@ -191,11 +260,11 @@ export function ImageBlockRenderer({
 
         {/* Edit mode hover button overlay */}
         {editable && !isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity">
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={triggerUpload}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-md backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-md backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -207,6 +276,28 @@ export function ImageBlockRenderer({
                 <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
               </svg>
               Thay đổi ảnh
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowGallery(true);
+              }}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-md backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 text-primary"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Chọn từ thư viện
             </button>
           </div>
         )}
@@ -236,6 +327,28 @@ export function ImageBlockRenderer({
             dangerouslySetInnerHTML={{ __html: block.caption }}
           />
         )
+      )}
+
+      {editable && showGallery && (
+        <ImagePickerModal
+          isOpen={showGallery}
+          onClose={() => setShowGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            if (block.fileId) {
+              onImageDiscard?.(block.fileId);
+            }
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            onImageUpdate?.(image.url, null);
+            setShowGallery(false);
+            toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={folder || "slide-detail-blog"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh khối nội dung"
+        />
       )}
     </figure>
   );

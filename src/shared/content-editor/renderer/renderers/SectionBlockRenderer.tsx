@@ -214,7 +214,7 @@ export function SectionBlockRenderer({
                           onChildUpdate?.(childIndex, {
                             ...(child as ImageBlock),
                             url,
-                            fileId: fileId ?? (child as ImageBlock).fileId,
+                            fileId: fileId !== undefined ? fileId : (child as ImageBlock).fileId,
                           })
                       : undefined
                   }

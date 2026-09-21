@@ -307,7 +307,7 @@ function VisualEditorBlockInner({
   );
 
   const handleImageUpdate = useCallback(
-    (url: string, fileId?: string) => {
+    (url: string, fileId?: string | null) => {
       if (block.type === "image") {
         // Soft-delete: if replacing image, track old fileId
         const oldFileId = (block as ImageBlock).fileId;
@@ -317,7 +317,7 @@ function VisualEditorBlockInner({
         onBlockChange(index, {
           ...block,
           url,
-          fileId: fileId ?? (block as ImageBlock).fileId,
+          fileId: fileId !== undefined ? fileId : (block as ImageBlock).fileId,
         } as ImageBlock);
       }
     },

@@ -11,6 +11,7 @@ import { useCreateSlide } from "@/features/slides/api";
 import { SlideCtaLinkInput } from "@/features/slides/components";
 import { slideSchema, type SlideFormData } from "@/features/slides/schema";
 import { uploadImage, validateImageFile, type UploadResult } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 
 /**
  * Create Slide page — UC-SLD-02.
@@ -24,6 +25,16 @@ export default function NewSlidePage() {
   const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState<string | null>(null);
   const [imageInputMode, setImageInputMode] = useState<"upload" | "url">("upload");
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+
+  const handleGallerySelect = (image: ImagePickerResult) => {
+    setUploadedPreviewUrl(null);
+    setImageInputMode("upload");
+    setImageLoadError(false);
+    setValue("imageUrl", image.url, { shouldValidate: true, shouldDirty: true });
+    setValue("imageFileId", image.fileId, { shouldDirty: true });
+    toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+  };
 
   const {
     register, handleSubmit, setValue, control, formState: { errors },
@@ -179,6 +190,16 @@ export default function NewSlidePage() {
                     {uploading ? "Đang tải lên..." : "Chọn ảnh slide"}
                     <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleFileChange} disabled={uploading} />
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowGallery(true)}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-muted"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z" clipRule="evenodd" />
+                    </svg>
+                    Chọn từ thư viện
+                  </button>
                   <span className="text-xs text-text-muted">JPG, PNG, WebP, GIF • Tối đa 10MB • Nên dùng 1920×800px</span>
                 </div>
                 {watchedImageUrl && (
@@ -212,6 +233,14 @@ export default function NewSlidePage() {
             )}
             <input type="hidden" {...register("imageUrl")} />
             <input type="hidden" {...register("imageFileId")} />
+            <ImagePickerModal
+              isOpen={showGallery}
+              onClose={() => setShowGallery(false)}
+              onSelect={handleGallerySelect}
+              defaultFolder="/vdcd/slides"
+              uploadFolder="slide"
+              title="Chọn ảnh slide"
+            />
           </CardContent>
         </Card>
 

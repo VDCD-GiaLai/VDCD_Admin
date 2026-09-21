@@ -252,6 +252,7 @@ export function DropdownCustom({ children, className }: DropdownCustomProps) {
 export interface DropdownSelectOption<T = string> {
   value: T;
   label: ReactNode;
+  disabled?: boolean;
 }
 
 export interface DropdownSelectProps<T = string> {
@@ -323,6 +324,7 @@ export function DropdownSelect<T = string>({
         <DropdownItem
           key={String(opt.value)}
           isActive={opt.value === value}
+          disabled={opt.disabled}
           onClick={() => onChange(opt.value)}
         >
           {opt.label}

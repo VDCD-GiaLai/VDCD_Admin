@@ -22,6 +22,8 @@ import { PropertyPanel } from "./PropertyPanel";
 import { useEditorHistory } from "../history/useEditorHistory";
 import { BlockPicker } from "../blocks/BlockPicker";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
+import { ApiError } from "@/lib/api-client";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { useDocumentUpload } from "../media/DocumentUploadContext";
 import { useSanitizedPaste } from "../paste/useSanitizedPaste";
 import { useContentEditableSync } from "../hooks/useContentEditableSync";
@@ -187,6 +189,7 @@ export function VisualEditorCanvas({
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
   const [selectedBlockId, setSelectedBlockId] = useState<string>("");
   const [isUploadingHero, setIsUploadingHero] = useState(false);
+  const [showHeroGallery, setShowHeroGallery] = useState(false);
   const [floatingToolbar, setFloatingToolbar] = useState<{
     top: number;
     left: number;
@@ -195,7 +198,13 @@ export function VisualEditorCanvas({
   } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { subfolder, folder: uploadFolder, uploadDocumentImage: uploadBlogImage } = useDocumentUpload();
+  const {
+    subfolder,
+    folder: uploadFolder,
+    uploadDocumentImage: uploadBlogImage,
+    onGalleryFileSelect,
+  } = useDocumentUpload();
+  const defaultFolder = `/vdcd/${folderDisplayPath(uploadFolder || "slides")}`;
   const { handlePaste: handleMetaPaste } = useSanitizedPaste({ preserveLineBreaks: false });
 
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -665,9 +674,20 @@ export function VisualEditorCanvas({
         setLocalHeroUrl(result.url);
         onHeroImageChange(result.url, result.fileId);
         toast({ title: "Tải ảnh hero thành công", color: "success" });
-      } catch {
+      } catch (err) {
         setLocalHeroUrl(null);
-        toast({ title: "Tải ảnh hero thất bại", color: "danger" });
+        console.error("Lỗi tải ảnh hero:", err);
+        const description =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Có lỗi xảy ra khi tải ảnh lên";
+        toast({
+          title: "Tải ảnh hero thất bại",
+          description,
+          color: "danger",
+        });
       } finally {
         setIsUploadingHero(false);
         if (heroFileInputRef.current) {
@@ -779,6 +799,26 @@ export function VisualEditorCanvas({
                 Thay ảnh bìa
               </button>
 
+              <button
+                type="button"
+                onClick={() => setShowHeroGallery(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-900 shadow-md backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-3.5 w-3.5 text-primary"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Chọn từ thư viện
+              </button>
+
               {/* Delete hero image button */}
               {onHeroImageDelete && (
                 <button
@@ -870,11 +910,7 @@ export function VisualEditorCanvas({
         </div>
       ) : (
         <div
-          className="flex h-52 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-surface-muted/30 cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5"
-          onClick={(e) => {
-            e.stopPropagation();
-            heroFileInputRef.current?.click();
-          }}
+          className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-surface-muted/30 p-4 transition-all hover:border-primary/50 hover:bg-primary/5"
         >
           {isUploadingHero ? (
             <div className="flex flex-col items-center gap-2">
@@ -898,14 +934,77 @@ export function VisualEditorCanvas({
                 </svg>
               </div>
               <span className="text-xs font-semibold text-text">
-                Nhấn để tải ảnh bìa Hero từ máy tính (thư mục /vdcd/{folderDisplayPath(uploadFolder)}/{subfolder})
+                Nhấn để tải ảnh bìa Hero từ máy tính hoặc chọn từ thư viện
               </span>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    heroFileInputRef.current?.click();
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4 text-primary"
+                  >
+                    <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                    <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                  </svg>
+                  Tải ảnh từ máy tính
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowHeroGallery(true);
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4 text-primary"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Chọn từ thư viện
+                </button>
+              </div>
               <span className="text-[11px] text-text-muted">
-                Hỗ trợ JPG, PNG, WebP, GIF (tối đa 10MB)
+                Lưu vào {defaultFolder}/{subfolder} (tối đa 10MB)
               </span>
             </>
           )}
         </div>
+      )}
+
+      {showHeroGallery && (
+        <ImagePickerModal
+          isOpen={showHeroGallery}
+          onClose={() => setShowHeroGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            setLocalHeroUrl(image.url);
+            onHeroImageChange?.(image.url, undefined);
+            setShowHeroGallery(false);
+            toast({ title: "Đã chọn ảnh bìa từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={uploadFolder || "image"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh bìa Hero"
+        />
       )}
 
       {/* Hero caption (only displayed when hero image exists) */}

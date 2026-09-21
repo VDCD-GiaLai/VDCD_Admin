@@ -159,11 +159,26 @@ export async function uploadImage(
       return await uploadDirect(apiPath, formData, queryParams);
     }
 
-    // Small files → through BFF proxy
-    const res = await axios.post(`/api${apiPath}`, formData, {
-      params: queryParams,
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    // Small files → through BFF proxy (do NOT set Content-Type header so browser/axios sets multipart boundary)
+    let res;
+    try {
+      res = await axios.post(`/api${apiPath}`, formData, {
+        params: queryParams,
+      });
+    } catch (postErr) {
+      if (axios.isAxiosError(postErr) && postErr.response?.status === 401) {
+        const refreshed = await tryRefreshAuth();
+        if (refreshed) {
+          res = await axios.post(`/api${apiPath}`, formData, {
+            params: queryParams,
+          });
+        } else {
+          throw postErr;
+        }
+      } else {
+        throw postErr;
+      }
+    }
 
     // NestJS wraps in { statusCode, data }
     return res.data?.data ?? res.data;
@@ -185,6 +200,16 @@ export async function uploadImage(
   }
 }
 
+/** Helper to attempt auth refresh if access token expired */
+async function tryRefreshAuth(): Promise<boolean> {
+  try {
+    const res = await axios.post("/api/auth/refresh");
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Direct upload (bypass Vercel) ───────────────────────────
 
 /**
@@ -198,8 +223,18 @@ async function uploadDirect(
   params?: Record<string, string>,
 ): Promise<UploadResult> {
   // Step 1: Get access token from BFF (tiny JSON response, no body limit issue)
-  const tokenRes = await axios.get("/api/upload/token");
-  const token = tokenRes.data?.token;
+  let tokenRes;
+  try {
+    tokenRes = await axios.get("/api/upload/token");
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      await tryRefreshAuth();
+      tokenRes = await axios.get("/api/upload/token");
+    } else {
+      throw err;
+    }
+  }
+  const token = tokenRes?.data?.token;
   if (!token) {
     throw new ApiError(401, "Không thể lấy token upload. Vui lòng đăng nhập lại.");
   }
@@ -214,10 +249,9 @@ async function uploadDirect(
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  // Step 3: Upload directly with Bearer token
+  // Step 3: Upload directly with Bearer token (no manual Content-Type to preserve boundary)
   const res = await axios.post(url.toString(), formData, {
     headers: {
-      "Content-Type": "multipart/form-data",
       Authorization: `Bearer ${token}`,
     },
   });
@@ -290,7 +324,18 @@ export async function deleteUploadedImage(fileId: string): Promise<void> {
   if (!fileId || typeof fileId !== "string" || !fileId.trim()) return;
 
   try {
-    await axios.delete(`/api/upload/${encodeURIComponent(fileId.trim())}`);
+    try {
+      await axios.delete(`/api/upload/${encodeURIComponent(fileId.trim())}`);
+    } catch (delErr) {
+      if (axios.isAxiosError(delErr) && delErr.response?.status === 401) {
+        const refreshed = await tryRefreshAuth();
+        if (refreshed) {
+          await axios.delete(`/api/upload/${encodeURIComponent(fileId.trim())}`);
+          return;
+        }
+      }
+      throw delErr;
+    }
   } catch (err) {
     if (axios.isAxiosError(err) && err.response) {
       const body = err.response.data as {

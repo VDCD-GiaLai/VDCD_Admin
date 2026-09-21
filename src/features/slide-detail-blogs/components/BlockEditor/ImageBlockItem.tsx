@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { FormInput } from "@/components/ui";
 import { useToast } from "@/components/ui";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
 import { useSlideDetailBlogUpload } from "../../context/SlideDetailBlogUploadContext";
 import { useHtmlShortcuts } from "../../hooks/useHtmlShortcuts";
@@ -13,12 +14,15 @@ interface ImageBlockItemProps {
 
 export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
   const { toast } = useToast();
-  const { subfolder, uploadBlogImage } = useSlideDetailBlogUpload();
+  const { subfolder, folder, uploadBlogImage, onGalleryFileSelect } = useSlideDetailBlogUpload();
   const [mode, setMode] = useState<"upload" | "url">(
     block.fileId || !block.url ? "upload" : "url",
   );
   const [uploading, setUploading] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
+
+  const defaultFolder = folder === "article" ? "/vdcd/articles" : "/vdcd/slides";
 
   const handleCaptionChange = useCallback(
     (newCaption: string) =>
@@ -130,8 +134,29 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
             <p className="text-[11px] text-text-muted">Vui lòng kiểm tra lại liên kết hình ảnh.</p>
           </div>
         ) : (
-          <div className="flex h-32 w-full items-center justify-center text-xs text-text-muted">
-            Chưa có hình ảnh được chọn
+          <div className="flex h-32 w-full flex-col items-center justify-center gap-2 text-xs text-text-muted">
+            <span>Chưa có hình ảnh được chọn</span>
+            {mode === "upload" && (
+              <button
+                type="button"
+                onClick={() => setShowGallery(true)}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-3.5 w-3.5 text-primary"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Chọn từ thư viện
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -139,7 +164,7 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
       {/* Input controls */}
       {mode === "upload" ? (
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -159,8 +184,27 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
                 disabled={uploading}
               />
             </label>
+            <button
+              type="button"
+              onClick={() => setShowGallery(true)}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 text-primary"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Chọn từ thư viện
+            </button>
             <span className="text-[11px] text-text-muted">
-              JPG, PNG, WebP, GIF • Tối đa 10MB • Lưu vào /vdcd/slides/{subfolder}
+              JPG, PNG, WebP, GIF • Tối đa 10MB • Lưu vào {defaultFolder}/{subfolder}
             </span>
           </div>
           {block.url && (
@@ -208,6 +252,30 @@ export function ImageBlockItem({ block, onChange }: ImageBlockItemProps) {
           helperText="Hỗ trợ phím tắt Ctrl+B, Ctrl+I..."
         />
       </div>
+
+      {showGallery && (
+        <ImagePickerModal
+          isOpen={showGallery}
+          onClose={() => setShowGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            setImageLoadError(false);
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            onChange({
+              ...block,
+              url: image.url,
+              fileId: null, // Shared gallery asset: never track fileId for deletion
+            });
+            setShowGallery(false);
+            toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={folder || "slide-detail-blog"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh khối nội dung"
+        />
+      )}
     </div>
   );
 }

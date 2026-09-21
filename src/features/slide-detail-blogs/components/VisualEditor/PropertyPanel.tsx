@@ -2,6 +2,8 @@
 
 import React, { useCallback, useRef, useState } from "react";
 import { validateImageFile, type UploadResult } from "@/lib/upload";
+import { ApiError } from "@/lib/api-client";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { useSlideDetailBlogUpload } from "../../context/SlideDetailBlogUploadContext";
 import { Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
@@ -139,11 +141,15 @@ export function PropertyPanel({
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showHeroGallery, setShowHeroGallery] = useState(false);
+  const [showImageBlockGallery, setShowImageBlockGallery] = useState(false);
   const [bulkPasteText, setBulkPasteText] = useState("");
   const [showBulkPasteArea, setShowBulkPasteArea] = useState(false);
   const [activeListLevel, setActiveListLevel] = useState<"all" | 1 | 2 | 3>("all");
   const { toast } = useToast();
-  const { subfolder, uploadBlogImage } = useSlideDetailBlogUpload();
+  const { subfolder, folder, uploadBlogImage, onGalleryFileSelect } = useSlideDetailBlogUpload();
+
+  const defaultFolder = folder === "article" ? "/vdcd/articles" : "/vdcd/slides";
 
   const handleSpacingChange = useCallback(
     (key: keyof BlockSpacing, value: number) => {
@@ -339,8 +345,19 @@ export function PropertyPanel({
         const result: UploadResult = await uploadBlogImage(file);
         onHeroImageChange(result.url, result.fileId);
         toast({ title: "Tải ảnh hero thành công", color: "success" });
-      } catch {
-        toast({ title: "Tải ảnh hero thất bại", color: "danger" });
+      } catch (err) {
+        console.error("Lỗi tải ảnh hero:", err);
+        const description =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Có lỗi xảy ra khi tải ảnh lên";
+        toast({
+          title: "Tải ảnh hero thất bại",
+          description,
+          color: "danger",
+        });
       } finally {
         setIsUploading(false);
         if (heroFileInputRef.current) heroFileInputRef.current.value = "";
@@ -734,6 +751,25 @@ export function PropertyPanel({
                 </>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowHeroGallery(true)}
+              className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface p-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 text-primary"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>Chọn ảnh bìa từ thư viện</span>
+            </button>
             {heroImageUrl && onHeroImageDelete && (
               <button
                 type="button"
@@ -964,6 +1000,25 @@ export function PropertyPanel({
                     <span>{(block as ImageBlock).url ? "Thay ảnh từ máy tính" : "Chọn ảnh từ máy tính"}</span>
                   </>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImageBlockGallery(true)}
+                className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface p-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4 text-primary"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>Chọn từ thư viện</span>
               </button>
               <p className="mt-1 text-[10px] text-text-muted">
                 Lưu vào thư mục /vdcd/slides/{subfolder} trên ImageKit (tối đa 10MB)
@@ -2269,6 +2324,50 @@ export function PropertyPanel({
           </div>
         </div>
       </div>
+
+      {showHeroGallery && (
+        <ImagePickerModal
+          isOpen={showHeroGallery}
+          onClose={() => setShowHeroGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            onHeroImageChange?.(image.url, undefined);
+            setShowHeroGallery(false);
+            toast({ title: "Đã chọn ảnh bìa từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={folder || "slide-detail-blog"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh bìa Hero"
+        />
+      )}
+
+      {showImageBlockGallery && (
+        <ImagePickerModal
+          isOpen={showImageBlockGallery}
+          onClose={() => setShowImageBlockGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            if (block && block.type === "image" && onBlockChange) {
+              onBlockChange({
+                ...block,
+                url: image.url,
+                fileId: null, // Shared gallery asset: never track fileId for deletion
+              } as ImageBlock);
+            }
+            setShowImageBlockGallery(false);
+            toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={folder || "slide-detail-blog"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh khối nội dung"
+        />
+      )}
     </div>
   );
 }

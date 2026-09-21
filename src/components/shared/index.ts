@@ -36,3 +36,13 @@ export type { TablePaginationProps } from "./TablePagination";
 
 export { FloatingSaveBar } from "./FloatingSaveBar";
 export type { FloatingSaveBarProps } from "./FloatingSaveBar";
+// ─── AttachmentViewer ────────────────────────────────────────
+
+export { AttachmentViewer, getAttachmentType, getFilename } from "./AttachmentViewer";
+export type { AttachmentViewerProps, AttachmentType } from "./AttachmentViewer";
+
+// ─── ImagePickerModal ────────────────────────────────────────
+
+export { ImagePickerModal } from "./ImagePickerModal";
+export type { ImagePickerModalProps, ImagePickerResult } from "./ImagePickerModal";
+

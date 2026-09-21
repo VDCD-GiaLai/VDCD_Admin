@@ -6,8 +6,12 @@ import { uploadImage, type UploadResult, type UploadFolder } from "@/lib/upload"
 interface SlideDetailBlogUploadContextValue {
   /** The target subfolder (e.g. slug of the article or slide) */
   subfolder: string;
+  /** Target upload folder (default: "slide-detail-blog", or "article") */
+  folder?: UploadFolder;
   /** Uploads an image to the specific subfolder */
   uploadBlogImage: (file: File) => Promise<UploadResult>;
+  /** Notifies parent page when an image is selected from gallery to protect from ImageKit deletion */
+  onGalleryFileSelect?: (fileId: string) => void;
 }
 
 const SlideDetailBlogUploadContext = createContext<
@@ -19,6 +23,8 @@ export interface SlideDetailBlogUploadProviderProps {
   subfolder?: string;
   /** Target upload folder (default: "slide-detail-blog", or "article") */
   folder?: UploadFolder;
+  /** Notifies parent page when an image is selected from gallery */
+  onGalleryFileSelect?: (fileId: string) => void;
   children: React.ReactNode;
 }
 
@@ -30,6 +36,7 @@ export interface SlideDetailBlogUploadProviderProps {
 export function SlideDetailBlogUploadProvider({
   subfolder = "detail-blogs",
   folder = "slide-detail-blog",
+  onGalleryFileSelect,
   children,
 }: SlideDetailBlogUploadProviderProps) {
   const cleanSubfolder = useMemo(() => {
@@ -51,9 +58,11 @@ export function SlideDetailBlogUploadProvider({
   const value = useMemo(
     () => ({
       subfolder: cleanSubfolder,
+      folder,
       uploadBlogImage,
+      onGalleryFileSelect,
     }),
-    [cleanSubfolder, uploadBlogImage],
+    [cleanSubfolder, folder, uploadBlogImage, onGalleryFileSelect],
   );
 
   return (
@@ -79,6 +88,7 @@ export function useSlideDetailBlogUpload() {
   if (!context) {
     return {
       subfolder: "detail-blogs",
+      folder: "slide-detail-blog" as UploadFolder,
       uploadBlogImage: fallbackUpload,
     };
   }

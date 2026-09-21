@@ -382,4 +382,35 @@ describe("PHASE 06, 07, 08: Solution Content Editor Unified QA", () => {
       ).toBeInTheDocument();
     });
   });
+
+  // ========================================================================
+  // 8. THUMBNAIL UI & DELETION MECHANISM (PROJECT PATTERN SYNC)
+  // ========================================================================
+  describe("8. Thumbnail UI & Deletion Mechanism (Synchronized with Project)", () => {
+    it("renders Thay đổi ảnh, Chọn từ thư viện, and Xoá ảnh đại diện when thumbnail exists", () => {
+      renderSolutionQAEditor({ mode: "edit", solution: comprehensiveSolution });
+
+      expect(screen.getByRole("button", { name: /Xoá ảnh đại diện/i })).toBeInTheDocument();
+      expect(screen.getByText("Thay đổi ảnh")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Chọn từ thư viện/i })).toBeInTheDocument();
+      expect(screen.getByAltText("Thumbnail preview")).toBeInTheDocument();
+    });
+
+    it("supports optional thumbnail with delete mechanism and returns to empty dropzone", () => {
+      renderSolutionQAEditor({ mode: "edit", solution: comprehensiveSolution });
+
+      const deleteBtn = screen.getByRole("button", { name: /Xoá ảnh đại diện/i });
+      fireEvent.click(deleteBtn);
+
+      expect(screen.queryByAltText("Thumbnail preview")).not.toBeInTheDocument();
+      expect(screen.getByText("Chưa có ảnh đại diện")).toBeInTheDocument();
+      expect(screen.getByText("Tải lên ảnh đại diện")).toBeInTheDocument();
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Đã gỡ ảnh đại diện",
+        }),
+      );
+    });
+  });
 });
+

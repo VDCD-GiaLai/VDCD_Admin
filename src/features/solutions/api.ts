@@ -85,8 +85,12 @@ export function useUpdateSolution(id: string) {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedSolution) => {
       queryClient.invalidateQueries({ queryKey: solutionKeys.all });
+      queryClient.invalidateQueries({ queryKey: solutionKeys.detail(id) });
+      if (updatedSolution) {
+        queryClient.setQueryData(solutionKeys.detail(id), updatedSolution);
+      }
     },
   });
 }
@@ -99,8 +103,12 @@ export function usePublishSolution() {
         method: "PATCH",
         body: JSON.stringify({ isPublished }),
       }),
-    onSuccess: () => {
+    onSuccess: (_, { id, isPublished }) => {
       queryClient.invalidateQueries({ queryKey: solutionKeys.all });
+      queryClient.invalidateQueries({ queryKey: solutionKeys.detail(id) });
+      queryClient.setQueryData(solutionKeys.detail(id), (old: Solution | undefined) =>
+        old ? { ...old, isPublished } : old,
+      );
     },
   });
 }

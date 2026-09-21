@@ -23,6 +23,7 @@ import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/B
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
 import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
 import { FloatingSaveBar } from "@/components/shared";
@@ -52,16 +53,42 @@ export default function CreateArticlePage() {
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
   const [failedThumbUrl, setFailedThumbUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showGallery, setShowGallery] = useState(false);
+  const [discardedFileIds, setDiscardedFileIds] = useState<string[]>([]);
+  const [galleryFileIds, setGalleryFileIds] = useState<string[]>([]);
+
+  const handleGalleryFileSelect = useCallback((fileId: string) => {
+    if (fileId) {
+      setGalleryFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
+    }
+  }, []);
+
+  const handleGallerySelect = (image: ImagePickerResult) => {
+    const previousFileId = getValues("thumbnailFileId");
+    if (previousFileId) {
+      if (!galleryFileIds.includes(previousFileId)) {
+        deleteUploadedImage(previousFileId).catch((err) =>
+          console.warn("Lỗi xóa ảnh cũ trên ImageKit:", err),
+        );
+      }
+      setDiscardedFileIds((prev) => prev.filter((id) => id !== previousFileId));
+    }
+    if (image.fileId) {
+      setGalleryFileIds((prev) => (prev.includes(image.fileId!) ? prev : [...prev, image.fileId!]));
+    }
+    setThumbPreviewUrl(image.url);
+    setThumbMode("upload");
+    setFailedThumbUrl(null);
+    setValue("thumbnail", image.url, { shouldValidate: true, shouldDirty: true });
+    setValue("thumbnailFileId", null, { shouldDirty: true });
+    toast({ title: "Đã chọn ảnh từ thư viện", color: "success" });
+  };
 
   // SEO accordion
   const [showSeo, setShowSeo] = useState(false);
 
   // Paste normalization for text inputs
   const { handlePaste: handlePlainPaste } = useSanitizedPaste({ preserveLineBreaks: false });
-
-  // Soft-delete tracking: fileIds staged for deletion on successful save
-  const [discardedThumbFileIds, setDiscardedThumbFileIds] = useState<string[]>([]);
-  const [discardedBlockFileIds, setDiscardedBlockFileIds] = useState<string[]>([]);
 
   const {
     register,
@@ -157,14 +184,6 @@ export default function CreateArticlePage() {
       return;
     }
 
-    // Soft-delete: track old thumbnail fileId before replacing
-    const previousFileId = getValues("thumbnailFileId");
-    if (previousFileId) {
-      setDiscardedThumbFileIds((prev) =>
-        prev.includes(previousFileId) ? prev : [...prev, previousFileId],
-      );
-    }
-
     setThumbPreviewUrl(URL.createObjectURL(file));
     setThumbMode("upload");
     setFailedThumbUrl(null);
@@ -175,6 +194,14 @@ export default function CreateArticlePage() {
         subfolder: currentSubfolder || undefined,
         slug: currentSubfolder || undefined,
       });
+      const previousFileId = getValues("thumbnailFileId");
+      if (previousFileId && previousFileId !== result.fileId) {
+        if (!galleryFileIds.includes(previousFileId)) {
+          deleteUploadedImage(previousFileId).catch((err) =>
+            console.warn("Lỗi xóa ảnh cũ trên ImageKit:", err),
+          );
+        }
+      }
       setValue("thumbnail", result.url, { shouldValidate: true, shouldDirty: true });
       setValue("thumbnailFileId", result.fileId, { shouldDirty: true });
       setThumbPreviewUrl(result.url);
@@ -191,33 +218,40 @@ export default function CreateArticlePage() {
     }
   };
 
-  // Handle Soft-Delete Thumbnail (from Visual Editor hero image delete button)
-  // For new articles, the original thumbnail upload is already tracked via upload_temp.
-  // We still need to soft-delete if the user swaps the thumbnail before saving.
+  // Handle Delete Thumbnail (soft-delete for gallery images, hard-delete for direct uploads)
   const handleDeleteHeroImage = () => {
     const currentFileId = getValues("thumbnailFileId");
     if (currentFileId) {
-      setDiscardedThumbFileIds((prev) =>
-        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
-      );
+      if (!galleryFileIds.includes(currentFileId)) {
+        // Direct upload from PC in unsaved new post: delete immediately from ImageKit!
+        deleteUploadedImage(currentFileId).catch((err) =>
+          console.warn("Lỗi xóa ảnh vừa tải lên trên ImageKit:", err),
+        );
+      }
+      setDiscardedFileIds((prev) => prev.filter((id) => id !== currentFileId));
     }
     setValue("thumbnail", null, { shouldValidate: true, shouldDirty: true });
     setValue("thumbnailFileId", null, { shouldDirty: true });
     setThumbPreviewUrl(null);
     setFailedThumbUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    const isDirectSessionUpload = currentFileId && !galleryFileIds.includes(currentFileId);
     toast({
       title: "Đã gỡ ảnh đại diện",
-      description: "Nhấn \"Lưu\"/\"Xuất bản\" để hoàn tất.",
+      description: isDirectSessionUpload
+        ? "Đã xoá ảnh tải lên khỏi thư viện."
+        : "Nhấn \"Lưu\" hoặc \"Xuất bản\" để hoàn tất.",
       color: "warning",
     });
   };
 
-  // Handle Soft-Delete of Image Blocks
+  // Image block discard handler (queues direct-upload fileIds for deletion on save)
   const handleImageBlockDiscard = (fileId: string) => {
-    setDiscardedBlockFileIds((prev) =>
-      prev.includes(fileId) ? prev : [...prev, fileId],
-    );
+    if (fileId) {
+      setDiscardedFileIds((prev) =>
+        prev.includes(fileId) ? prev : [...prev, fileId],
+      );
+    }
   };
 
   // Helper to scroll & highlight an error field
@@ -295,6 +329,31 @@ export default function CreateArticlePage() {
 
     createMutation.mutate(payload, {
       onSuccess: async (createdArticle) => {
+        // Clean up discarded uploaded images
+        const activeBlockFileIds = new Set<string>();
+        for (const b of (data.content?.blocks || []) as SlideDetailBlogBlock[]) {
+          if (b.type === "image" && b.fileId) activeBlockFileIds.add(b.fileId);
+          if (b.type === "section") {
+            for (const child of (b as import("@/types/slide-detail-blog").SectionBlock).children || []) {
+              if (child.type === "image" && child.fileId) activeBlockFileIds.add(child.fileId);
+            }
+          }
+        }
+        if (discardedFileIds.length > 0) {
+          for (const fid of discardedFileIds) {
+            if (
+              !galleryFileIds.includes(fid) &&
+              !activeBlockFileIds.has(fid) &&
+              fid !== payload.thumbnailFileId
+            ) {
+              deleteUploadedImage(fid).catch((err) =>
+                console.warn("Lỗi xóa ảnh trên ImageKit:", err),
+              );
+            }
+          }
+          setDiscardedFileIds([]);
+        }
+
         // Nếu chọn xuất bản, đảm bảo đồng bộ trạng thái xuất bản qua endpoint /publish nếu backend chưa bật
         if (publish && createdArticle?.id && !createdArticle.isPublished) {
           try {
@@ -303,21 +362,6 @@ export default function CreateArticlePage() {
             console.warn("Lỗi đồng bộ trạng thái xuất bản:", pubErr);
           }
         }
-
-        // Cleanup discarded thumbnail files (replaced thumbnails during session)
-        for (const fid of discardedThumbFileIds) {
-          deleteUploadedImage(fid).catch((err) =>
-            console.warn("Lỗi dọn rác thumbnail ImageKit:", err),
-          );
-        }
-        setDiscardedThumbFileIds([]);
-        // Cleanup discarded image block files
-        for (const fid of discardedBlockFileIds) {
-          deleteUploadedImage(fid).catch((err) =>
-            console.warn("Lỗi dọn rác image block ImageKit:", err),
-          );
-        }
-        setDiscardedBlockFileIds([]);
 
         toast({
           title: publish ? "Đã xuất bản bài viết" : "Đã lưu bản nháp",
@@ -396,17 +440,21 @@ export default function CreateArticlePage() {
       duration: 8000,
       ...(targetElementId
         ? {
-            action: {
-              label: "Đi tới vị trí lỗi",
-              onClick: () => scrollToErrorField(targetElementId, "editor"),
-            },
-          }
+          action: {
+            label: "Đi tới vị trí lỗi",
+            onClick: () => scrollToErrorField(targetElementId, "editor"),
+          },
+        }
         : {}),
     });
   };
 
   return (
-    <SlideDetailBlogUploadProvider folder="article" subfolder={currentSubfolder}>
+    <SlideDetailBlogUploadProvider
+      folder="article"
+      subfolder={currentSubfolder}
+      onGalleryFileSelect={handleGalleryFileSelect}
+    >
       <div className="space-y-6 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -426,11 +474,10 @@ export default function CreateArticlePage() {
           <button
             type="button"
             onClick={() => setActiveTab("editor")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${
-              activeTab === "editor"
+            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${activeTab === "editor"
                 ? "bg-surface font-semibold text-primary shadow-xs"
                 : "text-text-muted hover:text-text"
-            }`}
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
@@ -440,11 +487,10 @@ export default function CreateArticlePage() {
           <button
             type="button"
             onClick={() => setActiveTab("reader")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${
-              activeTab === "reader"
+            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${activeTab === "reader"
                 ? "bg-surface font-semibold text-primary shadow-xs"
                 : "text-text-muted hover:text-text"
-            }`}
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
@@ -455,11 +501,10 @@ export default function CreateArticlePage() {
           <button
             type="button"
             onClick={() => setActiveTab("visual")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${
-              activeTab === "visual"
+            className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-all ${activeTab === "visual"
                 ? "bg-surface font-semibold text-primary shadow-xs"
                 : "text-text-muted hover:text-text"
-            }`}
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zm4.03 6.28a.75.75 0 00-1.06-1.06L4.97 9.47a.75.75 0 000 1.06l2.25 2.25a.75.75 0 001.06-1.06L6.56 10l1.72-1.72zm3.44-1.06a.75.75 0 111.06 1.06L14.44 10l-1.72 1.72a.75.75 0 11-1.06-1.06L13.44 10l-1.72-1.72z" clipRule="evenodd" />
@@ -494,15 +539,17 @@ export default function CreateArticlePage() {
             onSubtitleChange={(s) => setValue("subtitle", s, { shouldDirty: true })}
             onExcerptChange={(e) => setValue("excerpt", e, { shouldDirty: true })}
             onHeroImageChange={(url, fileId) => {
-              // Soft-delete: track old thumbnail fileId before replacing
-              const oldFileId = getValues("thumbnailFileId");
-              if (oldFileId && oldFileId !== fileId) {
-                setDiscardedThumbFileIds((prev) =>
-                  prev.includes(oldFileId) ? prev : [...prev, oldFileId],
-                );
+              const prevFileId = getValues("thumbnailFileId");
+              if (prevFileId && prevFileId !== fileId) {
+                if (!galleryFileIds.includes(prevFileId)) {
+                  deleteUploadedImage(prevFileId).catch((err) =>
+                    console.warn("Lỗi xóa ảnh cũ trên ImageKit:", err),
+                  );
+                }
+                setDiscardedFileIds((prev) => prev.filter((id) => id !== prevFileId));
               }
               setValue("thumbnail", url, { shouldValidate: true, shouldDirty: true });
-              if (fileId) setValue("thumbnailFileId", fileId, { shouldDirty: true });
+              setValue("thumbnailFileId", fileId ?? null, { shouldDirty: true });
               setThumbPreviewUrl(url);
               setFailedThumbUrl(null);
             }}
@@ -620,22 +667,20 @@ export default function CreateArticlePage() {
                   <button
                     type="button"
                     onClick={() => setThumbMode("upload")}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-all ${
-                      thumbMode === "upload"
+                    className={`rounded px-2.5 py-1 text-xs font-medium transition-all ${thumbMode === "upload"
                         ? "bg-surface font-semibold text-primary shadow-xs"
                         : "text-text-muted hover:text-text"
-                    }`}
+                      }`}
                   >
                     Tải ảnh lên
                   </button>
                   <button
                     type="button"
                     onClick={() => setThumbMode("url")}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-all ${
-                      thumbMode === "url"
+                    className={`rounded px-2.5 py-1 text-xs font-medium transition-all ${thumbMode === "url"
                         ? "bg-surface font-semibold text-primary shadow-xs"
                         : "text-text-muted hover:text-text"
-                    }`}
+                      }`}
                   >
                     Nhập URL
                   </button>
@@ -667,7 +712,7 @@ export default function CreateArticlePage() {
               </div>
 
               {thumbMode === "upload" ? (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted">
                     {uploadingThumb ? "Đang tải ảnh..." : "Chọn ảnh từ máy tính"}
                     <input
@@ -679,22 +724,85 @@ export default function CreateArticlePage() {
                       disabled={uploadingThumb}
                     />
                   </label>
+                  {currentThumbnailPreview && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteHeroImage}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Xoá ảnh Hero
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowGallery(true)}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z" clipRule="evenodd" />
+                    </svg>
+                    Chọn từ thư viện
+                  </button>
                   <span className="text-xs text-text-muted">
                     JPG, PNG, WebP • Tối đa 10MB
                   </span>
                 </div>
               ) : (
-                <FormInput
-                  label="URL ảnh ImageKit / CDN"
-                  placeholder="https://ik.imagekit.io/..."
-                  value={watchedThumbnail || ""}
-                  onChange={(e) => {
-                    setFailedThumbUrl(null);
-                    setValue("thumbnail", e.target.value, { shouldDirty: true });
-                    setValue("thumbnailFileId", null, { shouldDirty: true });
-                  }}
-                />
+                <div className="space-y-2">
+                  <FormInput
+                    label="URL ảnh ImageKit / CDN"
+                    placeholder="https://ik.imagekit.io/..."
+                    value={watchedThumbnail || ""}
+                    onChange={(e) => {
+                      setFailedThumbUrl(null);
+                      setValue("thumbnail", e.target.value, { shouldDirty: true });
+                      setValue("thumbnailFileId", null, { shouldDirty: true });
+                    }}
+                  />
+                  {currentThumbnailPreview && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteHeroImage}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3.5 w-3.5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Xoá ảnh Hero
+                    </button>
+                  )}
+                </div>
               )}
+              <ImagePickerModal
+                isOpen={showGallery}
+                onClose={() => setShowGallery(false)}
+                onSelect={handleGallerySelect}
+                defaultFolder="/vdcd/articles"
+                uploadFolder="article"
+                uploadOptions={{ subfolder: currentSubfolder, slug: currentSubfolder }}
+                title="Chọn ảnh bài viết"
+              />
             </CardContent>
           </Card>
 

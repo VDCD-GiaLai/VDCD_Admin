@@ -74,6 +74,7 @@ export type ContentBlock = SlideDetailBlogBlock | QuoteBlock | HighlightBlock;
 
 /** Generic unified alias for ContentBlock */
 export type Block = ContentBlock;
+export type DocumentBlock = ContentBlock;
 
 /** Base block interface */
 export interface BaseBlock {

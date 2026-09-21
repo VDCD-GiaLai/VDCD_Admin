@@ -47,6 +47,8 @@ import {
   slugifyVietnamese,
   deleteUploadedImage,
 } from "@/lib/upload";
+import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
+import type { DocumentBlock } from "@/shared/content-editor";
 import { generateProjectSessionKey } from "../context/ProjectUploadContext";
 import {
   ProjectGallery,
@@ -91,14 +93,20 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const [transformationAfterPreview, setTransformationAfterPreview] = useState<string | null>(
     () => project?.transformationAfter ?? null,
   );
-  const transBeforeInputRef = useRef<HTMLInputElement>(null);
-  const transAfterInputRef = useRef<HTMLInputElement>(null);
   const [galleryImages, setGalleryImages] = useState<ProjectImage[]>(
     () => project?.images ?? [],
   );
 
+  const [showThumbnailGallery, setShowThumbnailGallery] = useState(false);
   const [discardedThumbnailFileIds, setDiscardedThumbnailFileIds] = useState<string[]>([]);
   const [discardedContentFileIds, setDiscardedContentFileIds] = useState<string[]>([]);
+  const [galleryFileIds, setGalleryFileIds] = useState<string[]>([]);
+
+  const handleGalleryFileSelect = useCallback((fileId: string) => {
+    if (fileId) {
+      setGalleryFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
+    }
+  }, []);
 
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -252,6 +260,8 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const watchedHighlights = useWatch({ control, name: "technicalHighlights" }) ?? [];
   const watchedMetaTitle = useWatch({ control, name: "metaTitle" }) ?? "";
   const watchedMetaDescription = useWatch({ control, name: "metaDescription" }) ?? "";
+  const watchedTransBefore = useWatch({ control, name: "transformationBefore" }) ?? "";
+  const watchedTransAfter = useWatch({ control, name: "transformationAfter" }) ?? "";
 
   const selectedProvince = useMemo(() => {
     return provinces?.find((p) => p.id === watchedProvinceId);
@@ -294,6 +304,12 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
         slug: currentSubfolder,
         tempFolderKey: sessionFolderKey,
       });
+      const previousFileId = getValues(fileIdField);
+      if (previousFileId) {
+        setDiscardedThumbnailFileIds((prev) =>
+          prev.includes(previousFileId) ? prev : [...prev, previousFileId],
+        );
+      }
       setValue(field, result.url, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
       setValue(fileIdField, result.fileId, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
       setPreview(result.url);
@@ -308,13 +324,44 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     }
   };
 
+  const handleGallerySelectThumbnail = (image: ImagePickerResult) => {
+    const previousFileId = getValues("thumbnailFileId");
+    if (
+      previousFileId &&
+      !galleryFileIds.includes(previousFileId) &&
+      previousFileId !== project?.thumbnailFileId
+    ) {
+      deleteUploadedImage(previousFileId).catch((err) =>
+        console.warn("Lỗi xóa ảnh cũ vừa tải lên trên ImageKit:", err),
+      );
+      setDiscardedThumbnailFileIds((prev) => prev.filter((id) => id !== previousFileId));
+    }
+    if (image.fileId) {
+      setGalleryFileIds((prev) => (prev.includes(image.fileId!) ? prev : [...prev, image.fileId!]));
+    }
+    setThumbnailPreview(image.url);
+    setValue("thumbnail", image.url, { shouldValidate: true, shouldDirty: true });
+    setValue("thumbnailFileId", null, { shouldDirty: true });
+    toast({ title: "Đã chọn ảnh đại diện từ thư viện", color: "success" });
+  };
+
   // Handle Soft-Delete Thumbnail (like Hero in slide-detail-blogs)
   const handleDeleteThumbnail = () => {
     const currentFileId = getValues("thumbnailFileId");
-    if (currentFileId) {
-      setDiscardedThumbnailFileIds((prev) =>
-        prev.includes(currentFileId) ? prev : [...prev, currentFileId],
-      );
+    const isDirectSessionUpload =
+      currentFileId &&
+      !galleryFileIds.includes(currentFileId) &&
+      currentFileId !== project?.thumbnailFileId;
+
+    if (currentFileId && !galleryFileIds.includes(currentFileId)) {
+      if (currentFileId !== project?.thumbnailFileId) {
+        // Direct upload in this session not yet saved to DB: delete immediately from ImageKit!
+        deleteUploadedImage(currentFileId).catch((err) =>
+          console.warn("Lỗi xóa ảnh vừa tải lên trên ImageKit:", err),
+        );
+        setDiscardedThumbnailFileIds((prev) => prev.filter((id) => id !== currentFileId));
+      }
+      // DB-persisted thumbnail: preserved in ImageKit (soft-delete from project only)
     }
     setValue("thumbnail", "", { shouldDirty: true, shouldValidate: true });
     setValue("thumbnailFileId", null, { shouldDirty: true });
@@ -324,12 +371,14 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     }
     toast({
       title: "Đã gỡ ảnh đại diện",
-      description: 'Nhấn "Lưu thay đổi" để hoàn tất gỡ bỏ trên hệ thống.',
+      description: isDirectSessionUpload
+        ? "Đã xoá ảnh tải lên khỏi thư viện."
+        : 'Nhấn "Lưu thay đổi" để hoàn tất cập nhật dự án.',
       color: "warning",
     });
   };
 
-  // Soft-delete content block images
+  // Image block discard handler (queues direct-upload fileIds for deletion on save)
   const handleImageBlockDiscard = (fileId: string) => {
     if (fileId) {
       setDiscardedContentFileIds((prev) =>
@@ -518,6 +567,32 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
 
       createMutation.mutate(submitData as unknown as ProjectFormData, {
         onSuccess: async (createdProject) => {
+          const activeBlockFileIds = new Set<string>();
+          for (const b of (submitData.content?.blocks || []) as DocumentBlock[]) {
+            if (b.type === "image" && b.fileId) activeBlockFileIds.add(b.fileId);
+            if (b.type === "section") {
+              for (const child of (b as SectionBlock).children || []) {
+                if (child.type === "image" && child.fileId) activeBlockFileIds.add(child.fileId);
+              }
+            }
+          }
+          const allDiscarded = [...discardedThumbnailFileIds, ...discardedContentFileIds];
+          if (allDiscarded.length > 0) {
+            for (const fid of allDiscarded) {
+              if (
+                !galleryFileIds.includes(fid) &&
+                !activeBlockFileIds.has(fid) &&
+                fid !== submitData.thumbnailFileId
+              ) {
+                deleteUploadedImage(fid).catch((err) =>
+                  console.warn("Lỗi dọn rác ảnh ImageKit:", err),
+                );
+              }
+            }
+            setDiscardedThumbnailFileIds([]);
+            setDiscardedContentFileIds([]);
+          }
+
           if (publish && createdProject?.id && !createdProject.isPublished) {
             try {
               await publishMutation.mutateAsync({ id: createdProject.id, isPublished: true });
@@ -539,12 +614,27 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
     } else {
       updateMutation.mutate(submitData as unknown as Partial<ProjectFormData>, {
         onSuccess: () => {
+          const activeBlockFileIds = new Set<string>();
+          for (const b of (submitData.content?.blocks || []) as DocumentBlock[]) {
+            if (b.type === "image" && b.fileId) activeBlockFileIds.add(b.fileId);
+            if (b.type === "section") {
+              for (const child of (b as SectionBlock).children || []) {
+                if (child.type === "image" && child.fileId) activeBlockFileIds.add(child.fileId);
+              }
+            }
+          }
           const allDiscarded = [...discardedThumbnailFileIds, ...discardedContentFileIds];
           if (allDiscarded.length > 0) {
             for (const fid of allDiscarded) {
-              deleteUploadedImage(fid).catch((err) =>
-                console.warn("Lỗi dọn rác ảnh ImageKit:", err),
-              );
+              if (
+                !galleryFileIds.includes(fid) &&
+                !activeBlockFileIds.has(fid) &&
+                fid !== submitData.thumbnailFileId
+              ) {
+                deleteUploadedImage(fid).catch((err) =>
+                  console.warn("Lỗi dọn rác ảnh ImageKit:", err),
+                );
+              }
             }
             setDiscardedThumbnailFileIds([]);
             setDiscardedContentFileIds([]);
@@ -820,6 +910,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       subfolder={currentSubfolder}
       folder="project"
       tempFolderKey={sessionFolderKey}
+      onGalleryFileSelect={handleGalleryFileSelect}
     >
       <div className="space-y-6 pb-12">
         {/* Top Header & Global Actions */}
@@ -1203,7 +1294,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                             className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -1233,6 +1324,25 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                           </label>
                           <button
                             type="button"
+                            onClick={() => setShowThumbnailGallery(true)}
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5 text-primary"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Chọn từ thư viện
+                          </button>
+                          <button
+                            type="button"
                             onClick={handleDeleteThumbnail}
                             className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
                           >
@@ -1253,7 +1363,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/50 cursor-pointer transition-colors bg-surface-muted/30">
+                      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center bg-surface-muted/30">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
@@ -1269,27 +1379,60 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                           <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                         </svg>
                         <span className="text-xs font-medium text-text">
-                          {uploading.thumbnail ? "Đang tải ảnh lên..." : "Tải lên ảnh đại diện"}
+                          {uploading.thumbnail ? "Đang tải ảnh lên..." : "Chưa có ảnh đại diện"}
                         </span>
-                        <span className="text-[11px] text-text-muted mt-1">
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5 text-primary"
+                            >
+                              <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                            </svg>
+                            Tải lên ảnh đại diện
+                            <input
+                              ref={thumbnailInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="hidden"
+                              onChange={(e) =>
+                                handleImageUpload(
+                                  e,
+                                  "thumbnail",
+                                  "thumbnailFileId",
+                                  setThumbnailPreview,
+                                )
+                              }
+                              disabled={uploading.thumbnail}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowThumbnailGallery(true)}
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text shadow-xs transition-colors hover:bg-surface-muted"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5 text-primary"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Chọn từ thư viện
+                          </button>
+                        </div>
+                        <span className="text-[11px] text-text-muted mt-2">
                           JPG, PNG, WebP • Tối đa 10MB (Tuỳ chọn)
                         </span>
-                        <input
-                          ref={thumbnailInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
-                          className="hidden"
-                          onChange={(e) =>
-                            handleImageUpload(
-                              e,
-                              "thumbnail",
-                              "thumbnailFileId",
-                              setThumbnailPreview,
-                            )
-                          }
-                          disabled={uploading.thumbnail}
-                        />
-                      </label>
+                      </div>
                     )}
                     <p className="text-[11px] text-text-muted">
                       Lưu vào /vdcd/projects/{currentSubfolder}
@@ -1463,6 +1606,17 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                 setValue("overview", e, { shouldDirty: true })
               }
               onHeroImageChange={(url, fileId) => {
+                const prevFileId = getValues("thumbnailFileId");
+                if (prevFileId && prevFileId !== fileId) {
+                  if (!galleryFileIds.includes(prevFileId)) {
+                    if (prevFileId !== project?.thumbnailFileId) {
+                      deleteUploadedImage(prevFileId).catch((err) =>
+                        console.warn("Lỗi xóa ảnh cũ trên ImageKit:", err),
+                      );
+                      setDiscardedThumbnailFileIds((prev) => prev.filter((id) => id !== prevFileId));
+                    }
+                  }
+                }
                 setThumbnailPreview(url);
                 setValue("thumbnail", url, {
                   shouldDirty: true,
@@ -1706,6 +1860,18 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
               </ModalFooter>
             </ModalContent>
           </Modal>
+        )}
+
+        {showThumbnailGallery && (
+          <ImagePickerModal
+            isOpen={showThumbnailGallery}
+            onClose={() => setShowThumbnailGallery(false)}
+            onSelect={handleGallerySelectThumbnail}
+            defaultFolder="/vdcd/projects"
+            uploadFolder="project"
+            uploadOptions={{ subfolder: currentSubfolder, slug: currentSubfolder }}
+            title="Chọn ảnh đại diện dự án"
+          />
         )}
       </div>
     </DocumentUploadProvider>

@@ -10,6 +10,8 @@ export interface DocumentUploadContextValue {
   folder: UploadFolder;
   /** Uploads an image to the specific subfolder */
   uploadDocumentImage: (file: File) => Promise<UploadResult>;
+  /** Notifies parent page when an image is selected from gallery to protect from ImageKit deletion */
+  onGalleryFileSelect?: (fileId: string) => void;
 }
 
 const DocumentUploadContext = createContext<
@@ -23,6 +25,8 @@ export interface DocumentUploadProviderProps {
   folder?: UploadFolder;
   /** Optional temporary stable folder key before slug exists (e.g. "project-a8f31c") */
   tempFolderKey?: string;
+  /** Notifies parent page when an image is selected from gallery */
+  onGalleryFileSelect?: (fileId: string) => void;
   children: React.ReactNode;
 }
 
@@ -34,6 +38,7 @@ export function DocumentUploadProvider({
   subfolder = "content-media",
   folder = "image",
   tempFolderKey,
+  onGalleryFileSelect,
   children,
 }: DocumentUploadProviderProps) {
   const cleanSubfolder = useMemo(() => {
@@ -65,8 +70,9 @@ export function DocumentUploadProvider({
       subfolder: cleanSubfolder,
       folder,
       uploadDocumentImage,
+      onGalleryFileSelect,
     }),
-    [cleanSubfolder, folder, uploadDocumentImage],
+    [cleanSubfolder, folder, uploadDocumentImage, onGalleryFileSelect],
   );
 
   return (

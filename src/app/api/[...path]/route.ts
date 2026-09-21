@@ -37,6 +37,7 @@ async function handler(
     // ── Build headers ──────────────────────────────────────
     const headers: Record<string, string> = {
       Cookie: `accessToken=${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     };
 
     // ── Build body ─────────────────────────────────────────
@@ -94,9 +95,13 @@ async function handler(
         "Content-Disposition": res.headers.get("content-disposition") || "",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error(`[BFF Proxy Error] ${request.method} ${request.nextUrl.pathname}:`, error);
     return NextResponse.json(
-      { statusCode: 500, message: "Lỗi hệ thống, vui lòng thử lại" },
+      {
+        statusCode: 500,
+        message: error instanceof Error ? error.message : "Lỗi hệ thống, vui lòng thử lại",
+      },
       { status: 500 },
     );
   }

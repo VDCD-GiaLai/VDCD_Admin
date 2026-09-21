@@ -50,12 +50,29 @@ export function usePrograms(filters?: ProgramFilters) {
 }
 
 /**
- * Single program by ID — fetch directly from BE.
+ * Single program by ID — fetch directly from BE with fallbacks.
  */
 export function useProgram(id: string) {
-  const { data: programsData, ...rest } = usePrograms({ limit: 100 });
-  const program = programsData?.items?.find((p) => p.id === id);
-  return { data: program, ...rest };
+  return useQuery<Program>({
+    queryKey: programKeys.detail(id),
+    queryFn: async () => {
+      try {
+        return await clientFetch<Program>(`/api/admin/programs/${id}`);
+      } catch {
+        try {
+          return await clientFetch<Program>(`/api/programs/admin/${id}`);
+        } catch {
+          const res = await clientFetch<PaginatedData<Program>>(
+            "/api/programs/all?limit=100",
+          );
+          const found = res.items?.find((p) => p.id === id);
+          if (!found) throw new Error("Không tìm thấy chương trình");
+          return found;
+        }
+      }
+    },
+    enabled: Boolean(id),
+  });
 }
 
 // ─── Mutations ───────────────────────────────────────────────
@@ -92,6 +109,7 @@ export function useUpdateProgram(id: string) {
       }),
     onSuccess: (updatedProgram) => {
       queryClient.invalidateQueries({ queryKey: programKeys.all });
+      queryClient.invalidateQueries({ queryKey: programKeys.detail(id) });
       if (updatedProgram) {
         queryClient.setQueryData(programKeys.detail(id), updatedProgram);
       }
@@ -111,11 +129,12 @@ export function usePublishProgram() {
         method: "PATCH",
         body: JSON.stringify({ isPublished }),
       }),
-    onSuccess: (updatedProgram, { id }) => {
+    onSuccess: (updatedProgram, { id, isPublished }) => {
       queryClient.invalidateQueries({ queryKey: programKeys.all });
-      if (updatedProgram) {
-        queryClient.setQueryData(programKeys.detail(id), updatedProgram);
-      }
+      queryClient.invalidateQueries({ queryKey: programKeys.detail(id) });
+      queryClient.setQueryData(programKeys.detail(id), (old: Program | undefined) =>
+        old ? { ...old, isPublished } : updatedProgram,
+      );
     },
   });
 }
