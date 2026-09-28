@@ -35,6 +35,7 @@ const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockPublishMutate = vi.fn();
 const mockDeleteMutate = vi.fn();
+const mockReorderMutate = vi.fn();
 vi.mock("@/features/solutions/api", () => ({
   useCreateSolution: () => ({
     mutate: mockCreateMutate,
@@ -51,6 +52,15 @@ vi.mock("@/features/solutions/api", () => ({
   }),
   useDeleteSolution: () => ({
     mutate: mockDeleteMutate,
+    isPending: false,
+  }),
+  useSolutions: () => ({
+    data: { items: [], total: 0 },
+    isLoading: false,
+  }),
+  useReorderSolutions: () => ({
+    mutate: mockReorderMutate,
+    mutateAsync: mockReorderMutate,
     isPending: false,
   }),
 }));

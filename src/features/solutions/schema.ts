@@ -17,9 +17,34 @@ export const solutionSchema = z.object({
   thumbnail: z.string().optional(),
   thumbnailFileId: z.string().nullable().optional(),
   fieldId: z.string().nullable().optional(),
+  order: z
+    .union([
+      z
+        .number()
+        .int("Vị trí phải là số nguyên")
+        .min(1, "Vị trí sắp xếp phải lớn hơn hoặc bằng 1"),
+      z.nan().transform(() => null),
+      z.literal(0).transform(() => null),
+      z.null(),
+    ])
+    .nullable()
+    .optional(),
   websiteUrl: z
     .string()
-    .url("Đường dẫn website không hợp lệ")
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        const trimmed = val.trim();
+        if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
+        try {
+          const url = new URL(trimmed);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Đường dẫn website không hợp lệ" },
+    )
     .optional()
     .or(z.literal(""))
     .nullable(),

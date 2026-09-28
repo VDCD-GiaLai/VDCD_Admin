@@ -164,6 +164,137 @@ export function parseSolutionContent(rawContent: unknown): DocumentContent {
   return createDefaultDocumentContent();
 }
 
+import { normalizeListItems } from "@/shared/content-editor/paste/list-helpers";
+import type { SectionChildBlock } from "@/shared/content-editor";
+
+/**
+ * Normalizes a single child block (or top-level block) ensuring all required
+ * schema properties (id, level, items, content, children) exist and are valid.
+ */
+function normalizeChildBlock(raw: unknown): ContentBlock | null {
+  if (!raw || typeof raw !== "object") return null;
+  const b = raw as Record<string, unknown>;
+  const id =
+    typeof b.id === "string" && b.id.trim()
+      ? b.id
+      : `blk_${Math.random().toString(36).substring(2, 9)}`;
+  const type = String(b.type || "paragraph");
+
+  if (type === "paragraph") {
+    return {
+      id,
+      type: "paragraph",
+      text: typeof b.text === "string" && b.text.trim() ? b.text : " ",
+      fontSize: typeof b.fontSize === "number" ? b.fontSize : undefined,
+      spacing: b.spacing as ContentBlock["spacing"],
+    } as ContentBlock;
+  }
+
+  if (type === "heading") {
+    const level =
+      typeof b.level === "number" && b.level >= 1 && b.level <= 6
+        ? (b.level as 1 | 2 | 3 | 4 | 5 | 6)
+        : 2;
+    return {
+      id,
+      type: "heading",
+      level,
+      text: typeof b.text === "string" && b.text.trim() ? b.text : "Tiêu đề",
+      fontSize: typeof b.fontSize === "number" ? b.fontSize : undefined,
+      spacing: b.spacing as ContentBlock["spacing"],
+    } as ContentBlock;
+  }
+
+  if (type === "image") {
+    return {
+      id,
+      type: "image",
+      url: typeof b.url === "string" ? b.url : "",
+      fileId: typeof b.fileId === "string" ? b.fileId : null,
+      alt: typeof b.alt === "string" ? b.alt : "",
+      caption: typeof b.caption === "string" ? b.caption : null,
+      spacing: b.spacing as ContentBlock["spacing"],
+    } as ContentBlock;
+  }
+
+  if (type === "list" || type === "ordered_list") {
+    const rawItems = Array.isArray(b.items) ? b.items : [];
+    const normalizedItems = normalizeListItems(rawItems);
+    const validItems = normalizedItems.map((item) => {
+      const textVal = (item.content || item.text || "").trim();
+      return {
+        ...item,
+        content: textVal || "Mục danh sách",
+        text: textVal || "Mục danh sách",
+      };
+    });
+
+    return {
+      id,
+      type: type === "ordered_list" ? "ordered_list" : "list",
+      items:
+        validItems.length > 0
+          ? validItems
+          : [
+              {
+                id: `li_${Math.random().toString(36).substring(2, 9)}`,
+                content: "Mục danh sách",
+                text: "Mục danh sách",
+                children: [],
+              },
+            ],
+      listType: (b.listType as "bullet" | "ordered" | "checklist") || (type === "ordered_list" ? "ordered" : "bullet"),
+      listStyle: b.listStyle as "disc" | "circle" | "square" | "decimal" | "lower-alpha" | "upper-alpha" | "lower-roman" | "upper-roman" | "checklist" | undefined,
+      spacing: b.spacing as ContentBlock["spacing"],
+    } as ContentBlock;
+  }
+
+  return b as unknown as ContentBlock;
+}
+
+/**
+ * Normalizes all blocks within a document (including nested section blocks)
+ * to guarantee complete compliance with backend document-content validation.
+ */
+export function normalizeDocumentBlocks(rawBlocks: unknown[]): ContentBlock[] {
+  if (!Array.isArray(rawBlocks)) return [];
+
+  const result: ContentBlock[] = [];
+
+  for (const raw of rawBlocks) {
+    if (!raw || typeof raw !== "object") continue;
+    const b = raw as Record<string, unknown>;
+    const id =
+      typeof b.id === "string" && b.id.trim()
+        ? b.id
+        : `blk_${Math.random().toString(36).substring(2, 9)}`;
+    const type = String(b.type || "paragraph");
+
+    if (type === "section") {
+      const rawChildren = Array.isArray(b.children) ? b.children : [];
+      const children: SectionChildBlock[] = [];
+      for (const child of rawChildren) {
+        const normChild = normalizeChildBlock(child);
+        if (normChild) children.push(normChild as SectionChildBlock);
+      }
+
+      result.push({
+        id,
+        type: "section",
+        number: typeof b.number === "string" && b.number.trim() ? b.number : "01",
+        title: typeof b.title === "string" && b.title.trim() ? b.title : "Nhóm mục",
+        children,
+        spacing: b.spacing as ContentBlock["spacing"],
+      } as ContentBlock);
+    } else {
+      const norm = normalizeChildBlock(raw);
+      if (norm) result.push(norm);
+    }
+  }
+
+  return result;
+}
+
 /**
  * Prepares the payload to submit to Backend API for Solution.
  * Passes content as a structured JSON object or string, and preserves websiteUrl and publishedAt.
@@ -171,10 +302,18 @@ export function parseSolutionContent(rawContent: unknown): DocumentContent {
 export function serializeSolutionPayload(data: SolutionFormData): Record<string, unknown> {
   const contentObj =
     typeof data.content === "object" && data.content !== null
-      ? data.content
+      ? {
+          ...data.content,
+          blocks: normalizeDocumentBlocks((data.content as DocumentContent).blocks),
+        }
       : typeof data.content === "string"
         ? parseSolutionContent(data.content)
         : createDefaultDocumentContent();
+
+  const cleanOrder =
+    typeof data.order === "number" && !isNaN(data.order) && data.order >= 1
+      ? Math.floor(data.order)
+      : undefined;
 
   return {
     title: data.title,
@@ -184,6 +323,7 @@ export function serializeSolutionPayload(data: SolutionFormData): Record<string,
     thumbnail: data.thumbnail || null,
     thumbnailFileId: data.thumbnailFileId || null,
     fieldId: data.fieldId || null,
+    order: cleanOrder,
     websiteUrl: data.websiteUrl || null,
     metaTitle: data.metaTitle || undefined,
     metaDescription: data.metaDescription || undefined,

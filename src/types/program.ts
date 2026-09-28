@@ -15,6 +15,7 @@ export interface Program {
   field: { id: string; name: string; slug: string } | null;
   metaTitle: string | null;
   metaDescription: string | null;
+  order?: number;
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;

@@ -70,6 +70,7 @@ const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockPublishMutate = vi.fn();
 const mockDeleteMutate = vi.fn();
+const mockReorderMutate = vi.fn();
 
 vi.mock("@/features/solutions/api", () => ({
   useCreateSolution: () => ({
@@ -86,6 +87,15 @@ vi.mock("@/features/solutions/api", () => ({
   }),
   useDeleteSolution: () => ({
     mutate: mockDeleteMutate,
+    isPending: false,
+  }),
+  useSolutions: () => ({
+    data: { items: [], total: 0 },
+    isLoading: false,
+  }),
+  useReorderSolutions: () => ({
+    mutate: mockReorderMutate,
+    mutateAsync: mockReorderMutate,
     isPending: false,
   }),
 }));
@@ -172,6 +182,17 @@ describe("PHASE 11: Solution Editor Final QA & Full Regression Suite (Admin)", (
         websiteUrl: "not-a-valid-url",
       });
       expect(invalidUrl.success).toBe(false);
+    });
+
+    it("accepts relative paths like /solution/uav as valid websiteUrl", () => {
+      const relativePathTest = solutionSchema.safeParse({
+        title: "Giải pháp UAV",
+        websiteUrl: "/solution/uav",
+      });
+      expect(relativePathTest.success).toBe(true);
+      if (relativePathTest.success) {
+        expect(relativePathTest.data.websiteUrl).toBe("/solution/uav");
+      }
     });
 
     it("serializes payload with DocumentContent and proper types for API submission", () => {

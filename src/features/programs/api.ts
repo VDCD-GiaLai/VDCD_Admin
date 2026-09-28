@@ -153,3 +153,21 @@ export function useDeleteProgram() {
     },
   });
 }
+
+/**
+ * PATCH /admin/programs/reorder — reorder programs.
+ */
+export function useReorderPrograms() {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, { id: string; order: number }[]>({
+    mutationFn: (items) =>
+      clientFetch<void>("/api/admin/programs/reorder", {
+        method: "PATCH",
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: programKeys.all });
+    },
+  });
+}
+

@@ -17,6 +17,18 @@ export const programSchema = z.object({
   thumbnail: z.string().optional(),
   thumbnailFileId: z.string().nullable().optional(),
   fieldId: z.string().nullable().optional(),
+  order: z
+    .union([
+      z
+        .number()
+        .int("Vị trí phải là số nguyên")
+        .min(1, "Vị trí sắp xếp phải lớn hơn hoặc bằng 1"),
+      z.nan().transform(() => null),
+      z.literal(0).transform(() => null),
+      z.null(),
+    ])
+    .nullable()
+    .optional(),
   metaTitle: z
     .string()
     .max(60, "Meta title tối đa 60 ký tự")

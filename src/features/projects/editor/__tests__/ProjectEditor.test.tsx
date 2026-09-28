@@ -84,6 +84,10 @@ vi.mock("@/features/projects/api", () => ({
     mutate: mockUpdateImageMutate,
     isPending: false,
   }),
+  useReorderProjects: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/hooks/usePermission", () => ({

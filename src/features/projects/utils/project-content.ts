@@ -323,10 +323,17 @@ export function serializeProjectPayload(data: ProjectFormData): ProjectFormData 
       ? data.year
       : null;
 
+  // Clean order
+  const cleanOrder =
+    typeof data.order === "number" && !isNaN(data.order) && data.order >= 1
+      ? Math.floor(data.order)
+      : undefined;
+
   const payload = {
     ...data,
     content,
     year: cleanYear,
+    order: cleanOrder,
     technicalHighlights: cleanHighlights,
     services: cleanServices,
   };

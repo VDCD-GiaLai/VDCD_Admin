@@ -14,6 +14,7 @@ export interface Solution {
   thumbnailFileId: string | null;
   websiteUrl: string | null;
   field: { id: string; name: string; slug: string } | null;
+  order?: number;
   metaTitle: string | null;
   metaDescription: string | null;
   isPublished: boolean;

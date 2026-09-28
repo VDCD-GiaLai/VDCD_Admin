@@ -26,6 +26,7 @@ import {
   usePublishProject,
   useDeleteProject,
   useProjects,
+  useReorderProjects,
 } from "../api";
 import { usePermission } from "@/hooks/usePermission";
 import { projectSchema, type ProjectFormData } from "../schema";
@@ -67,6 +68,36 @@ export interface ProjectEditorProps {
   project?: Project;
 }
 
+function resolveDuplicateOrders(
+  currentProjectId: string,
+  targetOrder: number,
+  projectsList: { id: string; order?: number }[],
+): { id: string; order: number }[] {
+  const others = projectsList
+    .filter((p) => p.id !== currentProjectId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const newReordered: { id: string; order: number }[] = [];
+  let currentAssigned = false;
+  let runningOrder = 1;
+
+  for (const item of others) {
+    if (!currentAssigned && runningOrder >= targetOrder) {
+      newReordered.push({ id: currentProjectId, order: runningOrder });
+      currentAssigned = true;
+      runningOrder++;
+    }
+    newReordered.push({ id: item.id, order: runningOrder });
+    runningOrder++;
+  }
+
+  if (!currentAssigned) {
+    newReordered.push({ id: currentProjectId, order: runningOrder });
+  }
+
+  return newReordered;
+}
+
 export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -77,6 +108,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const { data: operationFields } = useOperationFields();
   const { data: provinces } = useProvinces();
   const { data: projectsData } = useProjects({ limit: 100 });
+  const reorderProjectsMutation = useReorderProjects();
 
   const canDelete = usePermission("projects:delete");
   const [, startTransition] = useTransition();
@@ -152,6 +184,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       fieldId: project?.field?.id ?? null,
       provinceId: project?.province?.id ?? null,
       year: project?.year ?? new Date().getFullYear(),
+      order: project?.order ?? undefined,
       challenge: project?.challenge ?? "",
       challengeImage: project?.challengeImage ?? "",
       challengeImageFileId: project?.challengeImageFileId ?? null,
@@ -205,6 +238,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
         fieldId: project.field?.id ?? null,
         provinceId: project.province?.id ?? null,
         year: project.year ?? new Date().getFullYear(),
+        order: project.order ?? 1,
         challenge: project.challenge ?? "",
         challengeImage: project.challengeImage ?? "",
         challengeImageFileId: project.challengeImageFileId ?? null,
@@ -255,6 +289,40 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
 
   const watchedProvinceId = useWatch({ control, name: "provinceId" });
   const watchedYear = useWatch({ control, name: "year" });
+  const watchedOrder = useWatch({ control, name: "order" });
+
+  // Next available positive integer order
+  const nextAvailableOrder = useMemo(() => {
+    if (!projectsData?.items || projectsData.items.length === 0) return 1;
+    const otherOrders = projectsData.items
+      .filter((p) => p.id !== project?.id)
+      .map((p) => p.order)
+      .filter((o): o is number => typeof o === "number" && o > 0);
+
+    if (otherOrders.length === 0) return 1;
+    const maxOrder = Math.max(...otherOrders);
+    for (let i = 1; i <= maxOrder; i++) {
+      if (!otherOrders.includes(i)) return i;
+    }
+    return maxOrder + 1;
+  }, [projectsData, project?.id]);
+
+  // Set default order for new projects
+  useEffect(() => {
+    if (mode === "create" && getValues("order") === undefined && nextAvailableOrder) {
+      setValue("order", nextAvailableOrder, { shouldValidate: true });
+    }
+  }, [mode, nextAvailableOrder, getValues, setValue]);
+
+  // Duplicate order conflict detection
+  const conflictingProject = useMemo(() => {
+    if (!watchedOrder || watchedOrder < 1 || !projectsData?.items) return null;
+    return projectsData.items.find(
+      (p) => p.id !== project?.id && p.order === watchedOrder,
+    );
+  }, [watchedOrder, projectsData, project?.id]);
+
+  const totalProjectsCount = projectsData?.total ?? projectsData?.items?.length ?? 0;
   const watchedDiscipline = useWatch({ control, name: "discipline" }) ?? "";
   const watchedServices = useWatch({ control, name: "services" }) ?? [];
   const watchedHighlights = useWatch({ control, name: "technicalHighlights" }) ?? [];
@@ -605,6 +673,19 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             title: publish ? "Đã xuất bản dự án" : "Đã lưu bản nháp",
             color: "success",
           });
+          if (
+            conflictingProject &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            projectsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              createdProject.id,
+              submitData.order,
+              projectsData.items,
+            );
+            reorderProjectsMutation.mutate(reorderedItems);
+          }
           startTransition(() => {
             router.push("/projects");
           });
@@ -638,6 +719,19 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             }
             setDiscardedThumbnailFileIds([]);
             setDiscardedContentFileIds([]);
+          }
+          if (
+            conflictingProject &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            projectsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              project!.id,
+              submitData.order,
+              projectsData.items,
+            );
+            reorderProjectsMutation.mutate(reorderedItems);
           }
           toast({ title: "Đã lưu thay đổi", color: "success" });
         },
@@ -720,6 +814,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       title: { label: "Tiêu đề dự án", tab: "info" },
       slug: { label: "Đường dẫn (slug)", tab: "info" },
       year: { label: "Năm thực hiện", tab: "info" },
+      order: { label: "Vị trí sắp xếp (thứ tự)", tab: "info" },
       fieldId: { label: "Lĩnh vực hoạt động", tab: "info" },
       provinceId: { label: "Tỉnh thành", tab: "info" },
       discipline: { label: "Lĩnh vực chuyên môn", tab: "info" },
@@ -1058,7 +1153,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                         {...register("slug")}
                       />
                     </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                       <div id="field-provinceId">
                         <label className="mb-1.5 block text-sm font-medium text-text">
                           Tỉnh / Thành phố
@@ -1084,7 +1179,71 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                           {...register("year", { valueAsNumber: true })}
                         />
                       </div>
+                      <div id="field-order">
+                        <FormInput
+                          type="number"
+                          label="Vị trí sắp xếp (Thứ tự)"
+                          placeholder="1"
+                          min={1}
+                          step={1}
+                          startContent={<span className="font-mono text-xs text-text-muted">#</span>}
+                          errorMessage={errors.order?.message}
+                          helperText={
+                            !conflictingProject && typeof watchedOrder === "number" && watchedOrder > 0
+                              ? watchedOrder > totalProjectsCount
+                                ? `Hiện có ${totalProjectsCount} dự án. Sẽ xếp ở cuối.`
+                                : "Số nhỏ hơn sẽ hiển thị trước (1 là đầu tiên)"
+                              : undefined
+                          }
+                          {...register("order", {
+                            valueAsNumber: true,
+                            min: { value: 1, message: "Vị trí sắp xếp phải lớn hơn hoặc bằng 1" },
+                          })}
+                        />
+                      </div>
                     </div>
+
+                    {/* Cảnh báo và gợi ý khi trùng vị trí sắp xếp */}
+                    {conflictingProject && (
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text">
+                        <div className="flex items-start gap-2.5">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <div className="flex-1 space-y-1">
+                            <p className="font-semibold text-text">
+                              Vị trí #{watchedOrder} đang thuộc về dự án &ldquo;{conflictingProject.title}&rdquo;
+                            </p>
+                            <p className="text-text-muted leading-relaxed">
+                              Khi lưu, hệ thống sẽ tự động chèn dự án này vào vị trí #{watchedOrder} và dời các dự án sau xuống để không bị trùng số.
+                            </p>
+                            {nextAvailableOrder && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setValue("order", nextAvailableOrder, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              >
+                                ↳ Hoặc dùng vị trí chưa ai chọn: #{nextAvailableOrder}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div id="field-discipline">
                       <FormInput
                         label="Lĩnh vực chuyên môn / Chuyên ngành"

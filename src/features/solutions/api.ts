@@ -123,3 +123,20 @@ export function useDeleteSolution() {
     },
   });
 }
+
+/**
+ * PATCH /admin/solutions/reorder — reorder solutions.
+ */
+export function useReorderSolutions() {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, { id: string; order: number }[]>({
+    mutationFn: (items) =>
+      clientFetch<void>("/api/admin/solutions/reorder", {
+        method: "PATCH",
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: solutionKeys.all });
+    },
+  });
+}

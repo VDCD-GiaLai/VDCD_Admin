@@ -35,6 +35,7 @@ vi.mock("@/features/operation-fields/api", () => ({
 }));
 
 const mockUpdateMutate = vi.fn();
+const mockReorderMutate = vi.fn();
 vi.mock("@/features/programs/api", () => ({
   useCreateProgram: () => ({
     mutate: vi.fn(),
@@ -50,6 +51,15 @@ vi.mock("@/features/programs/api", () => ({
   }),
   useDeleteProgram: () => ({
     mutate: vi.fn(),
+    isPending: false,
+  }),
+  usePrograms: () => ({
+    data: { items: [], total: 0 },
+    isLoading: false,
+  }),
+  useReorderPrograms: () => ({
+    mutate: mockReorderMutate,
+    mutateAsync: mockReorderMutate,
     isPending: false,
   }),
 }));

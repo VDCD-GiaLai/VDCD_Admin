@@ -35,7 +35,18 @@ export const projectSchema = z.object({
     ])
     .nullable()
     .optional(),
-  order: z.number().int().optional(),
+  order: z
+    .union([
+      z
+        .number()
+        .int("Vị trí phải là số nguyên")
+        .min(1, "Vị trí sắp xếp phải lớn hơn hoặc bằng 1"),
+      z.nan().transform(() => null),
+      z.literal(0).transform(() => null),
+      z.null(),
+    ])
+    .nullable()
+    .optional(),
 
   // ── Detail fields ──────────────────────────────────────
   challenge: z.string().optional(),

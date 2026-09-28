@@ -25,6 +25,8 @@ import {
   useUpdateSolution,
   usePublishSolution,
   useDeleteSolution,
+  useSolutions,
+  useReorderSolutions,
   solutionKeys,
 } from "../api";
 import { usePermission } from "@/hooks/usePermission";
@@ -54,6 +56,36 @@ export interface SolutionEditorProps {
   solution?: Solution;
 }
 
+function resolveDuplicateOrders(
+  currentSolutionId: string,
+  targetOrder: number,
+  solutionsList: { id: string; order?: number }[],
+): { id: string; order: number }[] {
+  const others = solutionsList
+    .filter((s) => s.id !== currentSolutionId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const newReordered: { id: string; order: number }[] = [];
+  let currentAssigned = false;
+  let runningOrder = 1;
+
+  for (const item of others) {
+    if (!currentAssigned && runningOrder >= targetOrder) {
+      newReordered.push({ id: currentSolutionId, order: runningOrder });
+      currentAssigned = true;
+      runningOrder++;
+    }
+    newReordered.push({ id: item.id, order: runningOrder });
+    runningOrder++;
+  }
+
+  if (!currentAssigned) {
+    newReordered.push({ id: currentSolutionId, order: runningOrder });
+  }
+
+  return newReordered;
+}
+
 export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -63,6 +95,8 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const publishMutation = usePublishSolution();
   const deleteMutation = useDeleteSolution();
   const { data: operationFields } = useOperationFields();
+  const { data: allSolutionsData } = useSolutions({ limit: 100 });
+  const reorderSolutionsMutation = useReorderSolutions();
 
   const canDelete = usePermission("solutions:delete");
   const [uploading, setUploading] = useState(false);
@@ -114,6 +148,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
       thumbnailFileId: solution?.thumbnailFileId ?? null,
       fieldId: solution?.field?.id ?? null,
       websiteUrl: solution?.websiteUrl ?? "",
+      order: solution?.order ?? undefined,
       metaTitle: solution?.metaTitle ?? "",
       metaDescription: solution?.metaDescription ?? "",
       isPublished: solution?.isPublished ?? false,
@@ -193,6 +228,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
         thumbnail: solution.thumbnail ?? "",
         thumbnailFileId: solution.thumbnailFileId ?? null,
         fieldId: solution.field?.id ?? null,
+        order: solution.order ?? 1,
         websiteUrl: solution.websiteUrl ?? "",
         metaTitle: solution.metaTitle ?? "",
         metaDescription: solution.metaDescription ?? "",
@@ -206,10 +242,44 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const watchedShortDescription = useWatch({ control, name: "shortDescription" }) ?? "";
   const watchedThumbnail = useWatch({ control, name: "thumbnail" }) ?? "";
   const watchedSlug = useWatch({ control, name: "slug" }) ?? "";
+  const watchedOrder = useWatch({ control, name: "order" });
   const watchedFieldId = useWatch({ control, name: "fieldId" });
   const rawWatchedContent = useWatch({ control, name: "content" });
   const watchedIsPublished = useWatch({ control, name: "isPublished" });
   const isCurrentlyPublished = watchedIsPublished ?? solution?.isPublished ?? false;
+
+  // Next available positive integer order
+  const nextAvailableOrder = useMemo(() => {
+    if (!allSolutionsData?.items || allSolutionsData.items.length === 0) return 1;
+    const otherOrders = allSolutionsData.items
+      .filter((s) => s.id !== solution?.id)
+      .map((s) => s.order)
+      .filter((o): o is number => typeof o === "number" && o > 0);
+
+    if (otherOrders.length === 0) return 1;
+    const maxOrder = Math.max(...otherOrders);
+    for (let i = 1; i <= maxOrder; i++) {
+      if (!otherOrders.includes(i)) return i;
+    }
+    return maxOrder + 1;
+  }, [allSolutionsData, solution?.id]);
+
+  // Set default order for new solutions
+  useEffect(() => {
+    if (mode === "create" && getValues("order") === undefined && nextAvailableOrder) {
+      setValue("order", nextAvailableOrder, { shouldValidate: true });
+    }
+  }, [mode, nextAvailableOrder, getValues, setValue]);
+
+  // Duplicate order conflict detection
+  const conflictingSolution = useMemo(() => {
+    if (!watchedOrder || watchedOrder < 1 || !allSolutionsData?.items) return null;
+    return allSolutionsData.items.find(
+      (s) => s.id !== solution?.id && s.order === watchedOrder,
+    );
+  }, [watchedOrder, allSolutionsData, solution?.id]);
+
+  const totalSolutionsCount = allSolutionsData?.total ?? allSolutionsData?.items?.length ?? 0;
 
   const currentThumbnail = thumbnailPreview ?? watchedThumbnail ?? solution?.thumbnail ?? "";
 
@@ -297,21 +367,56 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
     }
   };
 
+  // Auto-fill websiteUrl based on current slug or title
+  const handleAutoFillWebsiteUrl = useCallback(() => {
+    const slug =
+      watchedSlug?.trim() ||
+      (watchedTitle?.trim() ? slugifyVietnamese(watchedTitle.trim()) : "");
+
+    if (!slug) {
+      toast({
+        title: "Chưa có thông tin",
+        description: "Vui lòng nhập tiêu đề hoặc slug trước khi tự điền đường dẫn.",
+        color: "warning",
+      });
+      return;
+    }
+
+    const path = `/solution/${slug}`;
+    setValue("websiteUrl", path, {
+      shouldDirty: true,
+      shouldValidate: true,
+      shouldTouch: true,
+    });
+    toast({
+      title: "Đã tự điền đường dẫn",
+      description: `Đường dẫn liên kết: ${path}`,
+      color: "success",
+    });
+  }, [watchedSlug, watchedTitle, setValue, toast]);
+
   const [, startTransition] = useTransition();
   const isSubmitting = createMutation.isPending || updateMutation.isPending || publishMutation.isPending;
 
-  // Helper to scroll & highlight an error field
-  const scrollToErrorField = useCallback(
-    (elementId: string, targetTab: EditorTab = "info") => {
+  // Helper to jump to a specific element by DOM ID, with tab switching & glowing highlight
+  const jumpToElement = useCallback(
+    (targetTab: EditorTab, targetDomId?: string, fallbackBlockIdx?: number) => {
       if (activeTab !== targetTab) {
         setActiveTab(targetTab);
       }
 
       setTimeout(() => {
-        const el = document.getElementById(elementId);
+        let el = targetDomId ? document.getElementById(targetDomId) : null;
+        if (!el && fallbackBlockIdx !== undefined) {
+          const blockEls = document.querySelectorAll(
+            targetTab === "visual" ? ".ve-block-wrapper" : ".block-card",
+          );
+          el = (blockEls[fallbackBlockIdx] as HTMLElement) || (blockEls[0] as HTMLElement) || null;
+        }
+
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.classList.add("field-error-highlight");
+          el.classList.add("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
           const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
             "button, input, select, textarea, [contenteditable='true']",
           );
@@ -323,12 +428,119 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
             }
           }
           setTimeout(() => {
-            el.classList.remove("field-error-highlight");
-          }, 3000);
+            el?.classList.remove("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
+          }, 4000);
         }
-      }, 100);
+      }, 150);
     },
-    [activeTab, setActiveTab],
+    [activeTab],
+  );
+
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: EditorTab = "info") => {
+      jumpToElement(targetTab, elementId);
+    },
+    [jumpToElement],
+  );
+
+  // Parse backend mutation error (e.g. blocks[43].items[0].text) and display clear error toast with jump action
+  const handleMutationError = useCallback(
+    (err: { message?: string }, defaultTitle = "Lưu thất bại") => {
+      const rawMessage = err.message || "";
+      const blocks = currentDocumentContent?.blocks || [];
+
+      // Extract block, child, and item indices even if surrounded by other text
+      const blockMatch = rawMessage.match(/blocks\[(\d+)\]/i);
+      const childMatch = rawMessage.match(/\.children\[(\d+)\]/i);
+      const itemMatch = rawMessage.match(/\.items\[(\d+)\]/i);
+
+      const blockIdx = blockMatch ? parseInt(blockMatch[1], 10) : undefined;
+      const childIdx = childMatch ? parseInt(childMatch[1], 10) : undefined;
+      const itemIdx = itemMatch ? parseInt(itemMatch[1], 10) : undefined;
+
+      const isItemText = /item text/i.test(rawMessage) || itemMatch !== null;
+      const isHeadingText = /heading/i.test(rawMessage);
+      const isParagraphText = /paragraph/i.test(rawMessage);
+      const isImageUrl = /image/i.test(rawMessage) || /\.url/i.test(rawMessage);
+
+      let friendlyTitle = defaultTitle;
+      let friendlyDescription = rawMessage;
+      let targetTab: EditorTab = activeTab === "visual" ? "visual" : "blocks";
+      let targetDomId: string | undefined;
+
+      if (blockIdx !== undefined || isItemText) {
+        const resolvedBlockIdx = blockIdx ?? 0;
+        const parentBlock =
+          blocks[resolvedBlockIdx] || blocks.find((b) => b.type === "list") || blocks[0];
+        const targetBlock =
+          childIdx !== undefined && parentBlock?.type === "section"
+            ? (parentBlock as SectionBlock).children?.[childIdx]
+            : parentBlock;
+        const targetId = targetBlock?.id || parentBlock?.id;
+
+        targetTab = activeTab === "visual" ? "visual" : "blocks";
+        if (targetId) {
+          targetDomId = `block-${targetId}`;
+        }
+
+        if (isItemText) {
+          const parentName =
+            parentBlock?.type === "section"
+              ? ` trong nhóm "${(parentBlock as SectionBlock).title || "Nhóm"}"`
+              : "";
+          friendlyTitle = "Mục danh sách đang để trống";
+          friendlyDescription = `Mục số ${Number(itemIdx ?? 0) + 1} của danh sách${parentName} (Khối ${resolvedBlockIdx + 1}) chưa có nội dung. Vui lòng nhập nội dung cho mục này hoặc xoá mục này đi.`;
+        } else if (isHeadingText) {
+          friendlyTitle = "Tiêu đề mục đang để trống";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Tiêu đề) đang bị để trống. Vui lòng nhập nội dung tiêu đề.`;
+        } else if (isParagraphText) {
+          friendlyTitle = "Đoạn văn đang để trống";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Đoạn văn) chưa có nội dung. Vui lòng nhập nội dung hoặc xoá khối này.`;
+        } else if (isImageUrl) {
+          friendlyTitle = "Hình ảnh chưa có đường dẫn";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Hình ảnh) chưa có ảnh. Vui lòng tải ảnh lên hoặc dán URL ảnh.`;
+        } else {
+          friendlyTitle = `Khối nội dung ${resolvedBlockIdx + 1} chưa hợp lệ`;
+          friendlyDescription = rawMessage.replace(
+            /Item text không được để trống/i,
+            "Mục danh sách không được để trống",
+          );
+        }
+      } else if (rawMessage.includes("title")) {
+        friendlyTitle = "Tiêu đề không hợp lệ";
+        friendlyDescription = "Tiêu đề giải pháp không được để trống và tối đa 255 ký tự.";
+        targetTab = "info";
+        targetDomId = "field-title";
+      } else if (rawMessage.includes("slug")) {
+        friendlyTitle = "Đường dẫn không hợp lệ";
+        friendlyDescription = "Đường dẫn (slug) giải pháp không hợp lệ hoặc đã bị trùng lặp.";
+        targetTab = "info";
+        targetDomId = "field-slug";
+      } else {
+        friendlyDescription = rawMessage.replace(
+          /Item text không được để trống/i,
+          "Mục danh sách không được để trống",
+        );
+      }
+
+      // Auto-jump to the exact element needing input
+      jumpToElement(targetTab, targetDomId, blockIdx);
+
+      toast({
+        title: friendlyTitle,
+        description: friendlyDescription,
+        color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi đến vị trí lỗi →",
+          onClick: () => {
+            jumpToElement(targetTab, targetDomId, blockIdx);
+          },
+        },
+      });
+    },
+    [currentDocumentContent, activeTab, jumpToElement, toast],
   );
 
   // Submit Handler — supports both draft and publish in create mode, and preserves status in edit mode
@@ -409,6 +621,20 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
 
           await queryClient.invalidateQueries({ queryKey: solutionKeys.all });
 
+          if (
+            conflictingSolution &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            allSolutionsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              solutionId!,
+              submitData.order,
+              allSolutionsData.items,
+            );
+            reorderSolutionsMutation.mutate(reorderedItems);
+          }
+
           toast({
             title: publish ? "Đã xuất bản giải pháp" : "Đã lưu bản nháp",
             color: "success",
@@ -418,11 +644,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
           });
         },
         onError: (err) => {
-          toast({
-            title: "Tạo giải pháp thất bại",
-            description: err.message,
-            color: "danger",
-          });
+          handleMutationError(err, "Tạo giải pháp thất bại");
         },
       });
     } else {
@@ -455,14 +677,25 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
             setDiscardedThumbnailFileIds([]);
             setDiscardedContentFileIds([]);
           }
+
+          if (
+            conflictingSolution &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            allSolutionsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              solution!.id,
+              submitData.order,
+              allSolutionsData.items,
+            );
+            reorderSolutionsMutation.mutate(reorderedItems);
+          }
+
           toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (err) => {
-          toast({
-            title: "Lưu thất bại",
-            description: err.message,
-            color: "danger",
-          });
+          handleMutationError(err, "Lưu thất bại");
         },
       });
     }
@@ -690,13 +923,81 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                       />
                     </div>
 
-                    <FormInput
-                      label="Slug (Đường dẫn tĩnh)"
-                      placeholder="giai-phap-chuyen-doi-so"
-                      helperText="Để trống để tự động tạo từ tiêu đề"
-                      errorMessage={errors.slug?.message}
-                      {...register("slug")}
-                    />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div id="field-slug">
+                        <FormInput
+                          label="Slug (Đường dẫn tĩnh)"
+                          placeholder="giai-phap-chuyen-doi-so"
+                          helperText="Để trống để tự động tạo từ tiêu đề"
+                          errorMessage={errors.slug?.message}
+                          {...register("slug")}
+                        />
+                      </div>
+                      <div id="field-order">
+                        <FormInput
+                          type="number"
+                          label="Vị trí sắp xếp (Thứ tự)"
+                          placeholder="1"
+                          min={1}
+                          step={1}
+                          startContent={<span className="font-mono text-xs text-text-muted">#</span>}
+                          errorMessage={errors.order?.message}
+                          helperText={
+                            !conflictingSolution && typeof watchedOrder === "number" && watchedOrder > 0
+                              ? watchedOrder > totalSolutionsCount
+                                ? `Hiện có ${totalSolutionsCount} giải pháp. Sẽ xếp ở cuối.`
+                                : "Số nhỏ hơn sẽ hiển thị trước (1 là đầu tiên)"
+                              : undefined
+                          }
+                          {...register("order", {
+                            valueAsNumber: true,
+                            min: { value: 1, message: "Vị trí sắp xếp phải lớn hơn hoặc bằng 1" },
+                          })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cảnh báo và gợi ý khi trùng vị trí sắp xếp */}
+                    {conflictingSolution && (
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text">
+                        <div className="flex items-start gap-2.5">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <div className="flex-1 space-y-1">
+                            <p className="font-semibold text-text">
+                              Vị trí #{watchedOrder} đang thuộc về giải pháp &ldquo;{conflictingSolution.title}&rdquo;
+                            </p>
+                            <p className="text-text-muted leading-relaxed">
+                              Khi lưu, hệ thống sẽ tự động chèn giải pháp này vào vị trí #{watchedOrder} và dời các giải pháp sau xuống để không bị trùng số.
+                            </p>
+                            {nextAvailableOrder && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setValue("order", nextAvailableOrder, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              >
+                                ↳ Hoặc dùng vị trí chưa ai chọn: #{nextAvailableOrder}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <FormTextarea
                       label="Mô tả ngắn"
@@ -706,13 +1007,35 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                       {...register("shortDescription")}
                     />
 
-                    <FormInput
-                      label="Đường dẫn Website liên kết (Website URL)"
-                      placeholder="https://vdcd.vn/services/giai-phap-chuyen-doi-so"
-                      helperText="Đường dẫn đến website riêng hoặc trang landing page của giải pháp (nếu có)."
-                      errorMessage={errors.websiteUrl?.message}
-                      {...register("websiteUrl")}
-                    />
+                    <div className="relative">
+                      <FormInput
+                        id="field-website-url"
+                        label="Đường dẫn Website liên kết (Website URL)"
+                        placeholder="/solution/uav hoặc https://..."
+                        helperText="Hỗ trợ đường dẫn nội bộ (ví dụ: /solution/uav) hoặc website ngoài (https://...)."
+                        errorMessage={errors.websiteUrl?.message}
+                        {...register("websiteUrl")}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAutoFillWebsiteUrl}
+                        className="absolute right-0 top-0 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover hover:underline transition-colors cursor-pointer"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-3.5 w-3.5"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Tự điền đường dẫn (/solution/...)
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
 

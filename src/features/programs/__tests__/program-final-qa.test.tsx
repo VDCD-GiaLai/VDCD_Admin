@@ -111,6 +111,23 @@ describe("PHASE 10 — PROGRAM CONTENT EDITOR FINAL QA MATRIX", () => {
       const parsed = programSchema.safeParse(invalidData);
       expect(parsed.success).toBe(false);
     });
+
+    it("validates and accepts order field (integer >= 1, null, or optional)", () => {
+      const withOrder = programSchema.safeParse({
+        title: "Chương trình Có Thứ tự",
+        order: 5,
+      });
+      expect(withOrder.success).toBe(true);
+      if (withOrder.success) {
+        expect(withOrder.data.order).toBe(5);
+      }
+
+      const invalidOrder = programSchema.safeParse({
+        title: "Chương trình Không hợp lệ",
+        order: -1,
+      });
+      expect(invalidOrder.success).toBe(false);
+    });
   });
 
   // ─── 2. BLOCKS ────────────────────────────────────────────────────────────

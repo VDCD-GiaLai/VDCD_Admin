@@ -24,6 +24,8 @@ import {
   useUpdateProgram,
   usePublishProgram,
   useDeleteProgram,
+  usePrograms,
+  useReorderPrograms,
   programKeys,
 } from "../api";
 import { usePermission } from "@/hooks/usePermission";
@@ -53,6 +55,36 @@ export interface ProgramEditorProps {
   program?: Program;
 }
 
+function resolveDuplicateOrders(
+  currentProgramId: string,
+  targetOrder: number,
+  programsList: { id: string; order?: number }[],
+): { id: string; order: number }[] {
+  const others = programsList
+    .filter((p) => p.id !== currentProgramId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const newReordered: { id: string; order: number }[] = [];
+  let currentAssigned = false;
+  let runningOrder = 1;
+
+  for (const item of others) {
+    if (!currentAssigned && runningOrder >= targetOrder) {
+      newReordered.push({ id: currentProgramId, order: runningOrder });
+      currentAssigned = true;
+      runningOrder++;
+    }
+    newReordered.push({ id: item.id, order: runningOrder });
+    runningOrder++;
+  }
+
+  if (!currentAssigned) {
+    newReordered.push({ id: currentProgramId, order: runningOrder });
+  }
+
+  return newReordered;
+}
+
 export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -61,6 +93,8 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const updateMutation = useUpdateProgram(program?.id ?? "");
   const publishMutation = usePublishProgram();
   const deleteMutation = useDeleteProgram();
+  const { data: allProgramsData } = usePrograms({ limit: 100 });
+  const reorderProgramsMutation = useReorderPrograms();
   const { data: operationFields } = useOperationFields();
 
   const canDelete = usePermission("programs:delete");
@@ -174,6 +208,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
       thumbnail: program?.thumbnail ?? "",
       thumbnailFileId: program?.thumbnailFileId ?? null,
       fieldId: program?.field?.id ?? null,
+      order: program?.order ?? undefined,
       metaTitle: program?.metaTitle ?? "",
       metaDescription: program?.metaDescription ?? "",
       isPublished: program?.isPublished ?? false,
@@ -192,6 +227,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
         thumbnail: program.thumbnail ?? "",
         thumbnailFileId: program.thumbnailFileId ?? null,
         fieldId: program.field?.id ?? null,
+        order: program.order ?? 1,
         metaTitle: program.metaTitle ?? "",
         metaDescription: program.metaDescription ?? "",
         isPublished: program.isPublished,
@@ -204,10 +240,44 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const watchedShortDescription = useWatch({ control, name: "shortDescription" }) ?? "";
   const watchedThumbnail = useWatch({ control, name: "thumbnail" }) ?? "";
   const watchedSlug = useWatch({ control, name: "slug" }) ?? "";
+  const watchedOrder = useWatch({ control, name: "order" });
   const watchedFieldId = useWatch({ control, name: "fieldId" });
   const rawWatchedContent = useWatch({ control, name: "content" });
   const watchedIsPublished = useWatch({ control, name: "isPublished" });
   const isCurrentlyPublished = watchedIsPublished ?? program?.isPublished ?? false;
+
+  // Next available positive integer order
+  const nextAvailableOrder = useMemo(() => {
+    if (!allProgramsData?.items || allProgramsData.items.length === 0) return 1;
+    const otherOrders = allProgramsData.items
+      .filter((p) => p.id !== program?.id)
+      .map((p) => p.order)
+      .filter((o): o is number => typeof o === "number" && o > 0);
+
+    if (otherOrders.length === 0) return 1;
+    const maxOrder = Math.max(...otherOrders);
+    for (let i = 1; i <= maxOrder; i++) {
+      if (!otherOrders.includes(i)) return i;
+    }
+    return maxOrder + 1;
+  }, [allProgramsData, program?.id]);
+
+  // Set default order for new programs
+  useEffect(() => {
+    if (mode === "create" && getValues("order") === undefined && nextAvailableOrder) {
+      setValue("order", nextAvailableOrder, { shouldValidate: true });
+    }
+  }, [mode, nextAvailableOrder, getValues, setValue]);
+
+  // Duplicate order conflict detection
+  const conflictingProgram = useMemo(() => {
+    if (!watchedOrder || watchedOrder < 1 || !allProgramsData?.items) return null;
+    return allProgramsData.items.find(
+      (p) => p.id !== program?.id && p.order === watchedOrder,
+    );
+  }, [watchedOrder, allProgramsData, program?.id]);
+
+  const totalProgramsCount = allProgramsData?.total ?? allProgramsData?.items?.length ?? 0;
 
   const currentThumbnail = thumbnailPreview ?? watchedThumbnail ?? program?.thumbnail ?? "";
 
@@ -294,18 +364,25 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const [, startTransition] = useTransition();
   const isSubmitting = createMutation.isPending || updateMutation.isPending || publishMutation.isPending;
 
-  // Helper to scroll & highlight an error field
-  const scrollToErrorField = useCallback(
-    (elementId: string, targetTab: EditorTab = "info") => {
+  // Helper to jump to a specific element by DOM ID, with tab switching & glowing highlight
+  const jumpToElement = useCallback(
+    (targetTab: EditorTab, targetDomId?: string, fallbackBlockIdx?: number) => {
       if (activeTab !== targetTab) {
         setActiveTab(targetTab);
       }
 
       setTimeout(() => {
-        const el = document.getElementById(elementId);
+        let el = targetDomId ? document.getElementById(targetDomId) : null;
+        if (!el && fallbackBlockIdx !== undefined) {
+          const blockEls = document.querySelectorAll(
+            targetTab === "visual" ? ".ve-block-wrapper" : ".block-card",
+          );
+          el = (blockEls[fallbackBlockIdx] as HTMLElement) || (blockEls[0] as HTMLElement) || null;
+        }
+
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.classList.add("field-error-highlight");
+          el.classList.add("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
           const focusable = el.querySelector<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement>(
             "button, input, select, textarea, [contenteditable='true']",
           );
@@ -317,12 +394,119 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
             }
           }
           setTimeout(() => {
-            el.classList.remove("field-error-highlight");
-          }, 3000);
+            el?.classList.remove("ring-4", "ring-danger", "ring-offset-2", "animate-pulse");
+          }, 4000);
         }
-      }, 100);
+      }, 150);
     },
     [activeTab],
+  );
+
+  // Helper to scroll & highlight an error field
+  const scrollToErrorField = useCallback(
+    (elementId: string, targetTab: EditorTab = "info") => {
+      jumpToElement(targetTab, elementId);
+    },
+    [jumpToElement],
+  );
+
+  // Parse backend mutation error (e.g. blocks[43].items[0].text) and display clear error toast with jump action
+  const handleMutationError = useCallback(
+    (err: { message?: string }, defaultTitle = "Lưu thất bại") => {
+      const rawMessage = err.message || "";
+      const blocks = currentDocumentContent?.blocks || [];
+
+      // Extract block, child, and item indices even if surrounded by other text
+      const blockMatch = rawMessage.match(/blocks\[(\d+)\]/i);
+      const childMatch = rawMessage.match(/\.children\[(\d+)\]/i);
+      const itemMatch = rawMessage.match(/\.items\[(\d+)\]/i);
+
+      const blockIdx = blockMatch ? parseInt(blockMatch[1], 10) : undefined;
+      const childIdx = childMatch ? parseInt(childMatch[1], 10) : undefined;
+      const itemIdx = itemMatch ? parseInt(itemMatch[1], 10) : undefined;
+
+      const isItemText = /item text/i.test(rawMessage) || itemMatch !== null;
+      const isHeadingText = /heading/i.test(rawMessage);
+      const isParagraphText = /paragraph/i.test(rawMessage);
+      const isImageUrl = /image/i.test(rawMessage) || /\.url/i.test(rawMessage);
+
+      let friendlyTitle = defaultTitle;
+      let friendlyDescription = rawMessage;
+      let targetTab: EditorTab = activeTab === "visual" ? "visual" : "blocks";
+      let targetDomId: string | undefined;
+
+      if (blockIdx !== undefined || isItemText) {
+        const resolvedBlockIdx = blockIdx ?? 0;
+        const parentBlock =
+          blocks[resolvedBlockIdx] || blocks.find((b) => b.type === "list") || blocks[0];
+        const targetBlock =
+          childIdx !== undefined && parentBlock?.type === "section"
+            ? (parentBlock as SectionBlock).children?.[childIdx]
+            : parentBlock;
+        const targetId = targetBlock?.id || parentBlock?.id;
+
+        targetTab = activeTab === "visual" ? "visual" : "blocks";
+        if (targetId) {
+          targetDomId = `block-${targetId}`;
+        }
+
+        if (isItemText) {
+          const parentName =
+            parentBlock?.type === "section"
+              ? ` trong nhóm "${(parentBlock as SectionBlock).title || "Nhóm"}"`
+              : "";
+          friendlyTitle = "Mục danh sách đang để trống";
+          friendlyDescription = `Mục số ${Number(itemIdx ?? 0) + 1} của danh sách${parentName} (Khối ${resolvedBlockIdx + 1}) chưa có nội dung. Vui lòng nhập nội dung cho mục này hoặc xoá mục này đi.`;
+        } else if (isHeadingText) {
+          friendlyTitle = "Tiêu đề mục đang để trống";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Tiêu đề) đang bị để trống. Vui lòng nhập nội dung tiêu đề.`;
+        } else if (isParagraphText) {
+          friendlyTitle = "Đoạn văn đang để trống";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Đoạn văn) chưa có nội dung. Vui lòng nhập nội dung hoặc xoá khối này.`;
+        } else if (isImageUrl) {
+          friendlyTitle = "Hình ảnh chưa có đường dẫn";
+          friendlyDescription = `Khối ${resolvedBlockIdx + 1} (Hình ảnh) chưa có ảnh. Vui lòng tải ảnh lên hoặc dán URL ảnh.`;
+        } else {
+          friendlyTitle = `Khối nội dung ${resolvedBlockIdx + 1} chưa hợp lệ`;
+          friendlyDescription = rawMessage.replace(
+            /Item text không được để trống/i,
+            "Mục danh sách không được để trống",
+          );
+        }
+      } else if (rawMessage.includes("title")) {
+        friendlyTitle = "Tiêu đề không hợp lệ";
+        friendlyDescription = "Tiêu đề chương trình không được để trống và tối đa 255 ký tự.";
+        targetTab = "info";
+        targetDomId = "field-title";
+      } else if (rawMessage.includes("slug")) {
+        friendlyTitle = "Đường dẫn không hợp lệ";
+        friendlyDescription = "Đường dẫn (slug) chương trình không hợp lệ hoặc đã bị trùng lặp.";
+        targetTab = "info";
+        targetDomId = "field-slug";
+      } else {
+        friendlyDescription = rawMessage.replace(
+          /Item text không được để trống/i,
+          "Mục danh sách không được để trống",
+        );
+      }
+
+      // Auto-jump to the exact element needing input
+      jumpToElement(targetTab, targetDomId, blockIdx);
+
+      toast({
+        title: friendlyTitle,
+        description: friendlyDescription,
+        color: "danger",
+        duration: 8000,
+        action: {
+          label: "Đi đến vị trí lỗi →",
+          onClick: () => {
+            jumpToElement(targetTab, targetDomId, blockIdx);
+          },
+        },
+      });
+    },
+    [currentDocumentContent, activeTab, jumpToElement, toast],
   );
 
   // Submit Handler — supports both draft and publish in create mode, and preserves status in edit mode
@@ -402,6 +586,20 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
 
           await queryClient.invalidateQueries({ queryKey: programKeys.all });
 
+          if (
+            conflictingProgram &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            allProgramsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              programId!,
+              submitData.order,
+              allProgramsData.items,
+            );
+            reorderProgramsMutation.mutate(reorderedItems);
+          }
+
           toast({
             title: publish ? "Đã xuất bản chương trình" : "Đã lưu bản nháp",
             color: "success",
@@ -411,11 +609,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
           });
         },
         onError: (err) => {
-          toast({
-            title: "Tạo chương trình thất bại",
-            description: err.message,
-            color: "danger",
-          });
+          handleMutationError(err, "Tạo chương trình thất bại");
         },
       });
     } else {
@@ -448,60 +642,74 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
             setDiscardedThumbnailFileIds([]);
             setDiscardedContentFileIds([]);
           }
+
+          if (
+            conflictingProgram &&
+            typeof submitData.order === "number" &&
+            submitData.order >= 1 &&
+            allProgramsData?.items
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              program!.id,
+              submitData.order,
+              allProgramsData.items,
+            );
+            reorderProgramsMutation.mutate(reorderedItems);
+          }
+
           toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (err) => {
-          toast({
-            title: "Lưu thất bại",
-            description: err.message,
-            color: "danger",
-          });
+          handleMutationError(err, "Lưu thất bại");
         },
       });
     }
   };
 
   // Validation Error Handler (for create mode forms)
-  const onInvalid = useCallback((fieldErrors: FieldErrors<ProgramFormData>) => {
-    if (fieldErrors.title) {
-      scrollToErrorField("field-title", "info");
+  const onInvalid = useCallback(
+    (fieldErrors: FieldErrors<ProgramFormData>) => {
+      if (fieldErrors.title) {
+        scrollToErrorField("field-title", "info");
+        toast({
+          title: "Thiếu tiêu đề chương trình",
+          description: fieldErrors.title.message || "Tiêu đề chương trình không được để trống.",
+          color: "danger",
+          duration: 8000,
+          action: {
+            label: "Đi tới tiêu đề",
+            onClick: () => scrollToErrorField("field-title", "info"),
+          },
+        });
+        return;
+      }
+
+      const firstErrorKey = Object.keys(fieldErrors)[0];
+      const firstError = Object.values(fieldErrors)[0];
+      const message = firstError?.message;
+      const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
+
+      if (targetElementId) {
+        scrollToErrorField(targetElementId, "info");
+      }
+
       toast({
-        title: "Thiếu tiêu đề chương trình",
-        description: fieldErrors.title.message || "Tiêu đề chương trình không được để trống.",
+        title: "Không thể lưu chương trình",
+        description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ. Vui lòng kiểm tra lại.",
         color: "danger",
         duration: 8000,
-        action: {
-          label: "Đi tới tiêu đề",
-          onClick: () => scrollToErrorField("field-title", "info"),
-        },
+        ...(targetElementId
+          ? {
+              action: {
+                label: "Đi tới vị trí lỗi →",
+                onClick: () => scrollToErrorField(targetElementId, "info"),
+              },
+            }
+          : {}),
       });
-      return;
-    }
-
-    const firstErrorKey = Object.keys(fieldErrors)[0];
-    const firstError = Object.values(fieldErrors)[0];
-    const message = firstError?.message;
-    const targetElementId = firstErrorKey ? `field-${firstErrorKey}` : undefined;
-
-    if (targetElementId) {
-      scrollToErrorField(targetElementId, "info");
-    }
-
-    toast({
-      title: "Không thể lưu chương trình",
-      description: typeof message === "string" ? message : "Dữ liệu nhập chưa hợp lệ. Vui lòng kiểm tra lại.",
-      color: "danger",
-      duration: 8000,
-      ...(targetElementId
-        ? {
-          action: {
-            label: "Đi tới vị trí lỗi",
-            onClick: () => scrollToErrorField(targetElementId, "info"),
-          },
-        }
-        : {}),
-    });
-  }, [scrollToErrorField, toast]);
+    },
+    [scrollToErrorField, toast],
+  );
 
   // Toggle Publish (edit mode only)
   const handleTogglePublish = (publish: boolean) => {
@@ -681,12 +889,76 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
                         {...register("title")}
                       />
                     </div>
-                    <FormInput
-                      label="Slug (Đường dẫn tĩnh)"
-                      helperText="Để trống để tự động tạo từ tiêu đề"
-                      errorMessage={errors.slug?.message}
-                      {...register("slug")}
-                    />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div id="field-slug">
+                        <FormInput
+                          label="Slug (Đường dẫn tĩnh)"
+                          placeholder="chuong-trinh-uom-tao"
+                          helperText="Để trống để tự động tạo từ tiêu đề"
+                          errorMessage={errors.slug?.message}
+                          {...register("slug")}
+                        />
+                      </div>
+                      <div id="field-order">
+                        <FormInput
+                          type="number"
+                          label="Vị trí sắp xếp (Thứ tự)"
+                          placeholder="1"
+                          min={1}
+                          step={1}
+                          startContent={<span className="font-mono text-xs text-text-muted">#</span>}
+                          errorMessage={errors.order?.message}
+                          helperText={
+                            !conflictingProgram && typeof watchedOrder === "number" && watchedOrder > 0
+                              ? watchedOrder > totalProgramsCount
+                                ? `Hiện có ${totalProgramsCount} chương trình. Sẽ xếp ở cuối.`
+                                : "Số nhỏ hơn sẽ hiển thị trước (1 là đầu tiên)"
+                              : undefined
+                          }
+                          {...register("order", {
+                            valueAsNumber: true,
+                            min: { value: 1, message: "Vị trí sắp xếp phải lớn hơn hoặc bằng 1" },
+                          })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cảnh báo và gợi ý khi trùng vị trí sắp xếp */}
+                    {conflictingProgram && (
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text">
+                        <div className="flex items-start gap-2.5">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <div className="flex-1 space-y-1">
+                            <p className="font-semibold text-text">
+                              Vị trí #{watchedOrder} đang thuộc về chương trình &ldquo;{conflictingProgram.title}&rdquo;
+                            </p>
+                            <p className="text-text-muted leading-relaxed">
+                              Khi lưu, hệ thống sẽ tự động chèn chương trình này vào vị trí #{watchedOrder} và dời các chương trình sau xuống để không bị trùng số.
+                            </p>
+                            {nextAvailableOrder && (
+                              <button
+                                type="button"
+                                onClick={() => setValue("order", nextAvailableOrder, { shouldValidate: true })}
+                                className="mt-1 text-primary hover:underline font-medium"
+                              >
+                                ↳ Hoặc dùng vị trí chưa ai chọn: #{nextAvailableOrder}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <FormTextarea
                       label="Mô tả ngắn (Hiển thị đầu bài & tóm tắt)"
                       rows={3}
