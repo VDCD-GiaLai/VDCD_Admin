@@ -118,6 +118,23 @@ export function useDeleteProject() {
   });
 }
 
+/**
+ * PATCH /admin/projects/reorder — reorder projects.
+ */
+export function useReorderProjects() {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, { id: string; order: number }[]>({
+    mutationFn: (items) =>
+      clientFetch<void>("/api/admin/projects/reorder", {
+        method: "PATCH",
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
 // ─── Gallery Mutations ───────────────────────────────────────
 
 /**

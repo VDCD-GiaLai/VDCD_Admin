@@ -32,6 +32,7 @@ export interface Project {
   content?: DocumentContent | null;
   thumbnail: string | null;
   thumbnailFileId: string | null;
+  order?: number;
   field: { id: string; name: string; slug: string } | null;
   province: { id: string; name: string; code: string } | null;
   year: number | null;

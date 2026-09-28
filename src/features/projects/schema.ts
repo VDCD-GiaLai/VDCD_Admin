@@ -35,6 +35,7 @@ export const projectSchema = z.object({
     ])
     .nullable()
     .optional(),
+  order: z.number().int().optional(),
 
   // ── Detail fields ──────────────────────────────────────
   challenge: z.string().optional(),
