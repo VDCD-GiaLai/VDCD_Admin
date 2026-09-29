@@ -186,6 +186,15 @@ function normalizeChildBlock(raw: unknown): ContentBlock | null {
       type: "paragraph",
       text: typeof b.text === "string" && b.text.trim() ? b.text : " ",
       fontSize: typeof b.fontSize === "number" ? b.fontSize : undefined,
+      lineHeight: typeof b.lineHeight === "number" ? b.lineHeight : undefined,
+      color: typeof b.color === "string" ? b.color : undefined,
+      backgroundColor: typeof b.backgroundColor === "string" ? b.backgroundColor : undefined,
+      borderColor: typeof b.borderColor === "string" ? b.borderColor : undefined,
+      borderWidth: typeof b.borderWidth === "number" ? b.borderWidth : undefined,
+      borderRadius: typeof b.borderRadius === "number" ? b.borderRadius : undefined,
+      padding: typeof b.padding === "number" ? b.padding : undefined,
+      indent: typeof b.indent === "number" ? b.indent : undefined,
+      textAlign: typeof b.textAlign === "string" ? (b.textAlign as "left" | "center" | "right" | "justify") : undefined,
       spacing: b.spacing as ContentBlock["spacing"],
     } as ContentBlock;
   }
@@ -201,6 +210,14 @@ function normalizeChildBlock(raw: unknown): ContentBlock | null {
       level,
       text: typeof b.text === "string" && b.text.trim() ? b.text : "Tiêu đề",
       fontSize: typeof b.fontSize === "number" ? b.fontSize : undefined,
+      lineHeight: typeof b.lineHeight === "number" ? b.lineHeight : undefined,
+      color: typeof b.color === "string" ? b.color : undefined,
+      backgroundColor: typeof b.backgroundColor === "string" ? b.backgroundColor : undefined,
+      borderColor: typeof b.borderColor === "string" ? b.borderColor : undefined,
+      borderWidth: typeof b.borderWidth === "number" ? b.borderWidth : undefined,
+      borderRadius: typeof b.borderRadius === "number" ? b.borderRadius : undefined,
+      padding: typeof b.padding === "number" ? b.padding : undefined,
+      textAlign: typeof b.textAlign === "string" ? (b.textAlign as "left" | "center" | "right" | "justify") : undefined,
       spacing: b.spacing as ContentBlock["spacing"],
     } as ContentBlock;
   }
@@ -213,6 +230,12 @@ function normalizeChildBlock(raw: unknown): ContentBlock | null {
       fileId: typeof b.fileId === "string" ? b.fileId : null,
       alt: typeof b.alt === "string" ? b.alt : "",
       caption: typeof b.caption === "string" ? b.caption : null,
+      layout: b.layout === "dual" ? "dual" : "single",
+      secondaryUrl: typeof b.secondaryUrl === "string" ? b.secondaryUrl : null,
+      secondaryFileId: typeof b.secondaryFileId === "string" ? b.secondaryFileId : null,
+      secondaryAlt: typeof b.secondaryAlt === "string" ? b.secondaryAlt : "",
+      secondaryCaption: typeof b.secondaryCaption === "string" ? b.secondaryCaption : null,
+      aspectRatio: typeof b.aspectRatio === "string" ? b.aspectRatio : null,
       spacing: b.spacing as ContentBlock["spacing"],
     } as ContentBlock;
   }
@@ -245,6 +268,9 @@ function normalizeChildBlock(raw: unknown): ContentBlock | null {
             ],
       listType: (b.listType as "bullet" | "ordered" | "checklist") || (type === "ordered_list" ? "ordered" : "bullet"),
       listStyle: b.listStyle as "disc" | "circle" | "square" | "decimal" | "lower-alpha" | "upper-alpha" | "lower-roman" | "upper-roman" | "checklist" | undefined,
+      fontSize: typeof b.fontSize === "number" ? b.fontSize : undefined,
+      lineHeight: typeof b.lineHeight === "number" ? b.lineHeight : undefined,
+      style: typeof b.style === "object" && b.style !== null ? b.style : undefined,
       spacing: b.spacing as ContentBlock["spacing"],
     } as ContentBlock;
   }

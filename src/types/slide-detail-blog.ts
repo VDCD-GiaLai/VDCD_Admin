@@ -23,6 +23,14 @@ export interface HeadingBlock {
   level: 1 | 2 | 3 | 4 | 5 | 6;
   text: string;
   fontSize?: number;
+  lineHeight?: number;
+  color?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  padding?: number;
+  textAlign?: "left" | "center" | "right" | "justify";
   spacing?: BlockSpacing;
 }
 
@@ -31,6 +39,15 @@ export interface ParagraphBlock {
   type: "paragraph";
   text: string;
   fontSize?: number;
+  lineHeight?: number;
+  color?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  padding?: number;
+  indent?: number;
+  textAlign?: "left" | "center" | "right" | "justify";
   spacing?: BlockSpacing;
 }
 
@@ -41,6 +58,13 @@ export interface ImageBlock {
   fileId?: string | null;
   alt?: string;
   caption?: string | null;
+  /** Layout: 1 ảnh đơn (mặc định) hoặc 2 ảnh song song */
+  layout?: "single" | "dual";
+  secondaryUrl?: string | null;
+  secondaryFileId?: string | null;
+  secondaryAlt?: string;
+  secondaryCaption?: string | null;
+  aspectRatio?: string | null;
   spacing?: BlockSpacing;
 }
 
@@ -220,6 +244,10 @@ export interface HeroMeta {
   position?: "top" | "center" | "bottom";
   /** Caption displayed below the hero image */
   caption?: string;
+  /** Chỉ dùng làm ảnh đại diện Thumbnail (ẩn khỏi thân bài viết) */
+  hideInContent?: boolean;
+  /** Thu gọn/ẩn xem trước ảnh bìa trong trình soạn thảo */
+  collapsedInEditor?: boolean;
 }
 
 export interface SlideDetailBlogContent {

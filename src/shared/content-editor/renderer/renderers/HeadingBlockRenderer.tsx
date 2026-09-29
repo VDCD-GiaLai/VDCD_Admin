@@ -51,14 +51,35 @@ export function HeadingBlockRenderer({
   );
 
   const Tag = `h${block.level}` as const;
-  const fontStyle = useMemo(
-    () => (block.fontSize ? { fontSize: `${block.fontSize}px` } : undefined),
-    [block.fontSize],
+  const blockStyle = useMemo(
+    () => ({
+      fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
+      lineHeight: block.lineHeight ? block.lineHeight : undefined,
+      color: block.color || undefined,
+      backgroundColor: block.backgroundColor || undefined,
+      borderColor: block.borderColor || undefined,
+      borderWidth: block.borderWidth ? `${block.borderWidth}px` : undefined,
+      borderStyle: block.borderColor ? "solid" : undefined,
+      borderRadius: block.borderRadius ? `${block.borderRadius}px` : undefined,
+      padding: block.padding ? `${block.padding}px` : undefined,
+      textAlign: block.textAlign || undefined,
+    }),
+    [
+      block.fontSize,
+      block.lineHeight,
+      block.color,
+      block.backgroundColor,
+      block.borderColor,
+      block.borderWidth,
+      block.borderRadius,
+      block.padding,
+      block.textAlign,
+    ],
   );
 
   if (!block.text?.trim() && !editable) {
     return (
-      <Tag className="blog-preview-heading italic text-text-muted/50" style={fontStyle}>
+      <Tag className="blog-preview-heading italic text-text-muted/50" style={blockStyle}>
         (Tiêu đề trống)
       </Tag>
     );
@@ -69,7 +90,7 @@ export function HeadingBlockRenderer({
       <Tag
         ref={ref}
         className="blog-preview-heading ve-editable"
-        style={fontStyle}
+        style={blockStyle}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
@@ -85,7 +106,7 @@ export function HeadingBlockRenderer({
   return (
     <Tag
       className="blog-preview-heading"
-      style={fontStyle}
+      style={blockStyle}
       dangerouslySetInnerHTML={{ __html: block.text }}
     />
   );

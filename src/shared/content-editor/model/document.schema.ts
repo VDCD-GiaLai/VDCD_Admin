@@ -12,35 +12,61 @@ export const blockSpacingSchema = z
 
 // ─── Block Schemas ───────────────────────────────────────────
 
-export const headingBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("heading"),
-  level: z.union(
-    [z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)],
-    { error: "Cấp độ tiêu đề phải là H1–H6" },
-  ),
-  text: z.string().min(1, "Tiêu đề mục không được để trống"),
-  fontSize: z.number().min(10).max(96).optional(),
-  spacing: blockSpacingSchema,
-});
+export const headingBlockSchema = z
+  .object({
+    id: z.string(),
+    type: z.literal("heading"),
+    level: z.union(
+      [z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)],
+      { error: "Cấp độ tiêu đề phải là H1–H6" },
+    ),
+    text: z.string().min(1, "Tiêu đề mục không được để trống"),
+    fontSize: z.number().min(10).max(96).optional(),
+    lineHeight: z.number().min(0.5).max(4.0).optional(),
+    color: z.string().optional(),
+    backgroundColor: z.string().optional(),
+    borderColor: z.string().optional(),
+    borderWidth: z.number().min(0).max(50).optional(),
+    borderRadius: z.number().min(0).max(100).optional(),
+    padding: z.number().min(0).max(100).optional(),
+    textAlign: z.enum(["left", "center", "right", "justify"]).optional(),
+    spacing: blockSpacingSchema,
+  });
 
-export const paragraphBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("paragraph"),
-  text: z.string().min(1, "Nội dung đoạn văn không được để trống"),
-  fontSize: z.number().min(10).max(96).optional(),
-  spacing: blockSpacingSchema,
-});
+export const paragraphBlockSchema = z
+  .object({
+    id: z.string(),
+    type: z.literal("paragraph"),
+    text: z.string().min(1, "Nội dung đoạn văn không được để trống"),
+    fontSize: z.number().min(10).max(96).optional(),
+    lineHeight: z.number().min(0.5).max(4.0).optional(),
+    color: z.string().optional(),
+    backgroundColor: z.string().optional(),
+    borderColor: z.string().optional(),
+    borderWidth: z.number().min(0).max(50).optional(),
+    borderRadius: z.number().min(0).max(100).optional(),
+    padding: z.number().min(0).max(100).optional(),
+    indent: z.number().min(0).max(200).optional(),
+    textAlign: z.enum(["left", "center", "right", "justify"]).optional(),
+    spacing: blockSpacingSchema,
+  });
 
-export const imageBlockSchema = z.object({
-  id: z.string(),
-  type: z.literal("image"),
-  url: z.string().min(1, "Đường dẫn ảnh không được để trống"),
-  fileId: z.string().nullable().optional(),
-  alt: z.string().optional(),
-  caption: z.string().nullable().optional(),
-  spacing: blockSpacingSchema,
-});
+export const imageBlockSchema = z
+  .object({
+    id: z.string(),
+    type: z.literal("image"),
+    url: z.string().min(1, "Đường dẫn ảnh không được để trống"),
+    fileId: z.string().nullable().optional(),
+    alt: z.string().optional(),
+    caption: z.string().nullable().optional(),
+    layout: z.enum(["single", "dual"]).optional(),
+    secondaryUrl: z.string().nullable().optional(),
+    secondaryFileId: z.string().nullable().optional(),
+    secondaryAlt: z.string().optional(),
+    secondaryCaption: z.string().nullable().optional(),
+    aspectRatio: z.string().nullable().optional(),
+    spacing: blockSpacingSchema,
+  });
 
 export const listItemSchema: z.ZodType<ListItem, ListItem> = z.lazy(() =>
   z.object({
@@ -191,6 +217,8 @@ export const heroMetaSchema = z
     placement: z.enum(["above_title", "between_title_desc", "below_desc"]).optional(),
     position: z.enum(["top", "center", "bottom"]).optional(),
     caption: z.string().optional(),
+    hideInContent: z.boolean().optional(),
+    collapsedInEditor: z.boolean().optional(),
   })
   .optional();
 

@@ -20,9 +20,21 @@ export function ParagraphBlockRenderer({
     html: block.text || "",
     enabled: editable,
   });
-  const fontStyle = useMemo(
-    () => (block.fontSize ? { fontSize: `${block.fontSize}px` } : undefined),
-    [block.fontSize],
+  const blockStyle = useMemo(
+    () => ({
+      fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
+      lineHeight: block.lineHeight ? block.lineHeight : undefined,
+      color: block.color || undefined,
+      backgroundColor: block.backgroundColor || undefined,
+      borderColor: block.borderColor || undefined,
+      borderWidth: block.borderWidth ? `${block.borderWidth}px` : undefined,
+      borderStyle: block.borderWidth ? "solid" as const : undefined,
+      borderRadius: block.borderRadius ? `${block.borderRadius}px` : undefined,
+      padding: block.padding ? `${block.padding}px` : undefined,
+      textIndent: block.indent ? `${block.indent}px` : undefined,
+      textAlign: block.textAlign || undefined,
+    }),
+    [block.fontSize, block.lineHeight, block.color, block.backgroundColor, block.borderColor, block.borderWidth, block.borderRadius, block.padding, block.indent, block.textAlign],
   );
 
   const handleBlur = useCallback(() => {
@@ -34,7 +46,7 @@ export function ParagraphBlockRenderer({
 
   if (!block.text?.trim() && !editable) {
     return (
-      <p className="blog-preview-paragraph italic text-text-muted/50" style={fontStyle}>
+      <p className="blog-preview-paragraph italic text-text-muted/50" style={blockStyle}>
         (Đoạn văn trống)
       </p>
     );
@@ -45,7 +57,7 @@ export function ParagraphBlockRenderer({
       <p
         ref={ref}
         className="blog-preview-paragraph ve-editable"
-        style={fontStyle}
+        style={blockStyle}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
@@ -59,7 +71,7 @@ export function ParagraphBlockRenderer({
   return (
     <p
       className="blog-preview-paragraph"
-      style={fontStyle}
+      style={blockStyle}
       dangerouslySetInnerHTML={{ __html: block.text }}
     />
   );

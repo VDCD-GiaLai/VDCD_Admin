@@ -27,6 +27,7 @@ function folderDisplayPath(folder: string): string {
 import type {
   ContentBlock as SlideDetailBlogBlock,
   HeadingBlock,
+  ParagraphBlock,
   ListBlock,
   ImageBlock,
   CtaBlock,
@@ -101,6 +102,7 @@ interface PropertyPanelProps {
   onHeroMetaChange?: (heroMeta: HeroMeta) => void;
   onHeroImageChange?: (url: string, fileId?: string) => void;
   onHeroImageDelete?: () => Promise<void> | void;
+  onSplitBlock?: (blockId: string) => void;
   onClose: () => void;
 }
 
@@ -160,14 +162,18 @@ export function PropertyPanel({
   onHeroMetaChange,
   onHeroImageChange,
   onHeroImageDelete,
+  onSplitBlock,
   onClose,
 }: PropertyPanelProps) {
   const isHero = !block && (!!onHeroMetaChange || !!heroMeta);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const secondaryImageFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingSecondary, setIsUploadingSecondary] = useState(false);
   const [showHeroGallery, setShowHeroGallery] = useState(false);
   const [showImageBlockGallery, setShowImageBlockGallery] = useState(false);
+  const [showSecondaryImageBlockGallery, setShowSecondaryImageBlockGallery] = useState(false);
   const [bulkPasteText, setBulkPasteText] = useState("");
   const [showBulkPasteArea, setShowBulkPasteArea] = useState(false);
   const [activeListLevel, setActiveListLevel] = useState<"all" | 1 | 2 | 3>("all");
@@ -377,6 +383,220 @@ export function PropertyPanel({
       }
     },
     [block, onBlockChange, toast, uploadBlogImage],
+  );
+
+  // Direct file upload for secondary image in dual image layout
+  const handleBlockSecondaryImageFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !block || block.type !== "image" || !onBlockChange) return;
+
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        toast({
+          title: "File không hợp lệ",
+          description: validationError,
+          color: "danger",
+        });
+        return;
+      }
+
+      setIsUploadingSecondary(true);
+      try {
+        const result: UploadResult = await uploadBlogImage(file);
+        onBlockChange({
+          ...block,
+          secondaryUrl: result.url,
+          secondaryFileId: result.fileId,
+        } as ImageBlock);
+        toast({ title: "Tải ảnh phụ thành công", color: "success" });
+      } catch {
+        toast({ title: "Tải ảnh phụ thất bại", color: "danger" });
+      } finally {
+        setIsUploadingSecondary(false);
+        if (secondaryImageFileInputRef.current) secondaryImageFileInputRef.current.value = "";
+      }
+    },
+    [block, onBlockChange, toast, uploadBlogImage],
+  );
+
+  const handleImageSecondaryUrlChange = useCallback(
+    (secondaryUrl: string) => {
+      if (block?.type === "image" && onBlockChange) {
+        onBlockChange({ ...block, secondaryUrl } as ImageBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleImageSecondaryAltChange = useCallback(
+    (secondaryAlt: string) => {
+      if (block?.type === "image" && onBlockChange) {
+        onBlockChange({ ...block, secondaryAlt } as ImageBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleImageSecondaryCaptionChange = useCallback(
+    (secondaryCaption: string) => {
+      if (block?.type === "image" && onBlockChange) {
+        onBlockChange({ ...block, secondaryCaption: secondaryCaption || null } as ImageBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleImageLayoutChange = useCallback(
+    (layout: "single" | "dual") => {
+      if (block?.type === "image" && onBlockChange) {
+        onBlockChange({ ...block, layout } as ImageBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleImageAspectRatioChange = useCallback(
+    (aspectRatio: "auto" | "16:9" | "4:3" | "1:1") => {
+      if (block?.type === "image" && onBlockChange) {
+        onBlockChange({ ...block, aspectRatio } as ImageBlock);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  // Convert block type (Paragraph <-> Heading <-> List)
+  const handleConvertBlockType = useCallback(
+    (targetType: "paragraph" | "heading" | "list", headingLevel?: 1 | 2 | 3 | 4 | 5 | 6) => {
+      if (!block || !onBlockChange) return;
+      if (targetType === "heading") {
+        const text = (block as unknown as { text?: string }).text ?? "";
+        const converted: HeadingBlock = {
+          ...block,
+          type: "heading",
+          level: headingLevel ?? (block.type === "heading" ? (block as HeadingBlock).level : 2),
+          text,
+        };
+        onBlockChange(converted);
+      } else if (targetType === "paragraph") {
+        const text = (block as unknown as { text?: string }).text ?? "";
+        const converted: ParagraphBlock = {
+          ...block,
+          type: "paragraph",
+          text,
+        };
+        onBlockChange(converted);
+      } else if (targetType === "list") {
+        const text = (block as unknown as { text?: string }).text ?? "";
+        const lines = text
+          .split(/<\/p>\s*<p>|<br\s*\/?>|\n/)
+          .map((s) => s.replace(/<[^>]+>/g, "").trim())
+          .filter(Boolean);
+        const items: ListItem[] =
+          lines.length > 0
+            ? lines.map((line) => ({
+                id: `li_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                content: line,
+                children: [],
+              }))
+            : [{ id: `li_${Date.now()}`, content: "", children: [] }];
+        const converted: ListBlock = {
+          id: block.id,
+          type: "list",
+          listType: "bullet",
+          listStyle: "disc",
+          items,
+          spacing: block.spacing,
+        };
+        onBlockChange(converted);
+      }
+    },
+    [block, onBlockChange],
+  );
+
+  const handleLineHeightChange = useCallback(
+    (lineHeight: number) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, lineHeight } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleResetLineHeight = useCallback(() => {
+    if (!block || !onBlockChange) return;
+    const updated = { ...block };
+    delete (updated as unknown as Record<string, unknown>).lineHeight;
+    onBlockChange(updated);
+  }, [block, onBlockChange]);
+
+  const handleColorChange = useCallback(
+    (color: string) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, color: color || undefined } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleResetColor = useCallback(() => {
+    if (!block || !onBlockChange) return;
+    const updated = { ...block };
+    delete (updated as unknown as Record<string, unknown>).color;
+    onBlockChange(updated);
+  }, [block, onBlockChange]);
+
+  const handleBgColorChange = useCallback(
+    (backgroundColor: string) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, backgroundColor: backgroundColor || undefined } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleBorderChange = useCallback(
+    (borderWidth: number) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({
+        ...block,
+        borderWidth,
+        borderColor:
+          borderWidth > 0
+            ? (block as unknown as { borderColor?: string }).borderColor ?? "#E2E8F0"
+            : undefined,
+      } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleBorderRadiusChange = useCallback(
+    (borderRadius: number) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, borderRadius } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handlePaddingChange = useCallback(
+    (padding: number) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, padding } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleIndentChange = useCallback(
+    (indent: number) => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, indent } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
+  );
+
+  const handleTextAlignChange = useCallback(
+    (textAlign: "left" | "center" | "right" | "justify") => {
+      if (!block || !onBlockChange) return;
+      onBlockChange({ ...block, textAlign } as SlideDetailBlogBlock);
+    },
+    [block, onBlockChange],
   );
 
   // Direct file upload for hero image
@@ -919,6 +1139,41 @@ export function PropertyPanel({
               ))}
             </div>
           </div>
+
+          {/* Tùy chọn hiển thị ảnh bìa */}
+          <div className="space-y-3 rounded-lg border border-border/80 bg-surface-muted/30 p-3">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Tùy chọn hiển thị ảnh bìa
+            </span>
+            <label className="flex items-start gap-2 cursor-pointer text-xs text-text">
+              <input
+                type="checkbox"
+                checked={heroMeta?.hideInContent ?? false}
+                onChange={(e) =>
+                  onHeroMetaChange?.({
+                    ...heroMeta,
+                    hideInContent: e.target.checked,
+                  })
+                }
+                className="mt-0.5 rounded border-border accent-primary"
+              />
+              <span>Ẩn ảnh bìa trong trang chi tiết (chỉ làm ảnh đại diện thumbnail)</span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer text-xs text-text">
+              <input
+                type="checkbox"
+                checked={heroMeta?.collapsedInEditor ?? false}
+                onChange={(e) =>
+                  onHeroMetaChange?.({
+                    ...heroMeta,
+                    collapsedInEditor: e.target.checked,
+                  })
+                }
+                className="mt-0.5 rounded border-border accent-primary"
+              />
+              <span>Thu gọn ảnh bìa trong trình soạn thảo để dễ cuộn xem</span>
+            </label>
+          </div>
         </div>
       </div>
     );
@@ -948,11 +1203,56 @@ export function PropertyPanel({
       <div className="space-y-5 p-4">
         {/* ── Block-specific settings ── */}
 
+        {/* ── Block Type Converter (Paragraph <-> Heading <-> List) ── */}
+        {(block.type === "heading" || block.type === "paragraph") && (
+          <div>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Loại khối văn bản
+            </label>
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                onClick={() => handleConvertBlockType("paragraph")}
+                className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-all ${
+                  block.type === "paragraph"
+                    ? "border-primary bg-primary/10 text-primary font-bold"
+                    : "border-border text-text-muted hover:border-primary/40"
+                }`}
+              >
+                ¶ Đoạn văn
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleConvertBlockType(
+                    "heading",
+                    (block as unknown as HeadingBlock).level || 2,
+                  )
+                }
+                className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-all ${
+                  block.type === "heading"
+                    ? "border-primary bg-primary/10 text-primary font-bold"
+                    : "border-border text-text-muted hover:border-primary/40"
+                }`}
+              >
+                H Tiêu đề
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConvertBlockType("list")}
+                className="rounded-md border border-border px-2 py-1.5 text-xs font-semibold text-text-muted transition-all hover:border-primary/40"
+              >
+                :≡ Danh sách
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Heading: level selector */}
         {block.type === "heading" && (
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Cấp độ
+              Cấp độ tiêu đề
             </label>
             <div className="flex flex-wrap gap-1">
               {([1, 2, 3, 4, 5, 6] as const).map((level) => (
@@ -964,11 +1264,81 @@ export function PropertyPanel({
                   onClick={() => handleHeadingLevelChange(level)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
                     (block as HeadingBlock).level === level
-                      ? "border-primary bg-primary/10 text-primary"
+                      ? "border-primary bg-primary/10 text-primary font-bold"
                       : "border-border text-text-muted hover:border-primary/40"
                   }`}
                 >
                   H{level}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Paragraph: Split block action */}
+        {block.type === "paragraph" && onSplitBlock && (
+          <div>
+            <button
+              type="button"
+              onClick={() => onSplitBlock(block.id)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-all hover:bg-primary hover:text-white"
+              title="Tự động chia tách văn bản nhiều đoạn thành các khối riêng biệt"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5"
+              >
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                <line x1="8.12" y1="8.12" x2="12" y2="12" />
+              </svg>
+              <span>Tách thành các khối đoạn riêng</span>
+            </button>
+            <p className="mt-1 text-[10px] text-text-muted">
+              Hữu ích khi dán văn bản dài vào 1 khối — tự động chia thành nhiều khối riêng.
+            </p>
+          </div>
+        )}
+
+        {/* Text Alignment */}
+        {(block.type === "heading" ||
+          block.type === "paragraph" ||
+          block.type === "quote" ||
+          block.type === "highlight") && (
+          <div>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Căn lề
+            </label>
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { id: "left", label: "Trái" },
+                { id: "center", label: "Giữa" },
+                { id: "right", label: "Phải" },
+                { id: "justify", label: "Đều 2 bên" },
+              ].map((align) => (
+                <button
+                  key={align.id}
+                  type="button"
+                  onClick={() =>
+                    handleTextAlignChange(
+                      align.id as "left" | "center" | "right" | "justify",
+                    )
+                  }
+                  className={`rounded border py-1 text-center text-xs font-medium transition-all ${
+                    ((block as unknown as { textAlign?: string }).textAlign ?? "left") === align.id
+                      ? "border-primary bg-primary/10 text-primary font-bold"
+                      : "border-border text-text-muted hover:border-primary/40"
+                  }`}
+                >
+                  {align.label}
                 </button>
               ))}
             </div>
@@ -1023,109 +1393,452 @@ export function PropertyPanel({
           );
         })()}
 
-        {/* Image: Direct upload, URL, alt, caption */}
-        {block.type === "image" && (
-          <>
+        {/* Line Height (Chiều cao dòng) */}
+        {(block.type === "heading" ||
+          block.type === "paragraph" ||
+          block.type === "quote" ||
+          block.type === "highlight") && (() => {
+          const currentLineHeight = (block as unknown as { lineHeight?: number }).lineHeight;
+          return (
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Tải ảnh trực tiếp
-              </label>
-              <input
-                ref={imageFileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={handleBlockImageFileUpload}
-              />
-              <button
-                type="button"
-                disabled={isUploading}
-                onClick={() => imageFileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-surface-muted/30 p-3 text-xs font-medium text-text transition-all hover:border-primary hover:bg-primary/5 hover:text-primary disabled:opacity-50"
-              >
-                {isUploading ? (
-                  <>
-                    <Spinner size="sm" />
-                    <span>Đang tải lên...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-4 w-4"
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Độ cao dòng (Line Height)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-text">
+                    {currentLineHeight ? `${currentLineHeight}` : "Mặc định (1.75)"}
+                  </span>
+                  {Boolean(currentLineHeight) && (
+                    <button
+                      type="button"
+                      onClick={handleResetLineHeight}
+                      className="text-[10px] text-primary hover:underline"
                     >
-                      <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
-                      <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-                    </svg>
-                    <span>{(block as ImageBlock).url ? "Thay ảnh từ máy tính" : "Chọn ảnh từ máy tính"}</span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowImageBlockGallery(true)}
-                className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface p-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-muted"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="h-4 w-4 text-primary"
+                      Đặt lại
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1 mb-1.5">
+                {[
+                  { label: "1.25", val: 1.25 },
+                  { label: "1.5", val: 1.5 },
+                  { label: "1.75", val: 1.75 },
+                  { label: "2.0", val: 2.0 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => handleLineHeightChange(preset.val)}
+                    className={`rounded border py-1 text-center text-xs font-medium transition-all ${
+                      currentLineHeight === preset.val
+                        ? "border-primary bg-primary/10 text-primary font-bold"
+                        : "border-border text-text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                min={1.0}
+                max={2.8}
+                step={0.05}
+                value={currentLineHeight ?? 1.75}
+                onChange={(e) => handleLineHeightChange(parseFloat(e.target.value))}
+                className="w-full cursor-pointer accent-primary"
+              />
+            </div>
+          );
+        })()}
+
+        {/* Text Indent (Thụt lề đoạn văn) */}
+        {block.type === "paragraph" && (
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Thụt đầu dòng
+              </label>
+              <span className="text-[11px] font-medium text-text">
+                {(block as ParagraphBlock).indent ? `${(block as ParagraphBlock).indent}px` : "0px"}
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {[0, 16, 24, 32, 48].map((ind) => (
+                <button
+                  key={ind}
+                  type="button"
+                  onClick={() => handleIndentChange(ind)}
+                  className={`rounded border py-1 text-center text-[11px] font-medium transition-all ${
+                    ((block as ParagraphBlock).indent ?? 0) === ind
+                      ? "border-primary bg-primary/10 text-primary font-bold"
+                      : "border-border text-text-muted hover:border-primary/40"
+                  }`}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0L2.5 11.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span>Chọn từ thư viện</span>
-              </button>
-              <p className="mt-1 text-[10px] text-text-muted">
-                Lưu vào thư mục /vdcd/{folderDisplayPath(uploadFolder)}/{subfolder} trên ImageKit (tối đa 10MB)
-              </p>
+                  {ind}px
+                </button>
+              ))}
             </div>
-
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Hoặc dán đường dẫn ảnh
-              </label>
-              <input
-                type="url"
-                value={(block as ImageBlock).url}
-                onChange={(e) => handleImageUrlChange(e.target.value)}
-                placeholder="https://..."
-                className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Alt text
-              </label>
-              <input
-                type="text"
-                value={(block as ImageBlock).alt}
-                onChange={(e) => handleImageAltChange(e.target.value)}
-                placeholder="Mô tả ngắn ảnh..."
-                className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Chú thích ảnh (dưới ảnh)
-              </label>
-              <input
-                type="text"
-                value={(block as ImageBlock).caption ?? ""}
-                onChange={(e) => handleImageCaptionChange(e.target.value)}
-                placeholder="Chú thích ảnh (hiển thị dưới ảnh)..."
-                className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-              />
-            </div>
-          </>
+          </div>
         )}
+
+        {/* Text Color */}
+        {(block.type === "heading" ||
+          block.type === "paragraph" ||
+          block.type === "quote" ||
+          block.type === "highlight") && (
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Màu chữ
+              </label>
+              {(block as unknown as { color?: string }).color && (
+                <button
+                  type="button"
+                  onClick={handleResetColor}
+                  className="text-[10px] text-primary hover:underline"
+                >
+                  Đặt lại
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {COLOR_PALETTE.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  title={c.label}
+                  onClick={() => handleColorChange(c.value)}
+                  className={`h-5 w-5 rounded-full border transition-all ${
+                    ((block as unknown as { color?: string }).color ?? "") === c.value
+                      ? "scale-110 border-primary ring-2 ring-primary/30"
+                      : "border-border hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: c.value || "#333333" }}
+                />
+              ))}
+              <input
+                type="text"
+                value={(block as unknown as { color?: string }).color ?? ""}
+                onChange={(e) => handleColorChange(e.target.value)}
+                placeholder="#011A42"
+                className="w-20 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-text font-mono"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Container Border & Background */}
+        {(block.type === "heading" ||
+          block.type === "paragraph" ||
+          block.type === "quote" ||
+          block.type === "highlight") && (
+          <div className="space-y-2 rounded-lg border border-border/60 bg-surface-muted/20 p-2.5">
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Khung viền & Nền khối
+            </span>
+
+            {/* Background color */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[10px] text-text-muted">Màu nền khối</label>
+                {(block as unknown as { backgroundColor?: string }).backgroundColor && (
+                  <button
+                    type="button"
+                    onClick={() => handleBgColorChange("")}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Đặt lại
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {BG_PALETTE.map((bg) => (
+                  <button
+                    key={bg.label}
+                    type="button"
+                    title={bg.label}
+                    onClick={() => handleBgColorChange(bg.value)}
+                    className={`h-5 w-5 rounded border transition-all ${
+                      ((block as unknown as { backgroundColor?: string }).backgroundColor ?? "") ===
+                      bg.value
+                        ? "scale-110 border-primary ring-2 ring-primary/30"
+                        : "border-border hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: bg.value || "transparent" }}
+                  />
+                ))}
+                <input
+                  type="text"
+                  value={(block as unknown as { backgroundColor?: string }).backgroundColor ?? ""}
+                  onChange={(e) => handleBgColorChange(e.target.value)}
+                  placeholder="#F8F9FD"
+                  className="w-20 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-text font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Border Width & Radius & Padding */}
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
+              <div>
+                <label className="block text-[10px] text-text-muted">
+                  Viền ({(block as unknown as { borderWidth?: number }).borderWidth ?? 0}px)
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={6}
+                  step={1}
+                  value={(block as unknown as { borderWidth?: number }).borderWidth ?? 0}
+                  onChange={(e) => {
+                    const bw = parseInt(e.target.value, 10);
+                    handleBorderChange(bw);
+                  }}
+                  className="w-full cursor-pointer accent-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-text-muted">
+                  Bo góc ({(block as unknown as { borderRadius?: number }).borderRadius ?? 0}px)
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={24}
+                  step={2}
+                  value={(block as unknown as { borderRadius?: number }).borderRadius ?? 0}
+                  onChange={(e) => handleBorderRadiusChange(parseInt(e.target.value, 10))}
+                  className="w-full cursor-pointer accent-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-text-muted">
+                  Đệm ({(block as unknown as { padding?: number }).padding ?? 0}px)
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={32}
+                  step={2}
+                  value={(block as unknown as { padding?: number }).padding ?? 0}
+                  onChange={(e) => handlePaddingChange(parseInt(e.target.value, 10))}
+                  className="w-full cursor-pointer accent-primary"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image settings */}
+        {block.type === "image" && (() => {
+          const imgBlock = block as ImageBlock;
+          const isDual = imgBlock.layout === "dual";
+
+          return (
+            <div className="space-y-4">
+              {/* Bố cục (Layout) */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Bố cục hiển thị
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleImageLayoutChange("single")}
+                    className={`rounded-md border p-2 text-center text-xs font-semibold transition-all ${
+                      !isDual
+                        ? "border-primary bg-primary/10 text-primary font-bold"
+                        : "border-border text-text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    1 Ảnh đơn (Single)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleImageLayoutChange("dual")}
+                    className={`rounded-md border p-2 text-center text-xs font-semibold transition-all ${
+                      isDual
+                        ? "border-primary bg-primary/10 text-primary font-bold"
+                        : "border-border text-text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    2 Ảnh song song (Dual)
+                  </button>
+                </div>
+              </div>
+
+              {/* Tỉ lệ khung hình (Aspect Ratio) */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Tỉ lệ khung hình
+                </label>
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { id: "auto", label: "Tự do" },
+                    { id: "16:9", label: "16:9" },
+                    { id: "4:3", label: "4:3" },
+                    { id: "1:1", label: "1:1" },
+                  ].map((ratio) => (
+                    <button
+                      key={ratio.id}
+                      type="button"
+                      onClick={() =>
+                        handleImageAspectRatioChange(
+                          ratio.id as "auto" | "16:9" | "4:3" | "1:1",
+                        )
+                      }
+                      className={`rounded border py-1 text-center text-xs font-medium transition-all ${
+                        (imgBlock.aspectRatio ?? "auto") === ratio.id
+                          ? "border-primary bg-primary/10 text-primary font-bold"
+                          : "border-border text-text-muted hover:border-primary/40"
+                      }`}
+                    >
+                      {ratio.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Image 1 (Chính) */}
+              <div className="space-y-3 rounded-lg border border-border/80 bg-surface-muted/20 p-3">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-text">
+                  {isDual ? "Ảnh thứ 1 (Bên trái)" : "Hình ảnh"}
+                </span>
+
+                <div>
+                  <input
+                    ref={imageFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleBlockImageFileUpload}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={isUploading}
+                      onClick={() => imageFileInputRef.current?.click()}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text transition-all hover:bg-surface-muted disabled:opacity-50"
+                    >
+                      {isUploading ? <Spinner size="sm" /> : <span>📁 Tải từ máy</span>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowImageBlockGallery(true)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text transition-all hover:bg-surface-muted"
+                    >
+                      <span>🖼️ Thư viện</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] text-text-muted">Đường dẫn ảnh (URL)</label>
+                  <input
+                    type="url"
+                    value={imgBlock.url}
+                    onChange={(e) => handleImageUrlChange(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] text-text-muted">Alt text (Mô tả ảnh)</label>
+                  <input
+                    type="text"
+                    value={imgBlock.alt}
+                    onChange={(e) => handleImageAltChange(e.target.value)}
+                    placeholder="Mô tả ngắn ảnh..."
+                    className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] text-text-muted">Chú thích ảnh</label>
+                  <input
+                    type="text"
+                    value={imgBlock.caption ?? ""}
+                    onChange={(e) => handleImageCaptionChange(e.target.value)}
+                    placeholder="Chú thích hiển thị dưới ảnh..."
+                    className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Image 2 (Phụ - chỉ hiện khi layout === 'dual') */}
+              {isDual && (
+                <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-primary">
+                    Ảnh thứ 2 (Bên phải)
+                  </span>
+
+                  <div>
+                    <input
+                      ref={secondaryImageFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleBlockSecondaryImageFileUpload}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isUploadingSecondary}
+                        onClick={() => secondaryImageFileInputRef.current?.click()}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text transition-all hover:bg-surface-muted disabled:opacity-50"
+                      >
+                        {isUploadingSecondary ? <Spinner size="sm" /> : <span>📁 Tải từ máy</span>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSecondaryImageBlockGallery(true)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text transition-all hover:bg-surface-muted"
+                      >
+                        <span>🖼️ Thư viện</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] text-text-muted">Đường dẫn ảnh phụ (URL)</label>
+                    <input
+                      type="url"
+                      value={imgBlock.secondaryUrl ?? ""}
+                      onChange={(e) => handleImageSecondaryUrlChange(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] text-text-muted">Alt text ảnh phụ</label>
+                    <input
+                      type="text"
+                      value={imgBlock.secondaryAlt ?? ""}
+                      onChange={(e) => handleImageSecondaryAltChange(e.target.value)}
+                      placeholder="Mô tả ảnh phụ..."
+                      className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] text-text-muted">Chú thích ảnh phụ</label>
+                    <input
+                      type="text"
+                      value={imgBlock.secondaryCaption ?? ""}
+                      onChange={(e) => handleImageSecondaryCaptionChange(e.target.value)}
+                      placeholder="Chú thích ảnh phụ..."
+                      className="w-full rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
 
 
@@ -2499,6 +3212,31 @@ export function PropertyPanel({
           uploadFolder={uploadFolder || "image"}
           uploadOptions={{ subfolder, slug: subfolder }}
           title="Chọn ảnh khối nội dung"
+        />
+      )}
+
+      {showSecondaryImageBlockGallery && (
+        <ImagePickerModal
+          isOpen={showSecondaryImageBlockGallery}
+          onClose={() => setShowSecondaryImageBlockGallery(false)}
+          onSelect={(image: ImagePickerResult) => {
+            if (image.fileId) {
+              onGalleryFileSelect?.(image.fileId);
+            }
+            if (block && block.type === "image" && onBlockChange) {
+              onBlockChange({
+                ...block,
+                secondaryUrl: image.url,
+                secondaryFileId: null,
+              } as ImageBlock);
+            }
+            setShowSecondaryImageBlockGallery(false);
+            toast({ title: "Đã chọn ảnh phụ từ thư viện", color: "success" });
+          }}
+          defaultFolder={defaultFolder}
+          uploadFolder={uploadFolder || "image"}
+          uploadOptions={{ subfolder, slug: subfolder }}
+          title="Chọn ảnh phụ (Ảnh thứ 2)"
         />
       )}
     </div>

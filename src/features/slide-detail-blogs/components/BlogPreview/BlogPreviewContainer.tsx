@@ -163,7 +163,7 @@ export function BlogPreviewContainer({
               const heroPlacement = heroMeta?.placement ?? "above_title";
               const heroPosition = heroMeta?.position ?? "center";
               const heroCaption = heroMeta?.caption ?? "";
-              const hasHeroImage = Boolean(heroImageUrl && heroImageUrl.trim());
+              const hasHeroImage = Boolean(heroImageUrl && heroImageUrl.trim()) && !heroMeta?.hideInContent;
 
               const renderHeroHeader = () => (
                 <div className="space-y-2">

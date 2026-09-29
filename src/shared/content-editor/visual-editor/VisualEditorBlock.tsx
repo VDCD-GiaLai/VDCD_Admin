@@ -39,6 +39,7 @@ export interface VisualEditorBlockProps {
   onMoveDown: (index: number) => void;
   onDuplicate: (index: number) => void;
   onDelete: (index: number) => void;
+  onSplitBlock?: (blockId: string) => void;
   /** Called with a fileId when an image block's file is discarded (for soft-delete) */
   onImageDiscard?: (fileId: string) => void;
 }
@@ -66,6 +67,7 @@ function VisualEditorBlockInner({
   onMoveDown,
   onDuplicate,
   onDelete,
+  onSplitBlock,
   onImageDiscard,
 }: VisualEditorBlockProps) {
   const {
@@ -356,6 +358,7 @@ function VisualEditorBlockInner({
             onCaptionChange={handleImageCaptionChange}
             onImageUpdate={handleImageUpdate}
             onImageDiscard={onImageDiscard}
+            onBlockChange={(updated) => onBlockChange(index, updated)}
           />
         );
       case "list":
@@ -482,6 +485,7 @@ function VisualEditorBlockInner({
         onMoveDown={() => onMoveDown(index)}
         onDuplicate={() => onDuplicate(index)}
         onDelete={() => onDelete(index)}
+        onSplit={block.type === "paragraph" && onSplitBlock ? () => onSplitBlock(block.id) : undefined}
         isFirst={index === 0}
         isLast={index === totalBlocks - 1}
         dragHandleProps={{ ...attributes, ...listeners }}

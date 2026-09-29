@@ -41,19 +41,24 @@ export function InsertZone({ onInsert }: InsertZoneProps) {
   }, [showPicker]);
 
   return (
-    <div ref={containerRef} className="ve-insert-zone group relative">
-      {/* Line + button */}
-      <div className="ve-insert-zone-line" />
-      <button
-        type="button"
-        className="ve-insert-zone-button"
-        onClick={handleToggle}
-        aria-label="Thêm khối nội dung"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-          <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-        </svg>
-      </button>
+    <div
+      ref={containerRef}
+      className={`ve-insert-zone group relative ${showPicker ? "z-[80]" : "z-10"}`}
+    >
+      {/* Line + button — hidden when picker is open to prevent piercing adjacent modals */}
+      {!showPicker && <div className="ve-insert-zone-line" />}
+      {!showPicker && (
+        <button
+          type="button"
+          className="ve-insert-zone-button"
+          onClick={handleToggle}
+          aria-label="Thêm khối nội dung"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+          </svg>
+        </button>
+      )}
 
       {/* Picker popover */}
       {showPicker && (
