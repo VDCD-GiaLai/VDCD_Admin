@@ -731,6 +731,15 @@ ol.blog-preview-list {
   bottom: 16px;
 }
 
+/* Portal-based picker card (rendered at body level) */
+.ve-insert-zone-picker-card {
+  min-width: 440px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--color-border, #E2E8EE);
+  background: var(--color-surface, #FFFFFF);
+  border-radius: 0.75rem;
+}
+
 /* ── Property Panel (right sidebar) ── */
 .ve-property-panel {
   width: 280px;
