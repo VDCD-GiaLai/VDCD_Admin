@@ -26,6 +26,11 @@ import { ApiError } from "@/lib/api-client";
 import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
 import { useDocumentUpload } from "../media/DocumentUploadContext";
 import { useSanitizedPaste } from "../paste/useSanitizedPaste";
+import {
+  isMultiBlockContent,
+  parseWordHtmlToBlocks,
+  parsePlainTextToBlocks,
+} from "../paste/wordHtmlParser";
 import { useContentEditableSync } from "../hooks/useContentEditableSync";
 import { Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
@@ -230,6 +235,7 @@ export function VisualEditorCanvas({
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [showHeroGallery, setShowHeroGallery] = useState(false);
   const [showSmartImport, setShowSmartImport] = useState(false);
+  const [smartImportInitialBlocks, setSmartImportInitialBlocks] = useState<SlideDetailBlogBlock[]>([]);
   const [floatingToolbar, setFloatingToolbar] = useState<{
     top: number;
     left: number;
@@ -238,6 +244,8 @@ export function VisualEditorCanvas({
   } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+
   const {
     subfolder,
     folder: uploadFolder,
@@ -368,6 +376,111 @@ export function VisualEditorCanvas({
       });
     });
   }, []);
+
+  // ── Auto-paste multi-block Word/Docs content or direct image ──
+  const handleAutoPasteBlocks = useCallback(
+    (newBlocks: SlideDetailBlogBlock[], sourceLabel = "Word") => {
+      if (newBlocks.length === 0) return;
+      pushState();
+
+      let targetIndex = blocks.length;
+      let shouldReplace = false;
+
+      if (selectedBlockId) {
+        const idx = blocks.findIndex((b) => b.id === selectedBlockId);
+        if (idx !== -1) {
+          const currentBlock = blocks[idx];
+          const isEmpty =
+            (currentBlock.type === "paragraph" && !currentBlock.text?.trim()) ||
+            (currentBlock.type === "heading" && !currentBlock.text?.trim());
+          if (isEmpty) {
+            targetIndex = idx;
+            shouldReplace = true;
+          } else {
+            targetIndex = idx + 1;
+          }
+        }
+      }
+
+      const updated = [...blocks];
+      if (shouldReplace) {
+        updated.splice(targetIndex, 1, ...newBlocks);
+      } else {
+        updated.splice(targetIndex, 0, ...newBlocks);
+      }
+
+      updateBlocks(updated);
+      const firstId = newBlocks[0].id;
+      setSelectedBlockId(firstId);
+      focusBlock(firstId);
+
+      const imgCount = newBlocks.filter((b) => b.type === "image").length;
+      const extraInfo = imgCount > 0 ? ` (bao gồm ${imgCount} hình ảnh)` : "";
+
+      toast({
+        title: `Đã tự động dán ${newBlocks.length} khối từ ${sourceLabel}!`,
+        description: `Bảo lưu đầy đủ định dạng, kiểu chữ và màu sắc${extraInfo}. Bấm Ctrl+Z để hoàn tác.`,
+        color: "success",
+      });
+    },
+    [blocks, selectedBlockId, pushState, updateBlocks, focusBlock, toast],
+  );
+
+  const handleCanvasPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      // Don't intercept if user is typing inside an input or textarea
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
+        return;
+      }
+
+      const files = e.clipboardData.files;
+      const html = e.clipboardData.getData("text/html");
+      const rtf = e.clipboardData.getData("text/rtf");
+      const text = e.clipboardData.getData("text/plain");
+
+      // 1. Direct image paste from clipboard (e.g. copied image or screenshot)
+      if (files && files.length > 0) {
+        const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+        if (imageFile) {
+          e.preventDefault();
+          e.stopPropagation();
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string;
+            if (dataUrl) {
+              const imgBlock: SlideDetailBlogBlock = {
+                id: `img_${Date.now().toString(36)}`,
+                type: "image",
+                url: dataUrl,
+                alt: imageFile.name || "Hình ảnh bài viết",
+                spacing: { marginTop: 12, marginBottom: 12 },
+              };
+              handleAutoPasteBlocks([imgBlock], "hình ảnh clipboard");
+            }
+          };
+          reader.readAsDataURL(imageFile);
+          return;
+        }
+      }
+
+      // 2. Word / HTML / Multi-block text paste
+      if (isMultiBlockContent(html, text) || (html && html.includes("<img"))) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const parsed = html
+          ? parseWordHtmlToBlocks(html, rtf)
+          : parsePlainTextToBlocks(text);
+
+        if (parsed.length > 0) {
+          const isWord = html.includes("Mso") || Boolean(rtf);
+          handleAutoPasteBlocks(parsed as SlideDetailBlogBlock[], isWord ? "Word" : "Docs / Web");
+        }
+      }
+    },
+    [handleAutoPasteBlocks],
+  );
 
   const handleDuplicate = useCallback(
     (index: number) => {
@@ -1177,7 +1290,7 @@ export function VisualEditorCanvas({
 };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onPasteCapture={handleCanvasPaste}>
       {/* ── Top toolbar: viewport + undo/redo ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1416,12 +1529,21 @@ export function VisualEditorCanvas({
       {/* Smart Import Modal */}
       <SmartImportModal
         open={showSmartImport}
-        onClose={() => setShowSmartImport(false)}
+        initialBlocks={smartImportInitialBlocks}
+        onClose={() => {
+          setShowSmartImport(false);
+          setSmartImportInitialBlocks([]);
+        }}
         onImport={(importedBlocks) => {
+          pushState();
           const newBlocks = [...blocks, ...importedBlocks];
           onContentChange({
             ...content,
             blocks: newBlocks,
+          });
+          toast({
+            title: `Đã thêm ${importedBlocks.length} khối vào bài`,
+            color: "success",
           });
         }}
       />

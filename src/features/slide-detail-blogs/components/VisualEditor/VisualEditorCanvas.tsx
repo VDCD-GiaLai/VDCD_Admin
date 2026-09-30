@@ -29,6 +29,13 @@ import { useSanitizedPaste } from "../../hooks/useSanitizedPaste";
 import { useContentEditableSync } from "../../hooks/useContentEditableSync";
 import { Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui";
+import {
+  parseWordHtmlToBlocks,
+  parsePlainTextToBlocks,
+  isMultiBlockContent,
+  SmartImportModal,
+  type ContentBlock,
+} from "@/shared/content-editor";
 import type {
   SlideDetailBlogContent,
   SlideDetailBlogBlock,
@@ -160,6 +167,8 @@ export function VisualEditorCanvas({
   const [selectedBlockId, setSelectedBlockId] = useState<string>("");
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [showHeroGallery, setShowHeroGallery] = useState(false);
+  const [showSmartImport, setShowSmartImport] = useState(false);
+  const [smartImportInitialBlocks, setSmartImportInitialBlocks] = useState<SlideDetailBlogBlock[]>([]);
   const [floatingToolbar, setFloatingToolbar] = useState<{
     top: number;
     left: number;
@@ -283,6 +292,110 @@ export function VisualEditorCanvas({
       });
     });
   }, []);
+
+  // ── Auto-paste multi-block Word/Docs content or direct image ──
+  const handleAutoPasteBlocks = useCallback(
+    (newBlocks: SlideDetailBlogBlock[], sourceLabel = "Word") => {
+      if (newBlocks.length === 0) return;
+      pushState();
+
+      let targetIndex = blocks.length;
+      let shouldReplace = false;
+
+      if (selectedBlockId) {
+        const idx = blocks.findIndex((b) => b.id === selectedBlockId);
+        if (idx !== -1) {
+          const currentBlock = blocks[idx];
+          const isEmpty =
+            (currentBlock.type === "paragraph" && !currentBlock.text?.trim()) ||
+            (currentBlock.type === "heading" && !currentBlock.text?.trim());
+          if (isEmpty) {
+            targetIndex = idx;
+            shouldReplace = true;
+          } else {
+            targetIndex = idx + 1;
+          }
+        }
+      }
+
+      const updated = [...blocks];
+      if (shouldReplace) {
+        updated.splice(targetIndex, 1, ...newBlocks);
+      } else {
+        updated.splice(targetIndex, 0, ...newBlocks);
+      }
+
+      updateBlocks(updated);
+      const firstId = newBlocks[0].id;
+      setSelectedBlockId(firstId);
+      focusBlock(firstId);
+
+      const imgCount = newBlocks.filter((b) => b.type === "image").length;
+      const extraInfo = imgCount > 0 ? ` (bao gồm ${imgCount} hình ảnh)` : "";
+
+      toast({
+        title: `Đã tự động dán ${newBlocks.length} khối từ ${sourceLabel}!`,
+        description: `Bảo lưu đầy đủ định dạng, kiểu chữ và màu sắc${extraInfo}. Bấm Ctrl+Z để hoàn tác.`,
+        color: "success",
+      });
+    },
+    [blocks, selectedBlockId, pushState, updateBlocks, focusBlock, toast],
+  );
+
+  const handleCanvasPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
+        return;
+      }
+
+      const files = e.clipboardData.files;
+      const html = e.clipboardData.getData("text/html");
+      const rtf = e.clipboardData.getData("text/rtf");
+      const text = e.clipboardData.getData("text/plain");
+
+      // 1. Direct image paste from clipboard
+      if (files && files.length > 0) {
+        const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+        if (imageFile) {
+          e.preventDefault();
+          e.stopPropagation();
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string;
+            if (dataUrl) {
+              const imgBlock: SlideDetailBlogBlock = {
+                id: `img_${Date.now().toString(36)}`,
+                type: "image",
+                url: dataUrl,
+                alt: imageFile.name || "Hình ảnh bài viết",
+                spacing: { marginTop: 12, marginBottom: 12 },
+              };
+              handleAutoPasteBlocks([imgBlock], "hình ảnh clipboard");
+            }
+          };
+          reader.readAsDataURL(imageFile);
+          return;
+        }
+      }
+
+      // 2. Word / HTML / Multi-block text paste
+      if (isMultiBlockContent(html, text) || (html && html.includes("<img"))) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const parsed = html
+          ? parseWordHtmlToBlocks(html, rtf)
+          : parsePlainTextToBlocks(text);
+
+        if (parsed.length > 0) {
+          const isWord = html.includes("Mso") || Boolean(rtf);
+          handleAutoPasteBlocks(parsed as SlideDetailBlogBlock[], isWord ? "Word" : "Docs / Web");
+        }
+      }
+    },
+    [handleAutoPasteBlocks],
+  );
 
   const handleDuplicate = useCallback(
     (index: number) => {
@@ -974,7 +1087,7 @@ export function VisualEditorCanvas({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onPasteCapture={handleCanvasPaste}>
       {/* ── Top toolbar: viewport + undo/redo ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1026,6 +1139,20 @@ export function VisualEditorCanvas({
               </svg>
             </button>
           </div>
+
+          {/* Smart Import from Word / Docs / AI */}
+          <button
+            type="button"
+            onClick={() => {
+              setSmartImportInitialBlocks([]);
+              setShowSmartImport(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            title="Nhập nội dung từ Word/Docs hoặc text (AI phân tích)"
+          >
+            <span>📋</span>
+            <span className="hidden sm:inline">Nhập Word / AI</span>
+          </button>
         </div>
 
         <span className="text-[11px] text-text-muted">
@@ -1174,6 +1301,17 @@ export function VisualEditorCanvas({
           />
         </div>
       )}
+
+      {/* Smart Import Modal */}
+      <SmartImportModal
+        isOpen={showSmartImport}
+        onClose={() => setShowSmartImport(false)}
+        initialBlocks={smartImportInitialBlocks}
+        onImport={(importedBlocks: ContentBlock[]) => {
+          handleAutoPasteBlocks(importedBlocks as SlideDetailBlogBlock[], "Word / AI");
+          setShowSmartImport(false);
+        }}
+      />
     </div>
   );
 }

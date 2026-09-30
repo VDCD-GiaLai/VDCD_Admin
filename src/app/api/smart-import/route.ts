@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.0-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const CANDIDATE_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite",
+];
 
 const SYSTEM_PROMPT = `Bạn là trợ lý chuyên chuyển đổi nội dung văn bản thành cấu trúc khối (blocks) cho hệ thống quản lý nội dung.
 
@@ -34,7 +37,8 @@ Quy tắc:
 `;
 
 export async function POST(request: NextRequest) {
-  if (!GEMINI_API_KEY) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return NextResponse.json(
       { error: "GEMINI_API_KEY chưa được cấu hình. Thêm vào .env.local" },
       { status: 500 },
@@ -56,42 +60,57 @@ export async function POST(request: NextRequest) {
         ? `Chuyển đổi nội dung HTML sau thành JSON array các blocks. Đây là nội dung paste từ Word/Google Docs:\n\n${content}`
         : `Chuyển đổi nội dung văn bản sau thành JSON array các blocks. Phân tích cấu trúc tự động:\n\n${content}`;
 
-    const response = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: SYSTEM_PROMPT }],
-        },
-        contents: [
-          {
-            parts: [{ text: userPrompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+    let lastError = "";
+    let text = "";
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[Gemini API Error]", response.status, errorText);
-      return NextResponse.json(
-        { error: `Gemini API lỗi: ${response.status}` },
-        { status: 502 },
-      );
+    for (const model of CANDIDATE_MODELS) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      try {
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: {
+              parts: [{ text: SYSTEM_PROMPT }],
+            },
+            contents: [
+              {
+                parts: [{ text: userPrompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[Gemini API Error with ${model}]`, response.status, errorText);
+          lastError = `Gemini API lỗi (${model}): ${response.status}`;
+          // Try next model if 503 or 404
+          if (response.status === 503 || response.status === 404 || response.status === 429) {
+            continue;
+          }
+          return NextResponse.json({ error: lastError }, { status: 502 });
+        }
+
+        const data = await response.json();
+        text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        if (text) {
+          break; // successfully got content
+        }
+      } catch (fetchErr) {
+        console.warn(`[Gemini Fetch Error with ${model}]`, fetchErr);
+        lastError = String(fetchErr);
+      }
     }
-
-    const data = await response.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     if (!text) {
       return NextResponse.json(
-        { error: "Gemini không trả về kết quả" },
+        { error: lastError || "Gemini không trả về kết quả" },
         { status: 502 },
       );
     }

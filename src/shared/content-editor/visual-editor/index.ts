@@ -3,3 +3,4 @@ export * from "./VisualEditorToolbar";
 export * from "./VisualEditorBlock";
 export * from "./PropertyPanel";
 export * from "./VisualEditorCanvas";
+export * from "./SmartImportModal";
