@@ -43,7 +43,9 @@ import {
   restoreSelection,
   detectActiveFormatsInElement,
   detectActiveFormatsInText,
+  getSelectionSplitHtml,
   type FormatAction,
+  type FormatActionOptions,
 } from "../paste/useHtmlShortcuts";
 import { BlockFormatToolbar } from "../blocks/BlockFormatToolbar";
 import { SmartImportModal } from "./SmartImportModal";
@@ -553,9 +555,81 @@ export function VisualEditorCanvas({
   }, []);
 
   const handleFloatingAction = useCallback(
-    (action: FormatAction) => {
+    (action: FormatAction, options?: FormatActionOptions) => {
       if (!floatingToolbar?.editableElement) return;
-      formatContentEditable(floatingToolbar.editableElement, action);
+
+      // ── SMART SELECTION SPLIT TO HEADING ──
+      if (action === "heading") {
+        const editable = floatingToolbar.editableElement;
+        const blockWrapper = editable.closest<HTMLElement>(".ve-block-wrapper");
+        const blockId = blockWrapper?.id?.replace(/^block-/, "");
+        const blockIndex = blocks.findIndex((b) => b.id === blockId);
+
+        if (blockIndex !== -1) {
+          const currentBlock = blocks[blockIndex];
+          const split = getSelectionSplitHtml(editable);
+          const headingLevel = (options?.headingLevel ?? 2) as 1 | 2 | 3 | 4 | 5 | 6;
+
+          if (split && split.selectedText) {
+            // Selected text highlighted: split block into [before, heading, after]
+            const cleanBefore = split.beforeHtml.replace(/<[^>]*>/g, "").trim();
+            const cleanAfter = split.afterHtml.replace(/<[^>]*>/g, "").trim();
+
+            const newHeadingBlock: SlideDetailBlogBlock = {
+              id: generateBlockId(),
+              type: "heading",
+              level: headingLevel,
+              text: split.selectedHtml.trim(),
+            };
+
+            const replacements: SlideDetailBlogBlock[] = [];
+
+            if (cleanBefore.length > 0) {
+              replacements.push({
+                id: generateBlockId(),
+                type: "paragraph",
+                text: split.beforeHtml.trim(),
+              });
+            }
+
+            replacements.push(newHeadingBlock);
+
+            if (cleanAfter.length > 0) {
+              replacements.push({
+                id: generateBlockId(),
+                type: "paragraph",
+                text: split.afterHtml.trim(),
+              });
+            }
+
+            pushState();
+            const nextBlocks = [...blocks];
+            nextBlocks.splice(blockIndex, 1, ...replacements);
+            updateBlocks(nextBlocks);
+            setFloatingToolbar(null);
+            setSelectedBlockId(newHeadingBlock.id);
+            focusBlock(newHeadingBlock.id);
+            return;
+          } else {
+            // Whole block conversion
+            pushState();
+            const nextBlocks = [...blocks];
+            const blockText = "text" in currentBlock ? ((currentBlock as { text?: string }).text || "") : "";
+            nextBlocks[blockIndex] = {
+              id: currentBlock.id,
+              type: "heading",
+              level: headingLevel,
+              text: blockText,
+            };
+            updateBlocks(nextBlocks);
+            setFloatingToolbar(null);
+            setSelectedBlockId(currentBlock.id);
+            return;
+          }
+        }
+      }
+
+      formatContentEditable(floatingToolbar.editableElement, action, options);
       requestAnimationFrame(() => {
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
@@ -565,7 +639,7 @@ export function VisualEditorCanvas({
         }
       });
     },
-    [floatingToolbar],
+    [floatingToolbar, blocks, pushState, updateBlocks, focusBlock],
   );
 
   // ── Keyboard shortcuts ──

@@ -4,6 +4,7 @@ import {
   formatContentEditable,
   detectActiveFormatsInText,
   useHtmlShortcuts,
+  getSelectionSplitHtml,
 } from "../useHtmlShortcuts";
 import { renderHook, act } from "@testing-library/react";
 
@@ -230,5 +231,88 @@ describe("useHtmlShortcuts hook keyboard events", () => {
     expect(onChange).toHaveBeenCalledWith("<del>1000k</del> 800k");
 
     document.body.removeChild(input);
+  });
+
+  it("handles color formatting with options.color", () => {
+    const text = "Dự án Timelapse Gia Lai";
+    const start = 6;
+    const end = 15; // "Timelapse"
+    const res = formatHtmlText(text, start, end, "color", { color: "#CA2A30" });
+    expect(res).not.toBeNull();
+    expect(res?.newValue).toBe('Dự án <span style="color: #CA2A30;">Timelapse</span> Gia Lai');
+  });
+
+  it("handles fontSize formatting with options.fontSize", () => {
+    const text = "Dự án Timelapse Gia Lai";
+    const start = 6;
+    const end = 15; // "Timelapse"
+    const res = formatHtmlText(text, start, end, "fontSize", { fontSize: "20px" });
+    expect(res).not.toBeNull();
+    expect(res?.newValue).toBe('Dự án <span style="font-size: 20px;">Timelapse</span> Gia Lai');
+  });
+
+  it("handles indent formatting and toggle unwrap", () => {
+    const text = "Dòng này cần thụt lề";
+    const res = formatHtmlText(text, 0, text.length, "indent");
+    expect(res).not.toBeNull();
+    expect(res?.newValue).toContain('class="ve-indent"');
+
+    // Toggle unwrap
+    const resUnwrap = formatHtmlText(res!.newValue, 0, res!.newValue.length, "indent");
+    expect(resUnwrap).not.toBeNull();
+    expect(resUnwrap?.newValue).toBe("Dòng này cần thụt lề");
+  });
+
+  it("triggers indent on Tab key in editable element", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => useHtmlShortcuts(onChange));
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "Đoạn văn thụt lề";
+    textarea.selectionStart = 0;
+    textarea.selectionEnd = textarea.value.length;
+    document.body.appendChild(textarea);
+
+    const event = {
+      key: "Tab",
+      shiftKey: false,
+      currentTarget: textarea,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as React.KeyboardEvent<HTMLTextAreaElement>;
+
+    act(() => {
+      result.current.handleKeyDown(event);
+    });
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalled();
+    expect(onChange.mock.calls[0][0]).toContain('class="ve-indent"');
+
+    document.body.removeChild(textarea);
+  });
+
+  it("extracts beforeHtml, selectedHtml, and afterHtml via getSelectionSplitHtml", () => {
+    const div = document.createElement("div");
+    div.innerHTML = "Đầu đoạn. Giữa đoạn chọn làm tiêu đề. Cuối đoạn.";
+    document.body.appendChild(div);
+
+    const textNode = div.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 10); // "Giữa..."
+    range.setEnd(textNode, 37); // "...tiêu đề."
+
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const split = getSelectionSplitHtml(div);
+    expect(split).not.toBeNull();
+    expect(split?.beforeHtml).toBe("Đầu đoạn. ");
+    expect(split?.selectedHtml).toBe("Giữa đoạn chọn làm tiêu đề.");
+    expect(split?.afterHtml).toBe(" Cuối đoạn.");
+    expect(split?.selectedText).toBe("Giữa đoạn chọn làm tiêu đề.");
+
+    document.body.removeChild(div);
   });
 });
