@@ -181,6 +181,15 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
     });
   };
 
+  const handleSplitBlock = (index: number, replacements: SlideDetailBlogBlock[]) => {
+    const nextBlocks = [...blocks];
+    nextBlocks.splice(index, 1, ...replacements);
+    onChange({
+      ...value,
+      blocks: nextBlocks,
+    });
+  };
+
   /** Inline picker rendered at the insertion point */
   const renderInlinePicker = () => (
     <div ref={pickerRef} className="my-3 scroll-mt-4">
@@ -257,6 +266,7 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
                 onMove={(direction) => handleMoveBlock(index, direction)}
                 onDuplicate={() => handleDuplicateBlock(index)}
                 onDelete={() => handleDeleteBlock(index)}
+                onSplit={(replacements) => handleSplitBlock(index, replacements)}
               />
 
               {/* Inline Insert separator */}

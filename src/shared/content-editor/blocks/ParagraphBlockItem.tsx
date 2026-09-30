@@ -1,15 +1,16 @@
 import React, { useCallback, useRef } from "react";
 import { FormTextarea } from "@/components/ui";
-import { useHtmlShortcuts, type FormatAction } from "../paste/useHtmlShortcuts";
+import { useHtmlShortcuts, type FormatAction, type FormatActionOptions } from "../paste/useHtmlShortcuts";
 import { BlockFormatToolbar } from "./BlockFormatToolbar";
 import type { ParagraphBlock } from "../model/document.types";
 
 export interface ParagraphBlockItemProps {
   block: ParagraphBlock;
   onChange: (updated: ParagraphBlock) => void;
+  onSplit?: (beforeText: string, headingText: string, headingLevel: 1 | 2 | 3 | 4 | 5 | 6, afterText: string) => void;
 }
 
-export function ParagraphBlockItem({ block, onChange }: ParagraphBlockItemProps) {
+export function ParagraphBlockItem({ block, onChange, onSplit }: ParagraphBlockItemProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleTextChange = useCallback(
@@ -20,10 +21,23 @@ export function ParagraphBlockItem({ block, onChange }: ParagraphBlockItemProps)
   const { handleKeyDown, applyFormat, activeActions, handleSelect } = useHtmlShortcuts(handleTextChange);
 
   const handleToolbarApply = useCallback(
-    (action: FormatAction) => {
-      applyFormat(textareaRef.current, action);
+    (action: FormatAction, options?: FormatActionOptions) => {
+      if (action === "heading" && onSplit && textareaRef.current) {
+        const textarea = textareaRef.current;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = block.text || "";
+        const selected = text.slice(start, end).trim();
+        if (selected.length > 0) {
+          const before = text.slice(0, start).trim();
+          const after = text.slice(end).trim();
+          onSplit(before, selected, (options?.headingLevel ?? 2) as 1 | 2 | 3 | 4 | 5 | 6, after);
+          return;
+        }
+      }
+      applyFormat(textareaRef.current, action, options);
     },
-    [applyFormat],
+    [applyFormat, block.text, onSplit],
   );
 
   return (
@@ -32,7 +46,7 @@ export function ParagraphBlockItem({ block, onChange }: ParagraphBlockItemProps)
         <label className="text-xs font-semibold uppercase text-text-muted">
           Nội dung đoạn văn <span className="text-danger">*</span>
         </label>
-        <BlockFormatToolbar onApply={handleToolbarApply} activeActions={activeActions} size="xs" />
+        <BlockFormatToolbar onApply={handleToolbarApply} activeActions={activeActions} size="xs" showHeadings={Boolean(onSplit)} />
       </div>
 
       <FormTextarea

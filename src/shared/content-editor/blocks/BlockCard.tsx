@@ -28,6 +28,14 @@ export interface BlockCardProps {
   onMove: (direction: "up" | "down") => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSplit?: (replacements: ContentBlock[]) => void;
+}
+
+function generateBlockId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `blk_${crypto.randomUUID()}`;
+  }
+  return `blk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function BlockCard({
@@ -38,6 +46,7 @@ export function BlockCard({
   onMove,
   onDuplicate,
   onDelete,
+  onSplit,
 }: BlockCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -192,6 +201,34 @@ export function BlockCard({
             <ParagraphBlockItem
               block={block as ParagraphBlock}
               onChange={onChange}
+              onSplit={
+                onSplit
+                  ? (before, headingText, headingLevel, after) => {
+                      const replacements: ContentBlock[] = [];
+                      if (before.length > 0) {
+                        replacements.push({
+                          id: generateBlockId(),
+                          type: "paragraph",
+                          text: before,
+                        });
+                      }
+                      replacements.push({
+                        id: generateBlockId(),
+                        type: "heading",
+                        level: headingLevel,
+                        text: headingText,
+                      });
+                      if (after.length > 0) {
+                        replacements.push({
+                          id: generateBlockId(),
+                          type: "paragraph",
+                          text: after,
+                        });
+                      }
+                      onSplit(replacements);
+                    }
+                  : undefined
+              }
             />
           )}
           {block.type === "image" && (
@@ -257,7 +294,7 @@ function QuoteBlockItem({
           <label className="text-xs font-semibold uppercase text-text-muted">
             Nội dung trích dẫn
           </label>
-          <BlockFormatToolbar onApply={(action) => applyFormat(textareaRef.current, action)} size="xs" />
+          <BlockFormatToolbar onApply={(action, options) => applyFormat(textareaRef.current, action, options)} size="xs" showHeadings={false} />
         </div>
         <textarea
           ref={textareaRef}
@@ -330,7 +367,7 @@ function HighlightBlockItem({
         <label className="text-xs font-semibold uppercase text-text-muted">
           Nội dung điểm nhấn
         </label>
-        <BlockFormatToolbar onApply={(action) => applyFormat(textareaRef.current, action)} size="xs" />
+        <BlockFormatToolbar onApply={(action, options) => applyFormat(textareaRef.current, action, options)} size="xs" showHeadings={false} />
       </div>
       <textarea
         ref={textareaRef}

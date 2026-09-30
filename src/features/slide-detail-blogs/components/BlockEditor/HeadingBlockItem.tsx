@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from "react";
 import { FormInput } from "@/components/ui";
-import { useHtmlShortcuts, type FormatAction } from "../../hooks/useHtmlShortcuts";
+import { useHtmlShortcuts, type FormatAction, type FormatActionOptions } from "../../hooks/useHtmlShortcuts";
 import { BlockFormatToolbar } from "./BlockFormatToolbar";
 import type { HeadingBlock } from "@/types/slide-detail-blog";
 
@@ -20,8 +20,8 @@ export function HeadingBlockItem({ block, onChange }: HeadingBlockItemProps) {
   const { handleKeyDown, applyFormat, activeActions, handleSelect } = useHtmlShortcuts(handleTextChange);
 
   const handleToolbarApply = useCallback(
-    (action: FormatAction) => {
-      applyFormat(inputRef.current, action);
+    (action: FormatAction, options?: FormatActionOptions) => {
+      applyFormat(inputRef.current, action, options);
     },
     [applyFormat],
   );
@@ -55,7 +55,7 @@ export function HeadingBlockItem({ block, onChange }: HeadingBlockItemProps) {
           <label className="text-xs font-semibold uppercase text-text-muted">
             Nội dung tiêu đề <span className="text-danger">*</span>
           </label>
-          <BlockFormatToolbar onApply={handleToolbarApply} activeActions={activeActions} size="xs" />
+          <BlockFormatToolbar onApply={handleToolbarApply} activeActions={activeActions} size="xs" showHeadings={false} />
         </div>
 
         <FormInput

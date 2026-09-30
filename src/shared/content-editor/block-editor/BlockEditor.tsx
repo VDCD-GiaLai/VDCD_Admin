@@ -159,6 +159,15 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
     });
   };
 
+  const handleSplitBlock = (index: number, replacements: ContentBlock[]) => {
+    const nextBlocks = [...blocks];
+    nextBlocks.splice(index, 1, ...replacements);
+    onChange({
+      ...value,
+      blocks: nextBlocks,
+    });
+  };
+
   const renderInlinePicker = () => (
     <div ref={pickerRef} className="my-3 scroll-mt-4">
       <BlockPicker
@@ -232,6 +241,7 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
                 onMove={(direction) => handleMoveBlock(index, direction)}
                 onDuplicate={() => handleDuplicateBlock(index)}
                 onDelete={() => handleDeleteBlock(index)}
+                onSplit={(replacements) => handleSplitBlock(index, replacements)}
               />
 
               <div className="group relative flex items-center justify-center py-1">

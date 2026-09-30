@@ -8,7 +8,69 @@ export type FormatAction =
   | "code"
   | "highlight"
   | "link"
-  | "clear";
+  | "clear"
+  | "color"
+  | "fontSize"
+  | "indent"
+  | "heading";
+
+export interface FormatActionOptions {
+  linkUrl?: string;
+  color?: string;
+  fontSize?: string;
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+}
+
+export interface SelectionSplitResult {
+  beforeHtml: string;
+  selectedHtml: string;
+  afterHtml: string;
+  selectedText: string;
+}
+
+/**
+ * Extracts the HTML contents before the selection, the selected HTML, and the HTML after the selection
+ * within the given container element.
+ */
+export function getSelectionSplitHtml(element: HTMLElement): SelectionSplitResult | null {
+  if (typeof window === "undefined") return null;
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+
+  const range = selection.getRangeAt(0);
+  if (!element.contains(range.commonAncestorContainer)) return null;
+
+  try {
+    const preRange = document.createRange();
+    preRange.selectNodeContents(element);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    const postRange = document.createRange();
+    postRange.selectNodeContents(element);
+    postRange.setStart(range.endContainer, range.endOffset);
+
+    const divPre = document.createElement("div");
+    divPre.appendChild(preRange.cloneContents());
+
+    const divSelected = document.createElement("div");
+    divSelected.appendChild(range.cloneContents());
+
+    const divPost = document.createElement("div");
+    divPost.appendChild(postRange.cloneContents());
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return null;
+
+    return {
+      beforeHtml: divPre.innerHTML,
+      selectedHtml: divSelected.innerHTML,
+      afterHtml: divPost.innerHTML,
+      selectedText,
+    };
+  } catch {
+    return null;
+  }
+}
 
 interface TagConfig {
   canonical: string;
@@ -17,7 +79,10 @@ interface TagConfig {
   aliases: string[];
 }
 
-const TAG_CONFIGS: Record<Exclude<FormatAction, "link" | "clear">, TagConfig> = {
+const TAG_CONFIGS: Record<
+  Exclude<FormatAction, "link" | "clear" | "color" | "fontSize" | "indent" | "heading">,
+  TagConfig
+> = {
   bold: {
     canonical: "strong",
     openTag: "<strong>",
@@ -85,7 +150,7 @@ export function formatHtmlText(
   selectionStart: number,
   selectionEnd: number,
   action: FormatAction,
-  options?: { linkUrl?: string },
+  options?: FormatActionOptions,
 ): FormatResult | null {
   const start = Math.max(0, Math.min(selectionStart, value.length));
   const end = Math.max(0, Math.min(selectionEnd, value.length));
@@ -100,6 +165,49 @@ export function formatHtmlText(
         cursorStart: start,
         cursorEnd: start + stripped.length,
       };
+    }
+    return null;
+  }
+
+  // 1.5 COLOR
+  if (action === "color") {
+    const color = options?.color;
+    if (!color || start >= end) return null;
+    if (color === "inherit" || color === "default") {
+      const uncolored = selected.replace(
+        /<span[^>]*style="[^"]*color:[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
+        "$1",
+      );
+      const newValue = value.substring(0, start) + uncolored + value.substring(end);
+      return { newValue, cursorStart: start, cursorEnd: start + uncolored.length };
+    }
+    const wrapped = `<span style="color: ${color};">${selected}</span>`;
+    const newValue = value.substring(0, start) + wrapped + value.substring(end);
+    return { newValue, cursorStart: start, cursorEnd: start + wrapped.length };
+  }
+
+  // 1.6 FONT SIZE
+  if (action === "fontSize") {
+    const fontSize = options?.fontSize;
+    if (!fontSize || start >= end) return null;
+    const wrapped = `<span style="font-size: ${fontSize};">${selected}</span>`;
+    const newValue = value.substring(0, start) + wrapped + value.substring(end);
+    return { newValue, cursorStart: start, cursorEnd: start + wrapped.length };
+  }
+
+  // 1.7 INDENT
+  if (action === "indent") {
+    if (start < end) {
+      const indentRegex = /^<span class="ve-indent"[^>]*>([\s\S]*)<\/span>$/i;
+      const m = selected.match(indentRegex);
+      if (m) {
+        const unindented = m[1];
+        const newValue = value.substring(0, start) + unindented + value.substring(end);
+        return { newValue, cursorStart: start, cursorEnd: start + unindented.length };
+      }
+      const wrapped = `<span class="ve-indent" style="display: block; padding-left: 24px; border-left: 2px solid #cbd5e1; margin: 6px 0;">${selected}</span>`;
+      const newValue = value.substring(0, start) + wrapped + value.substring(end);
+      return { newValue, cursorStart: start, cursorEnd: start + wrapped.length };
     }
     return null;
   }
@@ -219,7 +327,7 @@ export function formatHtmlText(
     }
   }
 
-  const config = TAG_CONFIGS[action];
+  const config = (TAG_CONFIGS as Record<string, TagConfig>)[action];
   if (!config) return null;
 
   const { openTag, closeTag, aliases } = config;
@@ -492,8 +600,9 @@ export function detectActiveFormatsInElement(
 export function formatContentEditable(
   element: HTMLElement,
   action: FormatAction,
-  options?: { linkUrl?: string },
+  options?: FormatActionOptions,
 ): boolean {
+
   if (typeof window === "undefined") return false;
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return false;
@@ -669,8 +778,99 @@ export function formatContentEditable(
     }
   }
 
+  // ── 2.5 Inline Color Formatting ──
+  if (action === "color") {
+    const color = options?.color;
+    if (!color || range.collapsed) return false;
+    const span = document.createElement("span");
+    span.style.color = color;
+    try {
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      element.normalize();
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── 2.6 Inline Font Size Formatting ──
+  if (action === "fontSize") {
+    const fontSize = options?.fontSize;
+    if (!fontSize || range.collapsed) return false;
+    const span = document.createElement("span");
+    span.style.fontSize = fontSize;
+    try {
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      element.normalize();
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── 2.7 Line / Selection Indent Formatting ──
+  if (action === "indent") {
+    const ancestor = findAncestor(range.commonAncestorContainer, ["SPAN", "DIV", "P"]);
+    const existingIndent = ancestor?.classList.contains("ve-indent")
+      ? ancestor
+      : (ancestor?.querySelector(".ve-indent") as HTMLElement | null);
+
+    if (existingIndent) {
+      unwrapNode(existingIndent);
+    } else {
+      const span = document.createElement("span");
+      span.className = "ve-indent";
+      span.style.display = "block";
+      span.style.paddingLeft = "24px";
+      span.style.borderLeft = "2px solid #cbd5e1";
+      span.style.marginTop = "6px";
+      span.style.marginBottom = "6px";
+      try {
+        if (range.collapsed) {
+          const targetNode = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement) as HTMLElement;
+          if (targetNode && targetNode !== element && element.contains(targetNode)) {
+            span.innerHTML = targetNode.innerHTML;
+            targetNode.innerHTML = "";
+            targetNode.appendChild(span);
+          } else {
+            const frag = document.createRange();
+            frag.selectNodeContents(element);
+            span.appendChild(frag.extractContents());
+            element.appendChild(span);
+          }
+        } else {
+          span.appendChild(range.extractContents());
+          range.insertNode(span);
+        }
+        const newRange = document.createRange();
+        newRange.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } catch {
+        return false;
+      }
+    }
+    element.normalize();
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  }
+
   // ── 3. Standard tag formatting (bold, italic, underline, strikethrough, code, highlight) ──
-  const tagConfig = TAG_CONFIGS[action];
+  const tagConfig = (TAG_CONFIGS as Record<string, TagConfig>)[action];
   if (!tagConfig) return false;
 
   const matchingAncestor = findAncestor(range.commonAncestorContainer, tagConfig.aliases);
@@ -766,9 +966,14 @@ export function useHtmlShortcuts(
     (
       element: HTMLTextAreaElement | HTMLInputElement | HTMLElement | null,
       action: FormatAction,
-      customUrl?: string,
+      optionsOrUrl?: FormatActionOptions | string,
     ) => {
       if (!element) return;
+
+      const options: FormatActionOptions =
+        typeof optionsOrUrl === "string"
+          ? { linkUrl: optionsOrUrl }
+          : optionsOrUrl || {};
 
       const isInput =
         element instanceof HTMLInputElement ||
@@ -781,7 +986,7 @@ export function useHtmlShortcuts(
         const start = inputEl.selectionStart ?? 0;
         const end = inputEl.selectionEnd ?? 0;
 
-        let linkUrl = customUrl;
+        let linkUrl = options.linkUrl;
         if (action === "link" && linkUrl === undefined) {
           const activeFormats = detectActiveFormatsInText(inputEl.value, start, end);
           if (activeFormats.includes("link")) {
@@ -801,7 +1006,7 @@ export function useHtmlShortcuts(
           if (!linkUrl) return;
         }
 
-        const result = formatHtmlText(inputEl.value, start, end, action, { linkUrl });
+        const result = formatHtmlText(inputEl.value, start, end, action, { ...options, linkUrl });
 
         if (result) {
           onChange?.(result.newValue);
@@ -809,7 +1014,7 @@ export function useHtmlShortcuts(
           syncActiveFormats(inputEl);
         }
       } else {
-        const success = formatContentEditable(element, action, { linkUrl: customUrl });
+        const success = formatContentEditable(element, action, options);
         if (success) {
           onChange?.(element.innerHTML);
           element.dispatchEvent(new Event("input", { bubbles: true }));
@@ -822,6 +1027,16 @@ export function useHtmlShortcuts(
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
+      // Intercept Tab / Shift+Tab for Indent/Outdent
+      if (e.key === "Tab") {
+        e.preventDefault();
+        e.stopPropagation?.();
+        const element = e.currentTarget;
+        applyFormat(element, "indent");
+        syncActiveFormats(element);
+        return;
+      }
+
       if (!e.ctrlKey && !e.metaKey) return;
 
       const pressedKey = e.key.toLowerCase();
