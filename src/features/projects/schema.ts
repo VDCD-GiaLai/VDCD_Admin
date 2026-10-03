@@ -68,6 +68,7 @@ export const projectSchema = z.object({
     .max(255, "Meta description tối đa 255 ký tự")
     .optional(),
   isPublished: z.boolean().optional(),
+  sidebarConfig: z.any().nullable().optional(),
 });
 
 export type ProjectFormData = z.infer<typeof projectSchema>;

@@ -4,6 +4,7 @@ export type {
   BlogDocument,
 } from "@/shared/content-editor";
 import type { DocumentContent } from "@/shared/content-editor";
+import type { SidebarConfig } from "./sidebar-config";
 
 /**
  * Project — content module with gallery.
@@ -52,6 +53,7 @@ export interface Project {
   metaTitle: string | null;
   metaDescription: string | null;
   isPublished: boolean;
+  sidebarConfig?: SidebarConfig | null;
   images: ProjectImage[];
   createdAt: string;
   updatedAt: string;

@@ -45,7 +45,11 @@ import {
   type SectionBlock,
 } from "@/shared/content-editor";
 import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage } from "@/lib/upload";
-import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
+import { ImagePickerModal, type ImagePickerResult, SidebarConfigPanel } from "@/components/shared";
+import { useSolutions } from "@/features/solutions/api";
+import { useProjects } from "@/features/projects/api";
+import { useArticles } from "@/features/articles/api";
+import type { SidebarConfig } from "@/types/sidebar-config";
 import type { Program } from "@/types/program";
 
 type EditorTab = "info" | "blocks" | "reader" | "visual";
@@ -94,6 +98,9 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const publishMutation = usePublishProgram();
   const deleteMutation = useDeleteProgram();
   const { data: allProgramsData } = usePrograms({ limit: 100 });
+  const { data: solutionsData } = useSolutions({ limit: 100 });
+  const { data: projectsData } = useProjects({ limit: 100 });
+  const { data: articlesData } = useArticles({ limit: 100 });
   const reorderProgramsMutation = useReorderPrograms();
   const { data: operationFields } = useOperationFields();
 
@@ -212,6 +219,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
       metaTitle: program?.metaTitle ?? "",
       metaDescription: program?.metaDescription ?? "",
       isPublished: program?.isPublished ?? false,
+      sidebarConfig: program?.sidebarConfig ?? { mode: "auto" },
     },
   });
 
@@ -231,6 +239,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
         metaTitle: program.metaTitle ?? "",
         metaDescription: program.metaDescription ?? "",
         isPublished: program.isPublished,
+        sidebarConfig: program.sidebarConfig ?? { mode: "auto" },
       });
     }
   }, [program, reset]);
@@ -244,6 +253,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const watchedFieldId = useWatch({ control, name: "fieldId" });
   const rawWatchedContent = useWatch({ control, name: "content" });
   const watchedIsPublished = useWatch({ control, name: "isPublished" });
+  const watchedSidebarConfig = useWatch({ control, name: "sidebarConfig" as never }) as SidebarConfig | null | undefined;
   const isCurrentlyPublished = watchedIsPublished ?? program?.isPublished ?? false;
 
   // Next available positive integer order
@@ -964,6 +974,28 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
                       rows={3}
                       errorMessage={errors.shortDescription?.message}
                       {...register("shortDescription")}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Liên kết thực thể & Cấu hình Sidebar */}
+                <Card className="border border-border bg-surface shadow-sm">
+                  <CardHeader className="border-b border-border px-5 py-3.5">
+                    <CardTitle className="text-base font-semibold text-text">
+                      Liên kết thực thể & Cấu hình Sidebar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-5">
+                    <p className="text-xs text-text-muted">
+                      Tùy chỉnh nội dung hiển thị ở sidebar của trang hoạt động này (chọn hiển thị tự động hoặc tùy chọn danh sách giải pháp, bài viết, dự án liên quan).
+                    </p>
+                    <SidebarConfigPanel
+                      value={watchedSidebarConfig}
+                      onChange={(cfg) => setValue("sidebarConfig" as never, cfg as never, { shouldDirty: true })}
+                      solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                      articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
+                      projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                      ownerType="programs"
                     />
                   </CardContent>
                 </Card>

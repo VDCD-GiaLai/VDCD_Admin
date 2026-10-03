@@ -59,6 +59,7 @@ export const solutionSchema = z.object({
   isPublished: z.boolean().optional(),
   publishedAt: z.date().nullable().optional(),
   tempFolderKey: z.string().optional(),
+  sidebarConfig: z.any().nullable().optional(),
 });
 
 export type SolutionFormData = z.infer<typeof solutionSchema>;
