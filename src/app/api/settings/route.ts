@@ -183,7 +183,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Quick test ping to Gemini API
-      const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const testModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+      const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${apiKey}`;
       const res = await fetch(testUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
