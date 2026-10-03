@@ -131,23 +131,58 @@ export function detectHeadingLevel(el: HTMLElement): (1 | 2 | 3 | 4 | 5 | 6) | n
   if (cls.includes("msoheading5")) return 5;
   if (cls.includes("msoheading6")) return 6;
 
-  // Check font size & bold in inline style
-  const fontSize = el.style.fontSize || "";
-  const fontWeight = el.style.fontWeight || "";
-  const isBold = fontWeight === "bold" || parseInt(fontWeight, 10) >= 600 || el.querySelector("b, strong") !== null;
+  // Check font size & bold in inline style of el OR child span
+  let fontSize = el.style.fontSize || "";
+  let fontWeight = el.style.fontWeight || "";
+  const hasBoldTag = el.querySelector("b, strong") !== null;
+
+  if (!fontSize) {
+    const styledChild = el.querySelector("[style*='font-size']") as HTMLElement | null;
+    if (styledChild) {
+      fontSize = styledChild.style.fontSize || "";
+      if (!fontWeight) fontWeight = styledChild.style.fontWeight || "";
+    }
+  }
+
+  if (!fontWeight) {
+    const boldChild = el.querySelector("[style*='font-weight']") as HTMLElement | null;
+    if (boldChild) {
+      fontWeight = boldChild.style.fontWeight || "";
+    }
+  }
+
+  const isBold =
+    fontWeight === "bold" ||
+    parseInt(fontWeight, 10) >= 600 ||
+    hasBoldTag;
+
+  const textLen = (el.textContent || "").trim().length;
+  // A heading shouldn't be an extremely long paragraph
+  if (textLen > 250) {
+    return null;
+  }
 
   if (fontSize && isBold) {
     const pt = parseFloat(fontSize);
     if (fontSize.includes("pt")) {
       if (pt >= 20) return 1;
-      if (pt >= 16) return 2;
-      if (pt >= 14) return 3;
+      if (pt >= 15.5) return 2;
+      if (pt >= 13.5) return 3;
       if (pt >= 12.5) return 4;
     } else if (fontSize.includes("px")) {
       if (pt >= 26) return 1;
-      if (pt >= 22) return 2;
-      if (pt >= 18) return 3;
-      if (pt >= 16) return 4;
+      if (pt >= 20) return 2;
+      if (pt >= 17) return 3;
+      if (pt >= 15) return 4;
+    }
+  }
+
+  // Check Roman numeral / numbered heading pattern if bold and short
+  // e.g. "I. TỔNG QUAN", "1. ĐẶT VẤN ĐỀ", "PHẦN I: ..."
+  if (isBold && textLen > 3 && textLen < 120) {
+    const cleanText = (el.textContent || "").trim();
+    if (/^[IVXLCDM]+\.\s+/i.test(cleanText) || /^phần\s+[IVXLCDM0-9]+/i.test(cleanText)) {
+      return 2;
     }
   }
 
@@ -230,6 +265,8 @@ export function sanitizeInlineHtml(element: HTMLElement): string {
  */
 export function isMultiBlockContent(html?: string | null, text?: string | null): boolean {
   if (html) {
+    // Google Docs signature
+    if (html.includes("docs-internal-guid")) return true;
     const blockTags = (html.match(/<(p|h[1-6]|ul|ol|table|figure|blockquote|img|tr)\b/gi) || []).length;
     if (blockTags > 1) return true;
     if (html.includes("<img") && html.replace(/<[^>]+>/g, "").trim().length > 0) return true;
@@ -243,6 +280,189 @@ export function isMultiBlockContent(html?: string | null, text?: string | null):
     if (paragraphs.length > 1) return true;
   }
   return false;
+}
+
+/**
+ * Standard leaf block tags that represent individual document blocks
+ */
+export const LEAF_BLOCK_TAGS = new Set([
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "table",
+  "blockquote",
+  "figure",
+  "hr",
+  "pre",
+]);
+
+/**
+ * Checks if an element acts as a container for other blocks (rather than a leaf block).
+ */
+export function isBlockContainer(el: HTMLElement): boolean {
+  const tag = el.tagName.toLowerCase();
+  // Leaf block tags are never containers
+  if (LEAF_BLOCK_TAGS.has(tag)) {
+    return false;
+  }
+
+  // Google Docs internal root wrapper: <b id="docs-internal-guid-..." ...>
+  if (el.id && el.id.startsWith("docs-internal-guid")) {
+    return true;
+  }
+
+  // Microsoft Word document container: <div class="WordSection1"> or "Section1"
+  const cls = (el.className || "").toLowerCase();
+  if (cls.includes("wordsection") || cls.includes("section1")) {
+    return true;
+  }
+
+  // Generic containers: div, section, article, main, header, footer, aside, center, body, form
+  const isGenericContainer = /^(div|section|article|main|header|footer|aside|center|body|form)$/i.test(tag);
+
+  // Check if it has any block-level descendant
+  const hasBlockDescendant =
+    el.querySelector("p, h1, h2, h3, h4, h5, h6, ul, ol, table, blockquote, figure, hr, pre, div, section, article") !== null;
+
+  return hasBlockDescendant || (isGenericContainer && el.children.length > 0);
+}
+
+/**
+ * Splits a paragraph or leaf div on double <br> tags into multiple separate paragraphs
+ */
+export function splitOnDoubleBr(el: HTMLElement, doc: Document): HTMLElement[] {
+  const tag = el.tagName.toLowerCase();
+  if (tag !== "p" && tag !== "div") {
+    return [el];
+  }
+
+  const html = el.innerHTML;
+  const brRegex = /(?:<br\s*\/?>\s*(?:&nbsp;)?\s*){2,}/gi;
+  if (!brRegex.test(html)) {
+    return [el];
+  }
+
+  const parts = html.split(brRegex);
+  const result: HTMLElement[] = [];
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const newP = doc.createElement("p");
+    newP.innerHTML = trimmed;
+    if (el.getAttribute("style")) {
+      newP.setAttribute("style", el.getAttribute("style") || "");
+    }
+    if (el.className) {
+      newP.className = el.className;
+    }
+
+    if ((newP.textContent || "").trim() || newP.querySelector("img")) {
+      result.push(newP);
+    }
+  }
+
+  return result.length > 0 ? result : [el];
+}
+
+/**
+ * Extracts and flattens top-level block elements from a DOM tree,
+ * unpacking Google Docs wrapper (<b id="docs-internal-guid-...">),
+ * Microsoft Word containers (WordSection1), nested <div> sections,
+ * and wrapping orphan text/spans into <p> tags.
+ */
+export function extractBlockElements(root: HTMLElement): HTMLElement[] {
+  const result: HTMLElement[] = [];
+  const doc = root.ownerDocument || document;
+
+  function collectFrom(container: HTMLElement) {
+    let pendingInlines: Node[] = [];
+
+    const flushPendingInlines = () => {
+      if (pendingInlines.length === 0) return;
+
+      const hasContent = pendingInlines.some((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return (node.textContent || "").trim().length > 0;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as HTMLElement;
+          if (el.tagName.toLowerCase() === "img") return true;
+          if (el.querySelector("img")) return true;
+          return (el.textContent || "").trim().length > 0;
+        }
+        return false;
+      });
+
+      if (hasContent) {
+        const p = doc.createElement("p");
+        pendingInlines.forEach((n) => p.appendChild(n.cloneNode(true)));
+        const splitPs = splitOnDoubleBr(p, doc);
+        result.push(...splitPs);
+      }
+      pendingInlines = [];
+    };
+
+    const childNodes = Array.from(container.childNodes);
+
+    for (const node of childNodes) {
+      if (node.nodeType === Node.COMMENT_NODE) {
+        continue;
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        pendingInlines.push(node);
+        continue;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tag = el.tagName.toLowerCase();
+
+        // Skip non-rendering tags
+        if (/^(script|style|meta|link|noscript|xml|defs)$/.test(tag)) {
+          continue;
+        }
+
+        // If it's a container (Google Docs wrapper, Word section, div containing blocks, etc.)
+        if (isBlockContainer(el)) {
+          flushPendingInlines();
+          collectFrom(el);
+          continue;
+        }
+
+        // If it's a leaf block or div/section without block children
+        if (LEAF_BLOCK_TAGS.has(tag) || /^(div|section|article|header|footer|aside)$/.test(tag)) {
+          flushPendingInlines();
+          const splitBlocks = splitOnDoubleBr(el, doc);
+          result.push(...splitBlocks);
+          continue;
+        }
+
+        // If it's a standalone img tag
+        if (tag === "img") {
+          flushPendingInlines();
+          result.push(el);
+          continue;
+        }
+
+        // Otherwise inline node (span, b, i, strong, em, a, font, br, etc.)
+        pendingInlines.push(node);
+      }
+    }
+
+    flushPendingInlines();
+  }
+
+  collectFrom(root);
+  return result;
 }
 
 /**
@@ -266,6 +486,9 @@ export function parseHtmlToBlocks(html: string, rtf?: string): ContentBlock[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(preparedHtml, "text/html");
   const body = doc.body;
+
+  // Remove non-rendering tags
+  body.querySelectorAll("script, style, meta, link, noscript, xml, defs").forEach((n) => n.remove());
 
   const blocks: ContentBlock[] = [];
 
@@ -308,8 +531,8 @@ export function parseHtmlToBlocks(html: string, rtf?: string): ContentBlock[] {
     return imgBlocks;
   }
 
-  // Process child elements
-  const children = Array.from(body.children) as HTMLElement[];
+  // Extract flat list of block elements, unwrapping Google Docs and Word wrappers
+  const children = extractBlockElements(body);
 
   // If body has no direct child elements but has innerHTML, wrap it
   if (children.length === 0 && body.innerHTML.trim()) {
@@ -436,7 +659,54 @@ export function parseHtmlToBlocks(html: string, rtf?: string): ContentBlock[] {
       continue;
     }
 
-    // 5. Word List Paragraphs (<p class="MsoListParagraph"> or bullet-prefixed paragraphs)
+    // 5. Heading (detect before list paragraphs so numbered headings like '1. MỤC TIÊU' become headings, not lists)
+    const headingLevel = detectHeadingLevel(el);
+    if (headingLevel) {
+      let headingText = sanitizeInlineHtml(el);
+      // Strip redundant outer wrappers since headings are inherently bold and inherit block styles (color, textAlign, bg)
+      headingText = headingText.replace(/^<strong>([\s\S]*)<\/strong>$/i, "$1");
+      headingText = headingText.replace(/^<b>([\s\S]*)<\/b>$/i, "$1");
+      headingText = headingText.replace(/^<span[^>]*>([\s\S]*)<\/span>$/i, "$1");
+      headingText = headingText.replace(/^<strong>([\s\S]*)<\/strong>$/i, "$1");
+      headingText = headingText.replace(/^<b>([\s\S]*)<\/b>$/i, "$1");
+
+      if (headingText) {
+        const color = extractColor(el);
+        const textAlign = extractTextAlign(el);
+        const backgroundColor = extractBackgroundColor(el);
+
+        blocks.push({
+          id: uid("hd"),
+          type: "heading",
+          level: headingLevel,
+          text: headingText,
+          color,
+          textAlign,
+          backgroundColor,
+          spacing: { marginTop: headingLevel <= 2 ? 18 : 14, marginBottom: 8 },
+        });
+      }
+      i++;
+      continue;
+    }
+
+    // 6. Blockquote / Quote
+    if (tagName === "blockquote") {
+      const quoteText = sanitizeInlineHtml(el);
+      if (quoteText) {
+        blocks.push({
+          id: uid("quote"),
+          type: "quote",
+          text: quoteText,
+          author: null,
+          spacing: { marginTop: 12, marginBottom: 12 },
+        });
+      }
+      i++;
+      continue;
+    }
+
+    // 7. Word List Paragraphs (<p class="MsoListParagraph"> or bullet-prefixed paragraphs)
     const isMsoList =
       (el.className || "").toLowerCase().includes("msolistparagraph") ||
       /^[•·\-\*]\s+/.test(textContent) ||
@@ -482,46 +752,6 @@ export function parseHtmlToBlocks(html: string, rtf?: string): ContentBlock[] {
           spacing: { marginTop: 6, marginBottom: 10 },
         });
       }
-      continue;
-    }
-
-    // 6. Blockquote / Quote
-    if (tagName === "blockquote") {
-      const quoteText = sanitizeInlineHtml(el);
-      if (quoteText) {
-        blocks.push({
-          id: uid("quote"),
-          type: "quote",
-          text: quoteText,
-          author: null,
-          spacing: { marginTop: 12, marginBottom: 12 },
-        });
-      }
-      i++;
-      continue;
-    }
-
-    // 7. Heading
-    const headingLevel = detectHeadingLevel(el);
-    if (headingLevel) {
-      const headingText = sanitizeInlineHtml(el);
-      if (headingText) {
-        const color = extractColor(el);
-        const textAlign = extractTextAlign(el);
-        const backgroundColor = extractBackgroundColor(el);
-
-        blocks.push({
-          id: uid("hd"),
-          type: "heading",
-          level: headingLevel,
-          text: headingText,
-          color,
-          textAlign,
-          backgroundColor,
-          spacing: { marginTop: headingLevel <= 2 ? 18 : 14, marginBottom: 8 },
-        });
-      }
-      i++;
       continue;
     }
 
@@ -613,6 +843,20 @@ export function parsePlainTextToBlocks(text: string): ContentBlock[] {
 
     if (!line) {
       flushParagraph();
+      i++;
+      continue;
+    }
+
+    // Check if line is metadata label: SEO Title, Meta Description, etc.
+    const isMetadataLine = /^(seo\s*title|seo\s*desc|meta\s*desc|tiêu\s*đề\s*seo|mô\s*tả\s*seo)\s*:/i.test(line);
+    if (isMetadataLine) {
+      flushParagraph();
+      blocks.push({
+        id: uid("par"),
+        type: "paragraph",
+        text: line,
+        spacing: { marginTop: 0, marginBottom: 8 },
+      });
       i++;
       continue;
     }
