@@ -219,7 +219,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
       metaTitle: program?.metaTitle ?? "",
       metaDescription: program?.metaDescription ?? "",
       isPublished: program?.isPublished ?? false,
-      sidebarConfig: program?.sidebarConfig ?? { mode: "auto" },
+      sidebarConfig: program?.sidebarConfig ?? (program?.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
     },
   });
 
@@ -239,7 +239,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
         metaTitle: program.metaTitle ?? "",
         metaDescription: program.metaDescription ?? "",
         isPublished: program.isPublished,
-        sidebarConfig: program.sidebarConfig ?? { mode: "auto" },
+        sidebarConfig: program.sidebarConfig ?? (program.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
       });
     }
   }, [program, reset]);

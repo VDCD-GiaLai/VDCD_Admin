@@ -124,6 +124,9 @@ export function parseSolutionContent(rawContent: unknown): DocumentContent {
         position: "center",
         caption: "",
       },
+      ...((doc as Record<string, unknown>).sidebarConfig
+        ? { sidebarConfig: (doc as Record<string, unknown>).sidebarConfig }
+        : {}),
     };
   }
 
@@ -142,6 +145,7 @@ export function parseSolutionContent(rawContent: unknown): DocumentContent {
               position: "center",
               caption: "",
             },
+            ...(parsed.sidebarConfig ? { sidebarConfig: parsed.sidebarConfig } : {}),
           };
         }
       } catch {
@@ -326,15 +330,18 @@ export function normalizeDocumentBlocks(rawBlocks: unknown[]): ContentBlock[] {
  * Passes content as a structured JSON object or string, and preserves websiteUrl and publishedAt.
  */
 export function serializeSolutionPayload(data: SolutionFormData): Record<string, unknown> {
-  const contentObj =
+  const baseContent =
     typeof data.content === "object" && data.content !== null
-      ? {
-          ...data.content,
-          blocks: normalizeDocumentBlocks((data.content as DocumentContent).blocks),
-        }
+      ? (data.content as DocumentContent)
       : typeof data.content === "string"
         ? parseSolutionContent(data.content)
         : createDefaultDocumentContent();
+
+  const contentObj = {
+    ...baseContent,
+    blocks: normalizeDocumentBlocks(baseContent.blocks),
+    sidebarConfig: data.sidebarConfig ?? null,
+  };
 
   const cleanOrder =
     typeof data.order === "number" && !isNaN(data.order) && data.order >= 1
@@ -356,7 +363,6 @@ export function serializeSolutionPayload(data: SolutionFormData): Record<string,
     isPublished: data.isPublished ?? false,
     publishedAt: data.publishedAt ?? undefined,
     tempFolderKey: data.tempFolderKey || undefined,
-    sidebarConfig: data.sidebarConfig ?? null,
   };
 }
 

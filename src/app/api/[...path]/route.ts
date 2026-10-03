@@ -55,7 +55,22 @@ async function handler(
         // JSON body
         headers["Content-Type"] = "application/json";
         const text = await request.text();
-        if (text) body = text;
+        if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && typeof parsed === "object" && "sidebarConfig" in parsed) {
+              if (parsed.content && typeof parsed.content === "object") {
+                parsed.content.sidebarConfig = parsed.sidebarConfig;
+              }
+              delete parsed.sidebarConfig;
+              body = JSON.stringify(parsed);
+            } else {
+              body = text;
+            }
+          } catch {
+            body = text;
+          }
+        }
       }
     } else {
       headers["Content-Type"] = "application/json";
@@ -81,6 +96,31 @@ async function handler(
 
     if (contentTypeRes.includes("application/json")) {
       const responseData = await res.json().catch(() => null);
+
+      // Hydrate root sidebarConfig from content.sidebarConfig for frontend/admin consumers
+      if (responseData && typeof responseData === "object") {
+        const attachSidebar = (item: unknown) => {
+          if (item && typeof item === "object") {
+            const obj = item as Record<string, unknown>;
+            if (
+              obj.content &&
+              typeof obj.content === "object" &&
+              (obj.content as Record<string, unknown>).sidebarConfig &&
+              !obj.sidebarConfig
+            ) {
+              obj.sidebarConfig = (obj.content as Record<string, unknown>).sidebarConfig;
+            }
+          }
+        };
+        attachSidebar(responseData);
+        const list = Array.isArray(responseData)
+          ? responseData
+          : (responseData as Record<string, unknown>).data || (responseData as Record<string, unknown>).items;
+        if (Array.isArray(list)) {
+          list.forEach(attachSidebar);
+        }
+      }
+
       return NextResponse.json(responseData ?? { statusCode: res.status }, {
         status: res.status,
       });
