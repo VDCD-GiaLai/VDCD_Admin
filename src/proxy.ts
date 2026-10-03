@@ -14,7 +14,7 @@ const PUBLIC_PATHS = ["/login"];
  */
 const RESTRICTED_ROUTES: Record<string, string[]> = {
   "/admin-users": ["superadmin"],
-  "/settings": ["superadmin"],
+  "/settings": ["superadmin", "editor"],
 };
 
 /**

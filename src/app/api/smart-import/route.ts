@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = "gemini-2.0-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const SYSTEM_PROMPT = `Bạn là trợ lý chuyên chuyển đổi nội dung văn bản thành cấu trúc khối (blocks) cho hệ thống quản lý nội dung.
 
@@ -34,12 +32,15 @@ Quy tắc:
 `;
 
 export async function POST(request: NextRequest) {
-  if (!GEMINI_API_KEY) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "GEMINI_API_KEY chưa được cấu hình. Thêm vào .env.local" },
+      { error: "GEMINI_API_KEY chưa được cấu hình. Vui lòng vào Quản lý hệ thống > Cấu hình hệ thống để cập nhật API Key." },
       { status: 500 },
     );
   }
+
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   try {
     const { content, mode } = await request.json();
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         ? `Chuyển đổi nội dung HTML sau thành JSON array các blocks. Đây là nội dung paste từ Word/Google Docs:\n\n${content}`
         : `Chuyển đổi nội dung văn bản sau thành JSON array các blocks. Phân tích cấu trúc tự động:\n\n${content}`;
 
-    const response = await fetch(GEMINI_URL, {
+    const response = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

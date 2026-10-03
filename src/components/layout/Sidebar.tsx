@@ -184,7 +184,7 @@ const MENU_ITEMS: MenuItem[] = [
       {
         label: "Cấu hình hệ thống",
         href: "/settings",
-        roles: ["superadmin"],
+        roles: ["superadmin", "editor"],
         icon: <SettingsGearIcon />,
       },
     ],

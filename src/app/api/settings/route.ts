@@ -85,9 +85,16 @@ async function updateEnvFile(updates: Record<string, string>): Promise<void> {
     }
   }
 
-  await writeFile(ENV_PATH, updatedLines.join("\n"), "utf-8");
+  try {
+    await writeFile(ENV_PATH, updatedLines.join("\n"), "utf-8");
+  } catch (fsErr) {
+    console.warn(
+      "[Settings API] Warning: Could not persist to .env.local file (serverless/read-only environment), updated process.env in runtime memory only:",
+      fsErr,
+    );
+  }
 
-  // Also update process.env so changes take effect immediately
+  // Always update process.env so changes take effect immediately
   for (const [key, value] of Object.entries(updates)) {
     process.env[key] = value;
   }
@@ -155,6 +162,59 @@ export async function PATCH(request: NextRequest) {
     console.error("[Settings API Error]", err);
     return NextResponse.json(
       { error: "Lỗi cập nhật cấu hình" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * POST /api/settings — test connection for a specific key (e.g. GEMINI_API_KEY)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { key, value } = await request.json();
+    if (key === "GEMINI_API_KEY") {
+      const apiKey = value || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json(
+          { success: false, error: "Chưa nhập API Key để kiểm tra" },
+          { status: 400 },
+        );
+      }
+
+      // Quick test ping to Gemini API
+      const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const res = await fetch(testUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "ping" }] }],
+          generationConfig: { maxOutputTokens: 5 },
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.error?.message || `HTTP ${res.status}`;
+        return NextResponse.json({
+          success: false,
+          error: `Google API báo lỗi: ${errMsg}`,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Kết nối thành công! API Key hợp lệ và hoạt động tốt.",
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Key không hỗ trợ kiểm tra kết nối" },
+      { status: 400 },
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { success: false, error: String(err) },
       { status: 500 },
     );
   }
