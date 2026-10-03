@@ -148,8 +148,97 @@ describe("Quick Import — HTML to Blocks Parser", () => {
     expect(blocks[0].type).toBe("quote");
   });
 
-  it("parses plain text with headings and bullet lists", () => {
+  it("unwraps Google Docs root wrapper (<b id='docs-internal-guid-...'>) into individual blocks", () => {
+    const gdocsHtml = `
+      <meta charset='utf-8'>
+      <b id="docs-internal-guid-6b58602b-7fff-6bb7-c104-58e515d9a9ba" style="font-weight:normal;">
+        <p dir="ltr"><span style="font-size:11pt;font-family:Arial;font-weight:700;">SEO Title: Đào tạo công nghệ và chuyển đổi số | VDCD Gia Lai</span></p>
+        <p dir="ltr"><span style="font-size:11pt;font-family:Arial;">Meta Description: Chương trình đào tạo theo nhu cầu thực tế về chuyển đổi số, UAV, AI, GIS, dữ liệu và khởi nghiệp dành cho cơ quan, doanh nghiệp và đội ngũ trẻ....</span></p>
+        <h2 dir="ltr"><span style="font-size:16pt;font-family:Arial;font-weight:700;">I. GIỚI THIỆU CHƯƠNG TRÌNH</span></h2>
+        <p dir="ltr"><span style="font-size:11pt;font-family:Arial;">Trung tâm VDCD Gia Lai tổ chức đào tạo chuyên sâu...</span></p>
+        <p dir="ltr"><img src="https://lh7-rt.googleusercontent.com/docsz/AD_4nXabc123" alt="Hình ảnh đào tạo" /></p>
+        <ul style="margin-top:0;margin-bottom:0;">
+          <li dir="ltr"><span>Khóa học UAV viễn thám</span></li>
+          <li dir="ltr"><span>Khóa học AI và GIS</span></li>
+        </ul>
+      </b>
+    `;
+    const blocks = parseHtmlToBlocks(gdocsHtml);
+
+    // Must NOT collapse into 1 block! Must extract all 6 individual blocks
+    expect(blocks.length).toBe(6);
+    expect(blocks[0].type).toBe("paragraph");
+    expect((blocks[0] as ParagraphBlock).text).toContain("SEO Title:");
+    expect(blocks[1].type).toBe("paragraph");
+    expect((blocks[1] as ParagraphBlock).text).toContain("Meta Description:");
+    expect(blocks[2].type).toBe("heading");
+    expect((blocks[2] as HeadingBlock).text).toBe("I. GIỚI THIỆU CHƯƠNG TRÌNH");
+    expect(blocks[3].type).toBe("paragraph");
+    expect(blocks[4].type).toBe("image");
+    expect((blocks[4] as ImageBlock).url).toBe("https://lh7-rt.googleusercontent.com/docsz/AD_4nXabc123");
+    expect(blocks[5].type).toBe("list");
+    expect((blocks[5] as ListBlock).items).toHaveLength(2);
+  });
+
+  it("detects headings in Google Docs styled with font-size and bold in child span", () => {
+    const html = `
+      <b id="docs-internal-guid-abc" style="font-weight:normal;">
+        <p dir="ltr"><span style="font-size: 16pt; font-weight: 700; color: #1e40af;">1. MỤC TIÊU VÀ ĐỐI TƯỢNG</span></p>
+        <p dir="ltr"><span>Nội dung mục tiêu đào tạo chi tiết.</span></p>
+      </b>
+    `;
+    const blocks = parseHtmlToBlocks(html);
+
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe("heading");
+    const h = blocks[0] as HeadingBlock;
+    expect(h.level).toBe(2);
+    expect(h.text).toBe("1. MỤC TIÊU VÀ ĐỐI TƯỢNG");
+    expect(h.color).toBe("#1e40af");
+    expect(blocks[1].type).toBe("paragraph");
+  });
+
+  it("unwraps Word WordSection1 container and nested divs", () => {
+    const wordHtml = `
+      <div class="WordSection1">
+        <h1 class="MsoTitle" style="text-align: center;">KẾ HOẠCH HÀNH ĐỘNG</h1>
+        <div class="section-content">
+          <p class="MsoNormal">Nội dung kế hoạch chi tiết...</p>
+          <p class="MsoListParagraph">· Bước chuẩn bị</p>
+          <p class="MsoListParagraph">· Bước triển khai</p>
+        </div>
+      </div>
+    `;
+    const blocks = parseHtmlToBlocks(wordHtml);
+
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0].type).toBe("heading");
+    expect(blocks[1].type).toBe("paragraph");
+    expect(blocks[2].type).toBe("list");
+  });
+
+  it("splits paragraphs separated by double <br> tags into multiple blocks", () => {
+    const html = `
+      <p>
+        Đoạn văn thứ nhất.
+        <br><br>
+        Đoạn văn thứ hai sau hai thẻ ngắt dòng.
+      </p>
+    `;
+    const blocks = parseHtmlToBlocks(html);
+
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe("paragraph");
+    expect((blocks[0] as ParagraphBlock).text).toBe("Đoạn văn thứ nhất.");
+    expect(blocks[1].type).toBe("paragraph");
+    expect((blocks[1] as ParagraphBlock).text).toBe("Đoạn văn thứ hai sau hai thẻ ngắt dòng.");
+  });
+
+  it("parses plain text with metadata lines, headings, and bullet lists", () => {
     const text = `
+SEO Title: Đào tạo công nghệ và chuyển đổi số | VDCD Gia Lai
+Meta Description: Chương trình đào tạo theo nhu cầu thực tế...
+
 TIÊU ĐỀ IN HOA
 
 Đây là một đoạn văn bản.
@@ -163,11 +252,15 @@ TIÊU ĐỀ IN HOA
 
     const blocks = parsePlainTextToBlocks(text);
 
-    expect(blocks.length).toBeGreaterThanOrEqual(4);
-    expect(blocks[0].type).toBe("heading");
+    expect(blocks.length).toBeGreaterThanOrEqual(6);
+    expect(blocks[0].type).toBe("paragraph");
+    expect((blocks[0] as ParagraphBlock).text).toContain("SEO Title:");
     expect(blocks[1].type).toBe("paragraph");
-    expect(blocks[2].type).toBe("list");
-    expect(blocks[3].type).toBe("list");
+    expect((blocks[1] as ParagraphBlock).text).toContain("Meta Description:");
+    expect(blocks[2].type).toBe("heading");
+    expect(blocks[3].type).toBe("paragraph");
+    expect(blocks[4].type).toBe("list");
+    expect(blocks[5].type).toBe("list");
   });
 });
 
