@@ -1,4 +1,5 @@
 import type { SlideDetailBlogContent } from "./slide-detail-blog";
+import type { SidebarConfig } from "./sidebar-config";
 
 /**
  * Article — content module linked to Project/Program/Solution.
@@ -18,6 +19,7 @@ export interface Article {
   project: { id: string; title: string } | null;
   program: { id: string; title: string } | null;
   solution: { id: string; title: string } | null;
+  sidebarConfig?: SidebarConfig | null;
   metaTitle: string | null;
   metaDescription: string | null;
   isPublished: boolean;

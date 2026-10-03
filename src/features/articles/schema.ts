@@ -20,6 +20,7 @@ export const articleSchema = z.object({
   projectId: z.string().nullable().optional(),
   programId: z.string().nullable().optional(),
   solutionId: z.string().nullable().optional(),
+  sidebarConfig: z.any().nullable().optional(),
   metaTitle: z.string().max(255, "Meta title tối đa 255 ký tự").optional(),
   metaDescription: z
     .string()

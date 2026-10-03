@@ -1,4 +1,5 @@
 import type { DocumentContent } from "@/shared/content-editor";
+import type { SidebarConfig } from "./sidebar-config";
 
 /**
  * Solution — content module (twin of Program).
@@ -18,6 +19,7 @@ export interface Solution {
   metaTitle: string | null;
   metaDescription: string | null;
   isPublished: boolean;
+  sidebarConfig?: SidebarConfig | null;
   publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;
