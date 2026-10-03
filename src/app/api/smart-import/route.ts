@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 const SYSTEM_PROMPT = `Bạn là trợ lý chuyên chuyển đổi nội dung văn bản thành cấu trúc khối (blocks) cho hệ thống quản lý nội dung.
 
