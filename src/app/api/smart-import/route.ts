@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.5-flash-lite",
-];
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const SYSTEM_PROMPT = `Bạn là trợ lý chuyên chuyển đổi nội dung văn bản thành cấu trúc khối (blocks) cho hệ thống quản lý nội dung.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -39,32 +39,36 @@ export default function SettingsPage() {
 
   /* ── Fetch settings ── */
 
-  const fetchSettings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/settings");
-      if (!res.ok) throw new Error("Failed to fetch settings");
-      const data = await res.json();
-      setSettings(data.settings);
-      // Initialize edit values
-      const vals: Record<string, string> = {};
-      for (const s of data.settings) {
-        vals[s.key] = s.value;
-      }
-      setEditValues(vals);
-    } catch (err) {
-      toast({
-        title: "Lỗi tải cấu hình",
-        description: String(err),
-        color: "danger",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/settings");
+        if (!res.ok) throw new Error("Failed to fetch settings");
+        const data = await res.json();
+        if (cancelled) return;
+        setSettings(data.settings);
+        const vals: Record<string, string> = {};
+        for (const s of data.settings) {
+          vals[s.key] = s.value;
+        }
+        setEditValues(vals);
+      } catch (err) {
+        if (!cancelled) {
+          toast({
+            title: "Lỗi tải cấu hình",
+            description: String(err),
+            color: "danger",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── Actions ── */
 
@@ -123,7 +127,17 @@ export default function SettingsPage() {
 
       setDirtyKeys(new Set());
       setEditingKeys(new Set());
-      await fetchSettings();
+      // Reload settings from server
+      const reloadRes = await fetch("/api/settings");
+      if (reloadRes.ok) {
+        const reloadData = await reloadRes.json();
+        setSettings(reloadData.settings);
+        const vals: Record<string, string> = {};
+        for (const s of reloadData.settings) {
+          vals[s.key] = s.value;
+        }
+        setEditValues(vals);
+      }
     } catch (err) {
       toast({
         title: "Lỗi cập nhật",
@@ -179,7 +193,6 @@ export default function SettingsPage() {
         <CardContent className="divide-y divide-border">
           {settings.map((setting) => {
             const isEditing = editingKeys.has(setting.key);
-            const isDirty = dirtyKeys.has(setting.key);
 
             return (
               <div key={setting.key} className="px-5 py-4">

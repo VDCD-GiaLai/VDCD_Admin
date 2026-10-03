@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
-import { AppButton, DropdownSelect, FormInput } from "@/components/ui";
+import { useState } from "react";
+import { DropdownSelect, FormInput } from "@/components/ui";
 import type {
   SidebarConfig,
   SidebarWidgetConfig,
@@ -115,14 +114,6 @@ export function SidebarConfigPanel({
         return [];
     }
   };
-
-  /* ── Available widget types (exclude owner + already used) ── */
-  const availableTypeOptions = useMemo(() => {
-    const usedTypes = (config.widgets || []).map((w) => w.type);
-    return WIDGET_TYPE_OPTIONS.filter(
-      (o) => !usedTypes.includes(o.value) || o.value === ownerType,
-    );
-  }, [config.widgets, ownerType]);
 
   const canAddMore =
     (config.widgets || []).length < WIDGET_TYPE_OPTIONS.length - (ownerType ? 1 : 0);
