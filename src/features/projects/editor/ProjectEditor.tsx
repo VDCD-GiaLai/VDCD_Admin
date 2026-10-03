@@ -17,9 +17,13 @@ import {
   ModalFooter,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api-client";
-import { RichTextEditor, FloatingSaveBar } from "@/components/shared";
+import { RichTextEditor, FloatingSaveBar, SidebarConfigPanel } from "@/components/shared";
 import { useOperationFields } from "@/features/operation-fields/api";
 import { useProvinces } from "@/features/provinces/api";
+import { useSolutions } from "@/features/solutions/api";
+import { usePrograms } from "@/features/programs/api";
+import { useArticles } from "@/features/articles/api";
+import type { SidebarConfig } from "@/types/sidebar-config";
 import {
   useCreateProject,
   useUpdateProject,
@@ -108,6 +112,9 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const { data: operationFields } = useOperationFields();
   const { data: provinces } = useProvinces();
   const { data: projectsData } = useProjects({ limit: 100 });
+  const { data: solutionsData } = useSolutions({ limit: 100 });
+  const { data: programsData } = usePrograms({ limit: 100 });
+  const { data: articlesData } = useArticles({ limit: 100 });
   const reorderProjectsMutation = useReorderProjects();
 
   const canDelete = usePermission("projects:delete");
@@ -199,6 +206,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       metaTitle: project?.metaTitle ?? "",
       metaDescription: project?.metaDescription ?? "",
       isPublished: project?.isPublished ?? false,
+      sidebarConfig: project?.sidebarConfig ?? { mode: "auto" },
     },
   });
 
@@ -253,6 +261,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
         metaTitle: project.metaTitle ?? "",
         metaDescription: project.metaDescription ?? "",
         isPublished: project.isPublished,
+        sidebarConfig: project.sidebarConfig ?? { mode: "auto" },
       });
     }
   }, [project, reset, sessionFolderKey]);
@@ -265,6 +274,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
   const watchedOverview = useWatch({ control, name: "overview" }) ?? "";
   const watchedChallenge = useWatch({ control, name: "challenge" }) ?? "";
   const rawWatchedContent = useWatch({ control, name: "content" });
+  const watchedSidebarConfig = useWatch({ control, name: "sidebarConfig" as never }) as SidebarConfig | null | undefined;
 
   const currentThumbnail = thumbnailPreview ?? watchedThumbnail ?? project?.thumbnail ?? "";
 
@@ -1396,6 +1406,28 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
                         ))
                       )}
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* ── 5. Liên kết thực thể & Cấu hình Sidebar ── */}
+                <Card className="border border-border bg-surface shadow-sm">
+                  <CardHeader className="border-b border-border px-5 py-3.5">
+                    <CardTitle className="text-base font-semibold text-text">
+                      Liên kết thực thể & Cấu hình Sidebar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-5">
+                    <p className="text-xs text-text-muted">
+                      Tùy chỉnh nội dung hiển thị ở sidebar của trang dự án này (chọn hiển thị tự động hoặc tùy chọn danh sách giải pháp, chương trình, bài viết liên quan).
+                    </p>
+                    <SidebarConfigPanel
+                      value={watchedSidebarConfig}
+                      onChange={(cfg) => setValue("sidebarConfig" as never, cfg as never, { shouldDirty: true })}
+                      solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                      programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                      articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
+                      ownerType="projects"
+                    />
                   </CardContent>
                 </Card>
               </div>

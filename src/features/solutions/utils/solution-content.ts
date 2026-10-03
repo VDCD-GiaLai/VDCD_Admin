@@ -356,6 +356,7 @@ export function serializeSolutionPayload(data: SolutionFormData): Record<string,
     isPublished: data.isPublished ?? false,
     publishedAt: data.publishedAt ?? undefined,
     tempFolderKey: data.tempFolderKey || undefined,
+    sidebarConfig: data.sidebarConfig ?? null,
   };
 }
 

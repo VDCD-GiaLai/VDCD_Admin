@@ -38,6 +38,7 @@ export const programSchema = z.object({
     .max(160, "Meta description tối đa 160 ký tự")
     .optional(),
   isPublished: z.boolean().optional(),
+  sidebarConfig: z.any().nullable().optional(),
 });
 
 export type ProgramFormData = z.infer<typeof programSchema>;
