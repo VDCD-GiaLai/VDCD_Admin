@@ -290,6 +290,9 @@ export function parseProjectContent(
       version: (rawContent as { version?: number }).version ?? 1,
       blocks: normalizeDocumentBlocks(rawBlocks),
       heroMeta: (rawContent as { heroMeta?: DocumentContent["heroMeta"] }).heroMeta,
+      ...((rawContent as Record<string, unknown>).sidebarConfig
+        ? { sidebarConfig: (rawContent as Record<string, unknown>).sidebarConfig }
+        : {}),
     };
   }
 
@@ -302,6 +305,7 @@ export function parseProjectContent(
           version: parsed.version ?? 1,
           blocks: normalizeDocumentBlocks(parsed.blocks || []),
           heroMeta: parsed.heroMeta,
+          ...(parsed.sidebarConfig ? { sidebarConfig: parsed.sidebarConfig } : {}),
         };
       } catch {
         // fall through to htmlToDocumentBlocks
@@ -322,13 +326,16 @@ export function parseProjectContent(
  * Strictly guarantees NO visualContent, NO previewContent, NO readerContent.
  */
 export function serializeProjectPayload(data: ProjectFormData): ProjectFormData {
-  const content =
+  const baseContent =
     data.content && typeof data.content === "object" && "blocks" in data.content
-      ? {
-          ...data.content,
-          blocks: normalizeDocumentBlocks((data.content as DocumentContent).blocks),
-        }
+      ? (data.content as DocumentContent)
       : parseProjectContent(data.content, data.overview);
+
+  const content = {
+    ...baseContent,
+    blocks: normalizeDocumentBlocks(baseContent.blocks || []),
+    sidebarConfig: data.sidebarConfig ?? null,
+  };
 
   // Clean empty technicalHighlights
   const cleanHighlights = data.technicalHighlights
@@ -368,6 +375,7 @@ export function serializeProjectPayload(data: ProjectFormData): ProjectFormData 
   delete (payload as Record<string, unknown>).visualContent;
   delete (payload as Record<string, unknown>).previewContent;
   delete (payload as Record<string, unknown>).readerContent;
+  delete (payload as Record<string, unknown>).sidebarConfig;
 
   return payload;
 }

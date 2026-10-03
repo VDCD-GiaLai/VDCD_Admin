@@ -170,7 +170,7 @@ export default function EditArticlePage() {
         projectId: article.project?.id ?? null,
         programId: article.program?.id ?? null,
         solutionId: article.solution?.id ?? null,
-        sidebarConfig: article.sidebarConfig ?? null,
+        sidebarConfig: article.sidebarConfig ?? (article.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? null,
         metaTitle: article.metaTitle ?? "",
         metaDescription: article.metaDescription ?? "",
         content: parsed.content,
@@ -356,12 +356,17 @@ export default function EditArticlePage() {
   const onSubmit = (data: ArticleFormData) => {
     const payload: ArticleFormData = {
       ...data,
+      content: {
+        ...(data.content || {}),
+        sidebarConfig: data.sidebarConfig ?? null,
+      } as SlideDetailBlogContent,
       isPublished: article?.isPublished ?? data.isPublished ?? false,
       publishedAt: data.publishedAt || (article?.isPublished ? new Date().toISOString() : null),
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
     };
+    delete (payload as Record<string, unknown>).sidebarConfig;
 
     // Collect all fileIds currently in the content blocks to protect them from deletion
     const activeBlockFileIds = new Set<string>();

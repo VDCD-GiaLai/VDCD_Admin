@@ -114,6 +114,9 @@ export function parseProgramContent(rawContent: unknown): DocumentContent {
         position: "center",
         caption: "",
       },
+      ...((doc as Record<string, unknown>).sidebarConfig
+        ? { sidebarConfig: (doc as Record<string, unknown>).sidebarConfig }
+        : {}),
     };
   }
 
@@ -132,6 +135,7 @@ export function parseProgramContent(rawContent: unknown): DocumentContent {
               position: "center",
               caption: "",
             },
+            ...(parsed.sidebarConfig ? { sidebarConfig: parsed.sidebarConfig } : {}),
           };
         }
       } catch {
@@ -316,15 +320,18 @@ export function normalizeDocumentBlocks(rawBlocks: unknown[]): ContentBlock[] {
  * Passes content as a structured JSON object to comply with Backend's @IsObject() validation.
  */
 export function serializeProgramPayload(data: ProgramFormData): Record<string, unknown> {
-  const contentObj =
+  const baseContent =
     typeof data.content === "object" && data.content !== null
-      ? {
-          ...data.content,
-          blocks: normalizeDocumentBlocks((data.content as DocumentContent).blocks),
-        }
+      ? (data.content as DocumentContent)
       : typeof data.content === "string"
         ? parseProgramContent(data.content)
         : createDefaultDocumentContent();
+
+  const contentObj = {
+    ...baseContent,
+    blocks: normalizeDocumentBlocks(baseContent.blocks),
+    sidebarConfig: data.sidebarConfig ?? null,
+  };
 
   const cleanOrder =
     typeof data.order === "number" && !isNaN(data.order) && data.order >= 1
@@ -343,7 +350,6 @@ export function serializeProgramPayload(data: ProgramFormData): Record<string, u
     metaTitle: data.metaTitle || undefined,
     metaDescription: data.metaDescription || undefined,
     isPublished: data.isPublished ?? false,
-    sidebarConfig: data.sidebarConfig ?? null,
   };
 }
 

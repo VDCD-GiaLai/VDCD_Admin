@@ -206,7 +206,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
       metaTitle: project?.metaTitle ?? "",
       metaDescription: project?.metaDescription ?? "",
       isPublished: project?.isPublished ?? false,
-      sidebarConfig: project?.sidebarConfig ?? { mode: "auto" },
+      sidebarConfig: project?.sidebarConfig ?? (project?.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
     },
   });
 
@@ -261,7 +261,7 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
         metaTitle: project.metaTitle ?? "",
         metaDescription: project.metaDescription ?? "",
         isPublished: project.isPublished,
-        sidebarConfig: project.sidebarConfig ?? { mode: "auto" },
+        sidebarConfig: project.sidebarConfig ?? (project.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
       });
     }
   }, [project, reset, sessionFolderKey]);

@@ -159,7 +159,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
       metaTitle: solution?.metaTitle ?? "",
       metaDescription: solution?.metaDescription ?? "",
       isPublished: solution?.isPublished ?? false,
-      sidebarConfig: solution?.sidebarConfig ?? { mode: "auto" },
+      sidebarConfig: solution?.sidebarConfig ?? (solution?.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
     },
   });
 
@@ -241,7 +241,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
         metaTitle: solution.metaTitle ?? "",
         metaDescription: solution.metaDescription ?? "",
         isPublished: solution.isPublished,
-        sidebarConfig: solution.sidebarConfig ?? { mode: "auto" },
+        sidebarConfig: solution.sidebarConfig ?? (solution.content as Record<string, unknown> | null)?.sidebarConfig as SidebarConfig ?? { mode: "auto" },
       });
     }
   }, [solution, reset]);
