@@ -396,7 +396,7 @@ export default function EditArticlePage() {
           setDiscardedFileIds([]);
         }
         if (payload.content && typeof payload.content === "object" && "sidebarConfig" in payload.content) {
-          setValue("sidebarConfig", (payload.content as Record<string, unknown>).sidebarConfig as any, { shouldDirty: false });
+          setValue("sidebarConfig", ((payload.content as Record<string, unknown>).sidebarConfig as SidebarConfig) ?? null, { shouldDirty: false });
         }
         toast({ title: "Đã lưu thay đổi", color: "success" });
       },
