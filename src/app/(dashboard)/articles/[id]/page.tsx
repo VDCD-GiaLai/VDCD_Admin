@@ -35,10 +35,10 @@ import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/B
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
 import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
-import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
+import { ImagePickerModal, type ImagePickerResult, SidebarConfigPanel, FloatingSaveBar } from "@/components/shared";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
-import { FloatingSaveBar } from "@/components/shared";
+import type { SidebarConfig } from "@/types/sidebar-config";
 import { format } from "date-fns";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
 
@@ -135,6 +135,7 @@ export default function EditArticlePage() {
       projectId: null,
       programId: null,
       solutionId: null,
+      sidebarConfig: null,
       metaTitle: "",
       metaDescription: "",
       content: {
@@ -169,6 +170,7 @@ export default function EditArticlePage() {
         projectId: article.project?.id ?? null,
         programId: article.program?.id ?? null,
         solutionId: article.solution?.id ?? null,
+        sidebarConfig: article.sidebarConfig ?? null,
         metaTitle: article.metaTitle ?? "",
         metaDescription: article.metaDescription ?? "",
         content: parsed.content,
@@ -188,6 +190,7 @@ export default function EditArticlePage() {
   const watchedProgramId = useWatch({ control, name: "programId" });
   const watchedSolutionId = useWatch({ control, name: "solutionId" });
   const watchedContent = useWatch({ control, name: "content" }) as SlideDetailBlogContent;
+  const watchedSidebarConfig = useWatch({ control, name: "sidebarConfig" }) as SidebarConfig | null;
 
   // Formatting shortcuts and refs for metadata fields
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -1076,6 +1079,16 @@ export default function EditArticlePage() {
                   />
                 </div>
               </div>
+
+              {/* ── Sidebar Widget Config ── */}
+              <SidebarConfigPanel
+                value={watchedSidebarConfig}
+                onChange={(cfg) => setValue("sidebarConfig", cfg, { shouldDirty: true })}
+                solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                ownerType="articles"
+              />
             </CardContent>
           </Card>
 

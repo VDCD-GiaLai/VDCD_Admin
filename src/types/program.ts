@@ -1,4 +1,5 @@
 import type { DocumentContent } from "@/shared/content-editor";
+import type { SidebarConfig } from "./sidebar-config";
 
 /**
  * Program — content module.
@@ -16,6 +17,7 @@ export interface Program {
   metaTitle: string | null;
   metaDescription: string | null;
   order?: number;
+  sidebarConfig?: SidebarConfig | null;
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;

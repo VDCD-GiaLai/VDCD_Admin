@@ -46,3 +46,7 @@ export type { AttachmentViewerProps, AttachmentType } from "./AttachmentViewer";
 export { ImagePickerModal } from "./ImagePickerModal";
 export type { ImagePickerModalProps, ImagePickerResult } from "./ImagePickerModal";
 
+// ─── SidebarConfigPanel ─────────────────────────────────────
+
+export { SidebarConfigPanel } from "./SidebarConfigPanel";
+
