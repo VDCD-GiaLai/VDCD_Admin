@@ -343,6 +343,7 @@ export function serializeProgramPayload(data: ProgramFormData): Record<string, u
     slug: data.slug || undefined,
     shortDescription: data.shortDescription || undefined,
     content: contentObj,
+    sidebarConfig: data.sidebarConfig ?? null,
     thumbnail: data.thumbnail || null,
     thumbnailFileId: data.thumbnailFileId || null,
     fieldId: data.fieldId || null,

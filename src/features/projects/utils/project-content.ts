@@ -365,6 +365,7 @@ export function serializeProjectPayload(data: ProjectFormData): ProjectFormData 
   const payload = {
     ...data,
     content,
+    sidebarConfig: data.sidebarConfig ?? null,
     year: cleanYear,
     order: cleanOrder,
     technicalHighlights: cleanHighlights,
@@ -375,7 +376,6 @@ export function serializeProjectPayload(data: ProjectFormData): ProjectFormData 
   delete (payload as Record<string, unknown>).visualContent;
   delete (payload as Record<string, unknown>).previewContent;
   delete (payload as Record<string, unknown>).readerContent;
-  delete (payload as Record<string, unknown>).sidebarConfig;
 
   return payload;
 }

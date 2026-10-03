@@ -743,6 +743,11 @@ export function ProjectEditor({ mode, project }: ProjectEditorProps) {
             );
             reorderProjectsMutation.mutate(reorderedItems);
           }
+
+          if (submitData.content && typeof submitData.content === "object" && "sidebarConfig" in submitData.content) {
+            setValue("sidebarConfig" as never, (submitData.content as Record<string, unknown>).sidebarConfig as never, { shouldDirty: false });
+          }
+
           toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (err) => handleMutationError(err),

@@ -360,13 +360,13 @@ export default function EditArticlePage() {
         ...(data.content || {}),
         sidebarConfig: data.sidebarConfig ?? null,
       } as SlideDetailBlogContent,
+      sidebarConfig: data.sidebarConfig ?? null,
       isPublished: article?.isPublished ?? data.isPublished ?? false,
       publishedAt: data.publishedAt || (article?.isPublished ? new Date().toISOString() : null),
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
     };
-    delete (payload as Record<string, unknown>).sidebarConfig;
 
     // Collect all fileIds currently in the content blocks to protect them from deletion
     const activeBlockFileIds = new Set<string>();
@@ -394,6 +394,9 @@ export default function EditArticlePage() {
             }
           }
           setDiscardedFileIds([]);
+        }
+        if (payload.content && typeof payload.content === "object" && "sidebarConfig" in payload.content) {
+          setValue("sidebarConfig", (payload.content as Record<string, unknown>).sidebarConfig as any, { shouldDirty: false });
         }
         toast({ title: "Đã lưu thay đổi", color: "success" });
       },
