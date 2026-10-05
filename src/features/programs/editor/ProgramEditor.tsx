@@ -49,6 +49,7 @@ import { ImagePickerModal, type ImagePickerResult, SidebarConfigPanel } from "@/
 import { useSolutions } from "@/features/solutions/api";
 import { useProjects } from "@/features/projects/api";
 import { useArticles } from "@/features/articles/api";
+import { useSlideDetailBlogs } from "@/features/slide-detail-blogs/api";
 import type { SidebarConfig } from "@/types/sidebar-config";
 import type { Program } from "@/types/program";
 
@@ -101,6 +102,7 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
   const { data: solutionsData } = useSolutions({ limit: 100 });
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: articlesData } = useArticles({ limit: 100 });
+  const { data: slideBlogsData } = useSlideDetailBlogs({ limit: 100 });
   const reorderProgramsMutation = useReorderPrograms();
   const { data: operationFields } = useOperationFields();
 
@@ -996,10 +998,11 @@ export function ProgramEditor({ mode, program }: ProgramEditorProps) {
                     <SidebarConfigPanel
                       value={watchedSidebarConfig}
                       onChange={(cfg) => setValue("sidebarConfig" as never, cfg as never, { shouldDirty: true })}
+                      programs={allProgramsData?.items?.filter((pr) => pr.id !== program?.id).map((pr) => ({ id: pr.id, slug: pr.slug, title: pr.title })) ?? []}
                       solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
                       articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                       projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
-                      ownerType="programs"
+                      slides={slideBlogsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
                     />
                   </CardContent>
                 </Card>

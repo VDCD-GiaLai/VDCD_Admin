@@ -1227,6 +1227,7 @@ function NewSlideDetailBlogContent() {
                 articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                 programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
                 projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                slides={existingBlogs?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
               />
             </CardContent>
           </Card>
