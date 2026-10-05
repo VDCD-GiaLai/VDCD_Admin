@@ -227,6 +227,7 @@ export const slideDetailBlogContentSchema = z.object({
   version: z.number(),
   blocks: z.array(slideDetailBlogBlockSchema),
   heroMeta: heroMetaSchema,
+  sidebarConfig: z.any().nullable().optional(),
 });
 
 // ─── Main Form Schema ────────────────────────────────────────
@@ -253,6 +254,7 @@ export const slideDetailBlogSchema = z.object({
     .nullable()
     .optional(),
   content: slideDetailBlogContentSchema,
+  sidebarConfig: z.any().nullable().optional(),
   isPublished: z.boolean(),
 });
 

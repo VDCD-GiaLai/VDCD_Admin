@@ -30,12 +30,17 @@ import { BlogExportModal } from "@/features/slide-detail-blogs/components/Export
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
 import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
 import { ApiError } from "@/lib/api-client";
-import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
+import { ImagePickerModal, type ImagePickerResult, SidebarConfigPanel } from "@/components/shared";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { FloatingSaveBar } from "@/components/shared";
 import { usePermission } from "@/hooks/usePermission";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock, HeroMeta } from "@/types/slide-detail-blog";
+import type { SidebarConfig } from "@/types/sidebar-config";
 import { normalizeSlideDetailBlogContent } from "@/features/slide-detail-blogs/utils/blog-content";
+import { useSolutions } from "@/features/solutions/api";
+import { usePrograms } from "@/features/programs/api";
+import { useProjects } from "@/features/projects/api";
+import { useArticles } from "@/features/articles/api";
 
 export default function EditSlideDetailBlogPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +51,10 @@ export default function EditSlideDetailBlogPage() {
   const canDelete = usePermission("slide-detail-blogs:delete");
 
   const { data: blog, isLoading } = useSlideDetailBlog(id);
+  const { data: allSolutionsData } = useSolutions({ limit: 100 });
+  const { data: programsData } = usePrograms({ limit: 100 });
+  const { data: projectsData } = useProjects({ limit: 100 });
+  const { data: articlesData } = useArticles({ limit: 100 });
   const updateMutation = useUpdateSlideDetailBlog(id);
   const publishMutation = usePublishSlideDetailBlog();
   const deleteMutation = useDeleteSlideDetailBlog();
@@ -125,11 +134,13 @@ export default function EditSlideDetailBlogPage() {
         version: 1,
         blocks: [],
       },
+      sidebarConfig: { mode: "auto" },
       isPublished: false,
     },
   });
 
   const watchedHeroUrl = useWatch({ control, name: "heroImageUrl" });
+  const watchedSidebarConfig = useWatch({ control, name: "sidebarConfig" as never }) as SidebarConfig | null | undefined;
   const currentPreview = heroPreviewUrl ?? watchedHeroUrl ?? null;
   const isHeroLoadError = Boolean(currentPreview && failedHeroUrl === currentPreview);
 
@@ -186,6 +197,7 @@ export default function EditSlideDetailBlogPage() {
         seoTitle: blog.seoTitle ?? "",
         metaDescription: blog.metaDescription ?? "",
         content: blog.content ?? { version: 1, blocks: [] },
+        sidebarConfig: (blog.sidebarConfig ?? blog.content?.sidebarConfig ?? { mode: "auto" }) as SidebarConfig,
         isPublished: blog.isPublished,
       });
     }
@@ -327,6 +339,9 @@ export default function EditSlideDetailBlogPage() {
   // Submit Handler
   const onSubmit = (data: SlideDetailBlogFormData) => {
     const normalizedContent = normalizeSlideDetailBlogContent(data.content);
+    if (data.sidebarConfig !== undefined) {
+      normalizedContent.sidebarConfig = data.sidebarConfig as SidebarConfig | null;
+    }
 
     // Exclude slideId as backend does not allow slideId updates
     const updatePayload: Partial<Omit<SlideDetailBlogFormData, "slideId">> = {
@@ -339,6 +354,7 @@ export default function EditSlideDetailBlogPage() {
       seoTitle: data.seoTitle,
       metaDescription: data.metaDescription,
       content: normalizedContent,
+      sidebarConfig: data.sidebarConfig ?? null,
     };
 
     updateMutation.mutate(
@@ -1195,6 +1211,28 @@ export default function EditSlideDetailBlogPage() {
                     onChange={field.onChange}
                   />
                 )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* 4. Cấu hình Sidebar & Widgets */}
+          <Card className="border border-border bg-surface shadow-xs">
+            <CardHeader className="border-b border-border px-5 py-3.5">
+              <CardTitle className="text-base font-semibold text-text">
+                4. Cấu hình Sidebar & Widgets
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-5">
+              <p className="text-xs text-text-muted">
+                Tùy chỉnh nội dung hiển thị ở sidebar của bài viết Slide này (chọn hiển thị tự động hoặc tùy chọn danh sách bài viết, giải pháp, dự án, chương trình liên quan và CTA tư vấn).
+              </p>
+              <SidebarConfigPanel
+                value={watchedSidebarConfig}
+                onChange={(cfg) => setValue("sidebarConfig" as never, cfg as never, { shouldDirty: true })}
+                solutions={allSolutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
+                programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
               />
             </CardContent>
           </Card>
