@@ -197,7 +197,7 @@ export default function EditSlideDetailBlogPage() {
         seoTitle: blog.seoTitle ?? "",
         metaDescription: blog.metaDescription ?? "",
         content: blog.content ?? { version: 1, blocks: [] },
-        sidebarConfig: blog.sidebarConfig ?? (blog.content as any)?.sidebarConfig ?? { mode: "auto" },
+        sidebarConfig: blog.sidebarConfig ?? ((blog.content as Record<string, unknown> | undefined)?.sidebarConfig as SidebarConfig | undefined) ?? { mode: "auto" },
         isPublished: blog.isPublished,
       });
     }
@@ -340,7 +340,7 @@ export default function EditSlideDetailBlogPage() {
   const onSubmit = (data: SlideDetailBlogFormData) => {
     const normalizedContent = normalizeSlideDetailBlogContent(data.content);
     if (data.sidebarConfig !== undefined) {
-      (normalizedContent as any).sidebarConfig = data.sidebarConfig;
+      normalizedContent.sidebarConfig = data.sidebarConfig as SidebarConfig | null;
     }
 
     // Exclude slideId as backend does not allow slideId updates

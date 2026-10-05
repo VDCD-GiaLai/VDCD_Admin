@@ -340,7 +340,7 @@ function NewSlideDetailBlogContent() {
   const onSubmit = (data: SlideDetailBlogFormData, publish = false) => {
     const normalizedContent = normalizeSlideDetailBlogContent(data.content);
     if (data.sidebarConfig !== undefined) {
-      (normalizedContent as any).sidebarConfig = data.sidebarConfig;
+      normalizedContent.sidebarConfig = data.sidebarConfig as SidebarConfig | null;
     }
     const payload: SlideDetailBlogFormData = {
       ...data,
