@@ -23,7 +23,8 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui";
-import { useArticle, useUpdateArticle, usePublishArticle, useDeleteArticle } from "@/features/articles/api";
+import { useArticle, useArticles, useUpdateArticle, usePublishArticle, useDeleteArticle } from "@/features/articles/api";
+import { useSlideDetailBlogs } from "@/features/slide-detail-blogs/api";
 import { usePermission } from "@/hooks/usePermission";
 import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
@@ -64,6 +65,8 @@ export default function EditArticlePage() {
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: programsData } = usePrograms({ limit: 100 });
   const { data: solutionsData } = useSolutions({ limit: 100 });
+  const { data: allArticlesData } = useArticles({ limit: 100 });
+  const { data: slideBlogsData } = useSlideDetailBlogs({ limit: 100 });
 
   // Tab mode
   const [activeTab, setActiveTab] = useState<TabMode>("editor");
@@ -1092,10 +1095,11 @@ export default function EditArticlePage() {
               <SidebarConfigPanel
                 value={watchedSidebarConfig}
                 onChange={(cfg) => setValue("sidebarConfig", cfg, { shouldDirty: true })}
+                articles={allArticlesData?.items?.filter((a) => a.id !== id).map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                 solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
                 programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
                 projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
-                ownerType="articles"
+                slides={slideBlogsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
               />
             </CardContent>
           </Card>

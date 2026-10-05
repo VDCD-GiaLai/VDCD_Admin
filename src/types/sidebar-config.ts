@@ -9,7 +9,8 @@ export type SidebarWidgetType =
   | "solutions"
   | "articles"
   | "programs"
-  | "projects";
+  | "projects"
+  | "slides";
 
 export interface SidebarWidgetConfig {
   /** Which entity type to display */

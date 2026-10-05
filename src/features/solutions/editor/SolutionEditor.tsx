@@ -23,6 +23,7 @@ import { useOperationFields } from "@/features/operation-fields/api";
 import { usePrograms } from "@/features/programs/api";
 import { useProjects } from "@/features/projects/api";
 import { useArticles } from "@/features/articles/api";
+import { useSlideDetailBlogs } from "@/features/slide-detail-blogs/api";
 import type { SidebarConfig } from "@/types/sidebar-config";
 import {
   useCreateSolution,
@@ -103,6 +104,7 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
   const { data: programsData } = usePrograms({ limit: 100 });
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: articlesData } = useArticles({ limit: 100 });
+  const { data: slideBlogsData } = useSlideDetailBlogs({ limit: 100 });
   const reorderSolutionsMutation = useReorderSolutions();
 
   const canDelete = usePermission("solutions:delete");
@@ -1067,10 +1069,11 @@ export function SolutionEditor({ mode, solution }: SolutionEditorProps) {
                     <SidebarConfigPanel
                       value={watchedSidebarConfig}
                       onChange={(cfg) => setValue("sidebarConfig" as never, cfg as never, { shouldDirty: true })}
+                      solutions={allSolutionsData?.items?.filter((s) => s.id !== solution?.id).map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
                       articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                       programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
                       projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
-                      ownerType="solutions"
+                      slides={slideBlogsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
                     />
                   </CardContent>
                 </Card>

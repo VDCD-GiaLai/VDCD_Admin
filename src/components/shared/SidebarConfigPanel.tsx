@@ -16,6 +16,7 @@ const WIDGET_TYPE_OPTIONS: { value: SidebarWidgetType; label: string }[] = [
   { value: "articles", label: "Tin tức / Bài viết" },
   { value: "programs", label: "Chương trình / Hoạt động" },
   { value: "projects", label: "Dự án" },
+  { value: "slides", label: "Bài viết Slide" },
 ];
 
 interface EntityItem {
@@ -37,7 +38,9 @@ interface SidebarConfigPanelProps {
   programs?: EntityItem[];
   /** Available projects */
   projects?: EntityItem[];
-  /** The entity type that owns this config (to exclude from widget type options) */
+  /** Available slides */
+  slides?: EntityItem[];
+  /** The entity type that owns this config (optional) */
   ownerType?: SidebarWidgetType;
 }
 
@@ -58,7 +61,7 @@ export function SidebarConfigPanel({
   articles = [],
   programs = [],
   projects = [],
-  ownerType,
+  slides = [],
 }: SidebarConfigPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -86,9 +89,9 @@ export function SidebarConfigPanel({
   const addWidget = () => {
     const usedTypes = (config.widgets || []).map((w) => w.type);
     const availableTypes = WIDGET_TYPE_OPTIONS.filter(
-      (o) => !usedTypes.includes(o.value) && o.value !== ownerType,
+      (o) => !usedTypes.includes(o.value),
     );
-    const newType = availableTypes[0]?.value || "solutions";
+    const newType = availableTypes[0]?.value || WIDGET_TYPE_OPTIONS[0].value;
     update({
       widgets: [...(config.widgets || []), { type: newType, maxItems: 3 }],
     });
@@ -110,13 +113,14 @@ export function SidebarConfigPanel({
         return programs;
       case "projects":
         return projects;
+      case "slides":
+        return slides;
       default:
         return [];
     }
   };
 
-  const canAddMore =
-    (config.widgets || []).length < WIDGET_TYPE_OPTIONS.length - (ownerType ? 1 : 0);
+  const canAddMore = (config.widgets || []).length < 10;
 
   return (
     <div className="mt-5 border-t border-border pt-5">

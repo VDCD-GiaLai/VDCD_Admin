@@ -13,7 +13,8 @@ import {
   DropdownSelect,
 } from "@/components/ui";
 import { useToast } from "@/components/ui";
-import { useCreateArticle, usePublishArticle } from "@/features/articles/api";
+import { useCreateArticle, usePublishArticle, useArticles } from "@/features/articles/api";
+import { useSlideDetailBlogs } from "@/features/slide-detail-blogs/api";
 import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
@@ -23,10 +24,10 @@ import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/B
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
 import { useHtmlShortcuts } from "@/features/slide-detail-blogs/hooks/useHtmlShortcuts";
 import { uploadImage, validateImageFile, slugifyVietnamese, deleteUploadedImage, type UploadResult } from "@/lib/upload";
-import { ImagePickerModal, type ImagePickerResult } from "@/components/shared";
+import { ImagePickerModal, type ImagePickerResult, SidebarConfigPanel, FloatingSaveBar } from "@/components/shared";
 import { SlideDetailBlogUploadProvider } from "@/features/slide-detail-blogs/context/SlideDetailBlogUploadContext";
 import { useSanitizedPaste } from "@/features/slide-detail-blogs/hooks/useSanitizedPaste";
-import { FloatingSaveBar } from "@/components/shared";
+import type { SidebarConfig } from "@/types/sidebar-config";
 import type { SlideDetailBlogContent, SlideDetailBlogBlock } from "@/types/slide-detail-blog";
 
 type TabMode = "editor" | "reader" | "visual";
@@ -43,6 +44,8 @@ export default function CreateArticlePage() {
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: programsData } = usePrograms({ limit: 100 });
   const { data: solutionsData } = useSolutions({ limit: 100 });
+  const { data: allArticlesData } = useArticles({ limit: 100 });
+  const { data: slideBlogsData } = useSlideDetailBlogs({ limit: 100 });
 
   // Tab mode
   const [activeTab, setActiveTab] = useState<TabMode>("editor");
@@ -128,6 +131,7 @@ export default function CreateArticlePage() {
   const watchedSubtitle = useWatch({ control, name: "subtitle" });
   const watchedExcerpt = useWatch({ control, name: "excerpt" });
   const watchedContent = useWatch({ control, name: "content" }) as SlideDetailBlogContent;
+  const watchedSidebarConfig = useWatch({ control, name: "sidebarConfig" }) as SidebarConfig | null | undefined;
 
   // Formatting shortcuts and refs for metadata fields
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -289,6 +293,11 @@ export default function CreateArticlePage() {
   const onSubmit = (data: ArticleFormData, publish = false) => {
     const payload: ArticleFormData = {
       ...data,
+      content: {
+        ...(data.content || {}),
+        sidebarConfig: data.sidebarConfig ?? null,
+      } as SlideDetailBlogContent,
+      sidebarConfig: data.sidebarConfig ?? null,
       isPublished: publish,
       publishedAt: publish ? data.publishedAt || new Date().toISOString() : data.publishedAt || null,
       projectId: data.projectId || null,
@@ -895,6 +904,17 @@ export default function CreateArticlePage() {
                   />
                 </div>
               </div>
+
+              {/* ── Sidebar Widget Config ── */}
+              <SidebarConfigPanel
+                value={watchedSidebarConfig}
+                onChange={(cfg) => setValue("sidebarConfig", cfg, { shouldDirty: true })}
+                articles={allArticlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
+                solutions={solutionsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                slides={slideBlogsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+              />
             </CardContent>
           </Card>
 

@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui";
 import {
   useSlideDetailBlog,
+  useSlideDetailBlogs,
   useUpdateSlideDetailBlog,
   usePublishSlideDetailBlog,
   useDeleteSlideDetailBlog,
@@ -55,6 +56,7 @@ export default function EditSlideDetailBlogPage() {
   const { data: programsData } = usePrograms({ limit: 100 });
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: articlesData } = useArticles({ limit: 100 });
+  const { data: slideBlogsData } = useSlideDetailBlogs({ limit: 100 });
   const updateMutation = useUpdateSlideDetailBlog(id);
   const publishMutation = usePublishSlideDetailBlog();
   const deleteMutation = useDeleteSlideDetailBlog();
@@ -1233,6 +1235,7 @@ export default function EditSlideDetailBlogPage() {
                 articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                 programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
                 projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
+                slides={slideBlogsData?.items?.filter((s) => s.id !== id).map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
               />
             </CardContent>
           </Card>

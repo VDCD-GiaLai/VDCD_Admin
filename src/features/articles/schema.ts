@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { slideDetailBlogContentSchema } from "@/features/slide-detail-blogs/schema";
+import type { SidebarConfig } from "@/types/sidebar-config";
 
 /**
  * Article form validation schema.
@@ -20,7 +21,7 @@ export const articleSchema = z.object({
   projectId: z.string().nullable().optional(),
   programId: z.string().nullable().optional(),
   solutionId: z.string().nullable().optional(),
-  sidebarConfig: z.any().nullable().optional(),
+  sidebarConfig: z.custom<SidebarConfig>().nullable().optional(),
   metaTitle: z.string().max(255, "Meta title tối đa 255 ký tự").optional(),
   metaDescription: z
     .string()
