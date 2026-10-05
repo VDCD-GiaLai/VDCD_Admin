@@ -1,4 +1,5 @@
 import type { Slide } from "./slide";
+import type { SidebarConfig } from "./sidebar-config";
 
 // ─── Block Spacing ───────────────────────────────────────────
 
@@ -254,6 +255,7 @@ export interface SlideDetailBlogContent {
   version: number;
   blocks: SlideDetailBlogBlock[];
   heroMeta?: HeroMeta;
+  sidebarConfig?: SidebarConfig | Record<string, unknown> | null | unknown;
 }
 
 /** Generic unified aliases for SlideDetailBlogBlock & SlideDetailBlogContent */
@@ -278,6 +280,7 @@ export interface SlideDetailBlog {
   seoTitle: string | null;
   metaDescription: string | null;
   content: SlideDetailBlogContent;
+  sidebarConfig?: SidebarConfig | null;
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
