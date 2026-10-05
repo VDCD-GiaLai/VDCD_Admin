@@ -386,6 +386,9 @@ export default function EditSlideDetailBlogPage() {
             }
             setDiscardedFileIds([]);
           }
+          if (updatePayload.sidebarConfig !== undefined) {
+            setValue("sidebarConfig" as never, updatePayload.sidebarConfig as never, { shouldDirty: false });
+          }
           toast({ title: "Đã lưu thay đổi", color: "success" });
         },
         onError: (error) => {
@@ -1235,7 +1238,7 @@ export default function EditSlideDetailBlogPage() {
                 articles={articlesData?.items?.map((a) => ({ id: a.id, slug: a.slug, title: a.title })) ?? []}
                 programs={programsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
                 projects={projectsData?.items?.map((p) => ({ id: p.id, slug: p.slug, title: p.title })) ?? []}
-                slides={slideBlogsData?.items?.filter((s) => s.id !== id).map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
+                slides={slideBlogsData?.items?.map((s) => ({ id: s.id, slug: s.slug, title: s.title })) ?? []}
               />
             </CardContent>
           </Card>
