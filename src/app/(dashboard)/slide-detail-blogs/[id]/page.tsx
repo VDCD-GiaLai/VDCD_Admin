@@ -197,7 +197,7 @@ export default function EditSlideDetailBlogPage() {
         seoTitle: blog.seoTitle ?? "",
         metaDescription: blog.metaDescription ?? "",
         content: blog.content ?? { version: 1, blocks: [] },
-        sidebarConfig: blog.sidebarConfig ?? ((blog.content as Record<string, unknown> | undefined)?.sidebarConfig as SidebarConfig | undefined) ?? { mode: "auto" },
+        sidebarConfig: (blog.sidebarConfig ?? blog.content?.sidebarConfig ?? { mode: "auto" }) as SidebarConfig,
         isPublished: blog.isPublished,
       });
     }
