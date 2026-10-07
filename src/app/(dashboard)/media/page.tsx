@@ -19,6 +19,7 @@ import {
   MediaUploadDrawer,
   MediaDetailModal,
   MediaDeleteDialog,
+  MediaRenameModal,
 } from "@/features/media/components";
 
 export default function MediaManagementPage() {
@@ -36,6 +37,7 @@ export default function MediaManagementPage() {
   // Modals state
   const [detailImage, setDetailImage] = useState<GalleryFile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GalleryFile | null>(null);
+  const [renameTarget, setRenameTarget] = useState<GalleryFile | null>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -185,6 +187,7 @@ export default function MediaManagementPage() {
                 onFetchNextPage={fetchNextPage}
                 onSelectImage={(img) => setDetailImage(img)}
                 onCopyUrl={handleCopyUrl}
+                onRenameImage={(img) => setRenameTarget(img)}
                 onDeleteImage={(img) => setDeleteTarget(img)}
                 onRetry={() => refetch()}
                 onOpenUpload={() => setIsUploadOpen(true)}
@@ -203,6 +206,7 @@ export default function MediaManagementPage() {
                 onFetchNextPage={fetchNextPage}
                 onSelectImage={(img) => setDetailImage(img)}
                 onCopyUrl={handleCopyUrl}
+                onRenameImage={(img) => setRenameTarget(img)}
                 onDeleteImage={(img) => setDeleteTarget(img)}
                 onRetry={() => refetch()}
                 onOpenUpload={() => setIsUploadOpen(true)}
@@ -221,7 +225,21 @@ export default function MediaManagementPage() {
         isOpen={Boolean(detailImage)}
         onClose={() => setDetailImage(null)}
         onDelete={(img) => setDeleteTarget(img)}
+        onRename={(img) => setRenameTarget(img)}
         canDelete={canDelete}
+      />
+
+      {/* Rename Modal */}
+      <MediaRenameModal
+        image={renameTarget}
+        isOpen={Boolean(renameTarget)}
+        onClose={() => setRenameTarget(null)}
+        onSuccess={(updated) => {
+          if (detailImage?.fileId === updated.fileId) {
+            setDetailImage((prev) => (prev ? { ...prev, ...updated } : null));
+          }
+          setRenameTarget(null);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

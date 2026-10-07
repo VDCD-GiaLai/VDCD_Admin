@@ -5,3 +5,4 @@ export * from "./MediaTable";
 export * from "./MediaUploadDrawer";
 export * from "./MediaDetailModal";
 export * from "./MediaDeleteDialog";
+export * from "./MediaRenameModal";

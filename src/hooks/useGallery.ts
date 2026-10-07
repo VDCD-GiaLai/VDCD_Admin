@@ -191,3 +191,36 @@ export function useDeleteGalleryImage() {
   });
 }
 
+/**
+ * Rename a file in ImageKit and sync DB references.
+ */
+export function useRenameGalleryImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      fileId,
+      newFileName,
+      syncDatabaseReferences = true,
+    }: {
+      fileId: string;
+      newFileName: string;
+      syncDatabaseReferences?: boolean;
+    }) => {
+      return clientFetch<{
+        fileId: string;
+        name: string;
+        filePath: string;
+        url: string;
+        updatedDbRecordsCount?: number;
+      }>(`/api/upload/${fileId}/rename`, {
+        method: "PATCH",
+        body: JSON.stringify({ newFileName, syncDatabaseReferences }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: galleryKeys.all });
+    },
+  });
+}
+
