@@ -49,6 +49,8 @@ export default function OrganizationPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("general");
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  /** Track the last-known updatedAt to avoid resetting form on background refetches */
+  const lastPopulatedAtRef = useRef<string | null>(null);
 
   const {
     register,
@@ -285,7 +287,13 @@ export default function OrganizationPage() {
 
   useEffect(() => {
     if (org) {
-      populateForm(org);
+      // Only reset the form on initial load or when server data actually changed
+      // (e.g., after a successful save). This prevents background refetches
+      // (like refetchOnWindowFocus) from wiping unsaved user edits.
+      if (lastPopulatedAtRef.current !== org.updatedAt) {
+        lastPopulatedAtRef.current = org.updatedAt;
+        populateForm(org);
+      }
     }
   }, [org, populateForm]);
 
@@ -390,6 +398,7 @@ export default function OrganizationPage() {
           color: "success",
         });
         if (updated) {
+          lastPopulatedAtRef.current = updated.updatedAt;
           populateForm(updated);
         }
       },
@@ -584,7 +593,7 @@ export default function OrganizationPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Tab 1: Thông tin chung & Thông báo */}
         <div className={activeTab === "general" ? "space-y-6" : "hidden"}>
-          <GeneralInfoSection register={register} errors={errors} />
+          <GeneralInfoSection register={register} control={control} errors={errors} />
           <AnnouncementSection
             register={register}
             setValue={setValue}

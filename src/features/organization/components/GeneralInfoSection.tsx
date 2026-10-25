@@ -1,17 +1,19 @@
 "use client";
 
 import React from "react";
-import type { UseFormRegister, FieldErrors } from "react-hook-form";
+import type { UseFormRegister, FieldErrors, Control } from "react-hook-form";
+import { Controller } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@heroui/react";
 import { FormInput, FormTextarea } from "@/components/ui";
 import type { OrganizationFormData } from "../schema";
 
 interface GeneralInfoSectionProps {
   register: UseFormRegister<OrganizationFormData>;
+  control: Control<OrganizationFormData>;
   errors: FieldErrors<OrganizationFormData>;
 }
 
-export function GeneralInfoSection({ register, errors }: GeneralInfoSectionProps) {
+export function GeneralInfoSection({ register, control, errors }: GeneralInfoSectionProps) {
   return (
     <Card className="border border-border bg-surface shadow-sm">
       <CardHeader className="border-b border-border px-6 py-4">
@@ -81,11 +83,22 @@ export function GeneralInfoSection({ register, errors }: GeneralInfoSectionProps
         </div>
 
         <div>
-          <FormInput
-            label="Địa chỉ trụ sở chính"
-            placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố..."
-            errorMessage={errors.address?.message}
-            {...register("address")}
+          <Controller
+            name="address"
+            control={control}
+            render={({ field }) => (
+              <FormInput
+                label="Địa chỉ trụ sở chính"
+                placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố..."
+                autoComplete="nope"
+                errorMessage={errors.address?.message}
+                name={field.name}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+              />
+            )}
           />
         </div>
 
