@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Modal,
   ModalContent,
@@ -8,7 +8,6 @@ import {
   ModalBody,
   ModalFooter,
   AppButton,
-  FormInput,
   FormCheckbox,
   Spinner,
   useToast,
@@ -63,16 +62,20 @@ export function MediaRenameModal({
     return { initialBaseName: base, fileExt: ext, folderPath: folder };
   }, [image]);
 
-  const [baseName, setBaseName] = useState("");
+  const [baseName, setBaseName] = useState(initialBaseName);
   const [syncDb, setSyncDb] = useState(true);
+  const [prevOpenImageKey, setPrevOpenImageKey] = useState<string | null>(null);
 
-  // Sync state when image opens
-  useEffect(() => {
-    if (isOpen && image) {
+  // Sync state when modal opens for an image
+  const currentOpenImageKey =
+    isOpen && image ? `${image.fileId}:${initialBaseName}` : null;
+  if (currentOpenImageKey !== prevOpenImageKey) {
+    setPrevOpenImageKey(currentOpenImageKey);
+    if (currentOpenImageKey !== null) {
       setBaseName(initialBaseName);
       setSyncDb(true);
     }
-  }, [isOpen, image, initialBaseName]);
+  }
 
   if (!image) return null;
 

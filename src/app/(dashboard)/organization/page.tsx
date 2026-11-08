@@ -548,7 +548,9 @@ export default function OrganizationPage() {
               type="button"
               isLoading={updateMutation.isPending}
               disabled={!isDirty || updateMutation.isPending}
-              onClick={handleSubmit(onSubmit)}
+              onClick={(e) => {
+                void handleSubmit(onSubmit)(e);
+              }}
             >
               Lưu thay đổi
             </AppButton>
@@ -590,7 +592,12 @@ export default function OrganizationPage() {
       {/* ════════════════════════════════════════════
           Form Content Tabs
       ════════════════════════════════════════════ */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(onSubmit)(e);
+        }}
+        className="space-y-6"
+      >
         {/* Tab 1: Thông tin chung & Thông báo */}
         <div className={activeTab === "general" ? "space-y-6" : "hidden"}>
           <GeneralInfoSection register={register} control={control} errors={errors} />
