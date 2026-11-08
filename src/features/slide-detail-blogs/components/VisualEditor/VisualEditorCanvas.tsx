@@ -48,6 +48,8 @@ import {
   type FormatActionOptions,
 } from "../../hooks/useHtmlShortcuts";
 import { BlockFormatToolbar } from "../BlockEditor/BlockFormatToolbar";
+import { SmartImportModal } from "@/shared/content-editor/visual-editor/SmartImportModal";
+import { adaptImportedBlocksForBlog } from "../../utils/blog-content";
 
 type ViewportMode = "desktop" | "tablet" | "mobile";
 
@@ -65,6 +67,8 @@ interface VisualEditorCanvasProps {
   onHeroImageDelete?: () => Promise<void> | void;
   /** Called with a fileId when an image block's file is discarded (soft-delete until save) */
   onImageDiscard?: (fileId: string) => void;
+  /** Custom simulated URL for the browser bar (fallback: vdcd.vn/slide-detail-blogs/...) */
+  simulatedUrl?: string;
 }
 
 const VIEWPORT_CONFIG: Record<ViewportMode, { label: string; maxWidth: string; icon: React.ReactNode }> = {
@@ -157,11 +161,13 @@ export function VisualEditorCanvas({
   onHeroImageChange,
   onHeroImageDelete,
   onImageDiscard,
+  simulatedUrl,
 }: VisualEditorCanvasProps) {
   const [viewport, setViewport] = useState<ViewportMode>("desktop");
   const [selectedBlockId, setSelectedBlockId] = useState<string>("");
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [showHeroGallery, setShowHeroGallery] = useState(false);
+  const [showSmartImport, setShowSmartImport] = useState(false);
   const [floatingToolbar, setFloatingToolbar] = useState<{
     top: number;
     left: number;
@@ -272,7 +278,12 @@ export function VisualEditorCanvas({
               const selection = window.getSelection();
               if (selection) {
                 const range = document.createRange();
-                range.selectNodeContents(editable);
+                const targetNode =
+                  (editable.tagName === "UL" || editable.tagName === "OL") &&
+                  editable.lastElementChild
+                    ? editable.lastElementChild
+                    : editable;
+                range.selectNodeContents(targetNode);
                 range.collapse(false);
                 selection.removeAllRanges();
                 selection.addRange(range);
@@ -1100,6 +1111,20 @@ export function VisualEditorCanvas({
               </svg>
             </button>
           </div>
+
+          {/* Smart Import button */}
+          <button
+            type="button"
+            onClick={() => setShowSmartImport(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
+            title="Nhập nội dung từ Word/Docs hoặc text (AI phân tích)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+            </svg>
+            Nhập nội dung
+          </button>
         </div>
 
         <span className="text-[11px] text-text-muted">
@@ -1117,7 +1142,9 @@ export function VisualEditorCanvas({
             <div className="h-2.5 w-2.5 rounded-full bg-warning/40" />
             <div className="h-2.5 w-2.5 rounded-full bg-success/40" />
             <div className="ml-3 flex-1 rounded-md bg-surface-muted px-3 py-1">
-              <span className="text-[10px] text-text-muted/60">vdcd.vn/slide-detail-blogs/...</span>
+              <span className="text-[10px] text-text-muted/60 font-mono">
+                {simulatedUrl ? `https://${simulatedUrl}` : "vdcd.vn/slide-detail-blogs/..."}
+              </span>
             </div>
           </div>
 
@@ -1248,6 +1275,34 @@ export function VisualEditorCanvas({
           />
         </div>
       )}
+
+      {/* Smart Import Modal */}
+      <SmartImportModal
+        open={showSmartImport}
+        onClose={() => setShowSmartImport(false)}
+        uploadFn={uploadBlogImage}
+        onImport={(importedBlocks) => {
+          const adaptedBlocks = adaptImportedBlocksForBlog(importedBlocks);
+          if (adaptedBlocks.length === 0) {
+            toast({
+              title: "Không có khối nội dung hợp lệ để thêm",
+              color: "warning",
+            });
+            return;
+          }
+          pushState();
+          const newBlocks = [...blocks, ...adaptedBlocks];
+          onContentChange({
+            ...content,
+            version: content.version || 1,
+            blocks: newBlocks,
+          });
+          toast({
+            title: `Đã nhập ${adaptedBlocks.length} khối nội dung vào bài viết`,
+            color: "success",
+          });
+        }}
+      />
     </div>
   );
 }

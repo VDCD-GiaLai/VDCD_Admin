@@ -83,6 +83,7 @@ export interface UploadEmbeddedImagesResult {
 export async function uploadEmbeddedImages(
   blocks: ContentBlock[],
   onProgress?: (info: UploadProgressInfo) => void,
+  uploadFn?: (file: File) => Promise<{ url: string; fileId: string }>,
 ): Promise<UploadEmbeddedImagesResult> {
   // Deep clone blocks to prevent direct mutation
   const clonedBlocks: ContentBlock[] = JSON.parse(JSON.stringify(blocks));
@@ -129,7 +130,9 @@ export async function uploadEmbeddedImages(
       }
 
       if (file) {
-        const uploadRes = await uploadImage(file, "slide-detail-blog");
+        const uploadRes = uploadFn
+          ? await uploadFn(file)
+          : await uploadImage(file, "slide-detail-blog");
         const targetBlock = clonedBlocks[task.blockIndex] as ImageBlock;
         if (!task.isSecondary) {
           targetBlock.url = uploadRes.url;

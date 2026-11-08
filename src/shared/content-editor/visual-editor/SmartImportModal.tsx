@@ -15,6 +15,8 @@ export interface SmartImportModalProps {
   open: boolean;
   onClose: () => void;
   onImport: (blocks: ContentBlock[]) => void;
+  /** Optional custom image upload function (e.g. from SlideDetailBlogUploadContext or DocumentUploadContext) */
+  uploadFn?: (file: File) => Promise<{ url: string; fileId: string }>;
 }
 
 type MainTab = "quick" | "smart";
@@ -27,7 +29,7 @@ type ProcessingState = "idle" | "uploading" | "preview" | "processing-ai" | "err
  *   preserving styles, alignments, colors, tables, and auto-uploading images to CDN.
  * - Tab 2 (Smart Import): AI-powered restructuring using Google Gemini Flash.
  */
-export function SmartImportModal({ open, onClose, onImport }: SmartImportModalProps) {
+export function SmartImportModal({ open, onClose, onImport, uploadFn }: SmartImportModalProps) {
   const [activeTab, setActiveTab] = useState<MainTab>("quick");
 
   // ── Quick Import States ──
@@ -99,9 +101,13 @@ export function SmartImportModal({ open, onClose, onImport }: SmartImportModalPr
       setUploadProgress("Đang chuẩn bị tải ảnh lên...");
 
       try {
-        const result = await uploadEmbeddedImages(quickBlocks, (info) => {
-          setUploadProgress(info.message || `Đang tải lên ảnh ${info.current}/${info.total}...`);
-        });
+        const result = await uploadEmbeddedImages(
+          quickBlocks,
+          (info) => {
+            setUploadProgress(info.message || `Đang tải lên ảnh ${info.current}/${info.total}...`);
+          },
+          uploadFn,
+        );
 
         onImport(result.blocks);
         // Reset state & close
@@ -122,7 +128,7 @@ export function SmartImportModal({ open, onClose, onImport }: SmartImportModalPr
       setQuickState("idle");
       onClose();
     }
-  }, [quickBlocks, quickStats.uploadCandidates, onImport, onClose]);
+  }, [quickBlocks, quickStats.uploadCandidates, onImport, onClose, uploadFn]);
 
   const handleQuickReset = useCallback(() => {
     setQuickBlocks([]);

@@ -3,6 +3,7 @@ import {
   parseArticleContent,
   convertLegacyHtmlToContent,
   serializeArticlePayload,
+  normalizeArticlePublishedAt,
 } from "../article-content";
 import type { ArticleFormData } from "../../schema";
 import type { SlideDetailBlogContent, ListBlock, HeadingBlock } from "@/types/slide-detail-blog";
@@ -163,6 +164,59 @@ describe("article-content utils", () => {
       const parsedContent = payload.content as SlideDetailBlogContent;
       expect(parsedContent.version).toBe(1);
       expect(parsedContent.blocks).toHaveLength(1);
+    });
+
+    it("normalizes list blocks in serializeArticlePayload so every item has non-empty text and content", () => {
+      const formData: ArticleFormData = {
+        title: "Bài viết có danh sách từ Visual Editor",
+        content: {
+          version: 1,
+          blocks: [
+            {
+              id: "list_ve_1",
+              type: "list",
+              listType: "bullet",
+              items: [
+                { id: "li_1", content: "Từ những khó khăn nêu trên", children: [] },
+                { id: "li_2", content: "Theo định hướng này", children: [] },
+                { id: "li_empty", content: "   ", children: [] },
+              ],
+            },
+          ],
+        },
+      };
+
+      const payload = serializeArticlePayload(formData);
+      const parsedContent = payload.content as SlideDetailBlogContent;
+      const listBlock = parsedContent.blocks[0] as ListBlock;
+
+      expect(listBlock.items).toHaveLength(2);
+      expect(listBlock.items[0].content).toBe("Từ những khó khăn nêu trên");
+      expect(listBlock.items[0].text).toBe("Từ những khó khăn nêu trên");
+      expect(listBlock.items[1].content).toBe("Theo định hướng này");
+      expect(listBlock.items[1].text).toBe("Theo định hướng này");
+    });
+
+    it("normalizes publishedAt from datetime-local string to ISO 8601 UTC string", () => {
+      const localInput = "2026-11-06T04:29";
+      const expectedIso = new Date(localInput).toISOString();
+
+      expect(normalizeArticlePublishedAt(localInput)).toBe(expectedIso);
+      expect(normalizeArticlePublishedAt("")).toBeNull();
+      expect(normalizeArticlePublishedAt(null)).toBeNull();
+      expect(normalizeArticlePublishedAt(undefined)).toBeNull();
+
+      const payload = serializeArticlePayload({
+        title: "Bài viết cập nhật thời gian xuất bản",
+        content: {
+          version: 1,
+          blocks: [{ id: "p1", type: "paragraph", text: "Nội dung" }],
+        },
+        isPublished: true,
+        publishedAt: localInput,
+      });
+
+      expect(payload.publishedAt).toBe(expectedIso);
     });
   });
 

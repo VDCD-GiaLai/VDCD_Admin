@@ -181,11 +181,12 @@ function VisualEditorBlockInner({
 
   const handleItemsChange = useCallback(
     (items: ListItem[]) => {
-      if (block.type === "list" || block.type === "ordered_list") {
-        onBlockChange(index, { ...block, items } as ListBlock);
+      const currentBlock = blockRef.current;
+      if (currentBlock.type === "list" || currentBlock.type === "ordered_list") {
+        onBlockChange(index, { ...currentBlock, items } as ListBlock);
       }
     },
-    [block, index, onBlockChange],
+    [index, onBlockChange],
   );
 
   const handleCtaLabelChange = useCallback(

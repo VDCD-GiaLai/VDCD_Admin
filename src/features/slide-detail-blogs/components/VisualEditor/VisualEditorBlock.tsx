@@ -179,11 +179,12 @@ function VisualEditorBlockInner({
 
   const handleItemsChange = useCallback(
     (items: ListItem[]) => {
-      if (block.type === "list") {
-        onBlockChange(index, { ...block, items } as ListBlock);
+      const currentBlock = blockRef.current;
+      if (currentBlock.type === "list" || currentBlock.type === "ordered_list") {
+        onBlockChange(index, { ...currentBlock, items } as ListBlock);
       }
     },
-    [block, index, onBlockChange],
+    [index, onBlockChange],
   );
 
   const handleCtaLabelChange = useCallback(
@@ -362,6 +363,14 @@ function VisualEditorBlockInner({
         return (
           <ListBlockRenderer
             block={block as ListBlock}
+            editable
+            onItemsChange={handleItemsChange}
+          />
+        );
+      case "ordered_list":
+        return (
+          <ListBlockRenderer
+            block={{ ...block, listType: "ordered" } as unknown as ListBlock}
             editable
             onItemsChange={handleItemsChange}
           />

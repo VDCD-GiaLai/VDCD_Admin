@@ -452,6 +452,36 @@ describe("ListBlockRenderer & ListItemRenderer", () => {
     expect(onItemsChange).toHaveBeenCalledTimes(1);
     const updated = onItemsChange.mock.calls[0][0];
     expect(updated[0].content).toBe("danh dc dddddddddddddddddddddđ");
+    expect(updated[0].text).toBe("danh dc dddddddddddddddddddddđ");
+  });
+
+  it("ListBlockRenderer (editable) populates both content and text and prunes accidental empty li on blur when valid items exist", () => {
+    const onItemsChange = vi.fn();
+    const block: ListBlock = {
+      id: "ls_prune_test",
+      type: "list",
+      items: [{ id: "li_1", content: "", children: [] }],
+    };
+
+    const { container } = render(
+      <ListBlockRenderer block={block} editable onItemsChange={onItemsChange} />,
+    );
+
+    const listTag = container.querySelector(".ve-editable")!;
+    listTag.innerHTML =
+      '<li data-item-id="li_1"></li>' +
+      '<li data-item-id="li_2">Mục số 1 có nội dung</li>' +
+      '<li data-item-id="li_3">Mục số 2 có nội dung</li>' +
+      '<li data-item-id="li_4">   </li>';
+
+    fireEvent.blur(listTag);
+    expect(onItemsChange).toHaveBeenCalledTimes(1);
+    const updated = onItemsChange.mock.calls[0][0];
+    expect(updated).toHaveLength(2);
+    expect(updated[0].content).toBe("Mục số 1 có nội dung");
+    expect(updated[0].text).toBe("Mục số 1 có nội dung");
+    expect(updated[1].content).toBe("Mục số 2 có nội dung");
+    expect(updated[1].text).toBe("Mục số 2 có nội dung");
   });
 });
 

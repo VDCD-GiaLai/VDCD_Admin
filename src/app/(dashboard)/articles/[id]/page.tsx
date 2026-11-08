@@ -30,7 +30,8 @@ import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
 import { articleSchema, type ArticleFormData } from "@/features/articles/schema";
-import { parseArticleContent } from "@/features/articles/utils/article-content";
+import { parseArticleContent, normalizeArticlePublishedAt } from "@/features/articles/utils/article-content";
+import { normalizeSlideDetailBlogContent } from "@/features/slide-detail-blogs/utils/blog-content";
 import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/components/BlockEditor";
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
@@ -146,7 +147,7 @@ export default function EditArticlePage() {
         blocks: [],
       },
       isPublished: false,
-      publishedAt: null,
+      publishedAt: "",
     },
   });
 
@@ -158,7 +159,9 @@ export default function EditArticlePage() {
       let publishedAtValue = "";
       if (article.publishedAt) {
         const date = new Date(article.publishedAt);
-        publishedAtValue = format(date, "yyyy-MM-dd'T'HH:mm");
+        if (!Number.isNaN(date.getTime())) {
+          publishedAtValue = format(date, "yyyy-MM-dd'T'HH:mm");
+        }
       }
 
       reset({
@@ -178,7 +181,7 @@ export default function EditArticlePage() {
         metaDescription: article.metaDescription ?? "",
         content: parsed.content,
         isPublished: article.isPublished,
-        publishedAt: publishedAtValue || null,
+        publishedAt: publishedAtValue,
       });
     }
   }, [article, reset]);
@@ -357,15 +360,20 @@ export default function EditArticlePage() {
 
   // Submit Handler
   const onSubmit = (data: ArticleFormData) => {
+    const normalizedContent = normalizeSlideDetailBlogContent(data.content);
+    const normalizedPublishedAt =
+      normalizeArticlePublishedAt(data.publishedAt) ??
+      (article?.isPublished ? new Date().toISOString() : null);
+
     const payload: ArticleFormData = {
       ...data,
       content: {
-        ...(data.content || {}),
+        ...normalizedContent,
         sidebarConfig: data.sidebarConfig ?? null,
       } as SlideDetailBlogContent,
       sidebarConfig: data.sidebarConfig ?? null,
       isPublished: article?.isPublished ?? data.isPublished ?? false,
-      publishedAt: data.publishedAt || (article?.isPublished ? new Date().toISOString() : null),
+      publishedAt: normalizedPublishedAt,
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
@@ -383,7 +391,7 @@ export default function EditArticlePage() {
     }
 
     updateMutation.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: (updatedArticle) => {
         if (discardedFileIds.length > 0) {
           for (const fid of discardedFileIds) {
             if (
@@ -400,6 +408,15 @@ export default function EditArticlePage() {
         }
         if (payload.content && typeof payload.content === "object" && "sidebarConfig" in payload.content) {
           setValue("sidebarConfig", ((payload.content as Record<string, unknown>).sidebarConfig as SidebarConfig) ?? null, { shouldDirty: false });
+        }
+        const savedIso = updatedArticle?.publishedAt ?? normalizedPublishedAt;
+        if (savedIso) {
+          const savedDate = new Date(savedIso);
+          if (!Number.isNaN(savedDate.getTime())) {
+            setValue("publishedAt", format(savedDate, "yyyy-MM-dd'T'HH:mm"), { shouldDirty: false });
+          }
+        } else {
+          setValue("publishedAt", "", { shouldDirty: false });
         }
         toast({ title: "Đã lưu thay đổi", color: "success" });
       },
@@ -724,6 +741,7 @@ export default function EditArticlePage() {
             excerpt={watchedExcerpt}
             heroImageUrl={currentThumbnailPreview}
             content={watchedContent ?? { version: 1, blocks: [] }}
+            simulatedUrl={`vdcd.vn/bai-viet/${watchedSlug || "..."}`}
             onContentChange={(c) => setValue("content", c, { shouldDirty: true })}
             onTitleChange={(t) => setValue("title", t, { shouldDirty: true })}
             onSubtitleChange={(s) => setValue("subtitle", s, { shouldDirty: true })}

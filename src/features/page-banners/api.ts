@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientFetch, ApiError } from "@/lib/api-client";
 import type { PageBanner } from "@/types/page-banner";
 import type { PageBannerFormData } from "./schema";
+import { serializeBannerPayload } from "./utils/banner-slides";
 
 // ─── Query keys ──────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export function useCreatePageBanner() {
     mutationFn: (data) =>
       clientFetch<PageBanner>("/api/page-banners", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(serializeBannerPayload(data)),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pageBannerKeys.all });
@@ -57,11 +58,11 @@ export function useCreatePageBanner() {
 export function useUpdatePageBanner() {
   const queryClient = useQueryClient();
 
-  return useMutation<PageBanner, ApiError, Partial<PageBannerFormData> & { pageKey: string }>({
+  return useMutation<PageBanner, ApiError, PageBannerFormData & { pageKey: string }>({
     mutationFn: (data) =>
       clientFetch<PageBanner>(`/api/page-banners/${data.pageKey}`, {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: JSON.stringify(serializeBannerPayload(data)),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pageBannerKeys.all });

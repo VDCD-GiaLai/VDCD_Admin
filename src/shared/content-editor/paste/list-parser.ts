@@ -185,6 +185,7 @@ export function parseClipboardTextToList(rawText: string): ParsedListResult {
     const itemNode: ListItem = {
       id: generateListItemId(),
       content: raw.content,
+      text: raw.content,
       children: [],
       checked: raw.checked,
     };

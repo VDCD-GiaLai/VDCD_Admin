@@ -77,10 +77,22 @@ export function useUpdateArticle(id: string) {
         ),
       }),
     onSuccess: (updatedArticle) => {
-      queryClient.invalidateQueries({ queryKey: articleKeys.all });
       if (updatedArticle) {
         queryClient.setQueryData(articleKeys.detail(id), updatedArticle);
+        queryClient.setQueriesData<PaginatedData<Article>>(
+          { queryKey: articleKeys.all },
+          (old) => {
+            if (!old || !Array.isArray(old.items)) return old;
+            return {
+              ...old,
+              items: old.items.map((item) =>
+                item.id === id ? { ...item, ...updatedArticle } : item,
+              ),
+            };
+          },
+        );
       }
+      queryClient.invalidateQueries({ queryKey: articleKeys.all });
     },
   });
 }

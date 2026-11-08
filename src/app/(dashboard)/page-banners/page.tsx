@@ -12,6 +12,7 @@ import {
   useDeletePageBanner,
   useTogglePageBanner,
 } from "@/features/page-banners/api";
+import { getBannerSlideCount } from "@/features/page-banners/utils/banner-slides";
 import { usePermission } from "@/hooks/usePermission";
 import type { PageBanner } from "@/types/page-banner";
 
@@ -115,16 +116,26 @@ export default function PageBannersPage() {
     {
       key: "pageKey",
       label: "Trang áp dụng",
-      render: (item) => (
-        <div>
-          <span className="font-medium text-text">
-            {PAGE_NAMES[item.pageKey] || item.pageKey}
-          </span>
-          {item.tag && (
-            <p className="mt-1 text-xs text-text-muted">Tag: {item.tag}</p>
-          )}
-        </div>
-      ),
+      render: (item) => {
+        const slideCount = getBannerSlideCount(item);
+        return (
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-text">
+                {PAGE_NAMES[item.pageKey] || item.pageKey}
+              </span>
+              {slideCount > 1 && (
+                <Badge color="primary" variant="soft">
+                  {slideCount} slides
+                </Badge>
+              )}
+            </div>
+            {item.tag && (
+              <p className="mt-1 text-xs text-text-muted">Tag: {item.tag}</p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "title",

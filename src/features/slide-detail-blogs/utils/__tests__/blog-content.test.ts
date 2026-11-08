@@ -3,7 +3,9 @@ import {
   sanitizeListItems,
   normalizeSlideDetailBlogBlocks,
   normalizeSlideDetailBlogContent,
+  adaptImportedBlocksForBlog,
 } from "../blog-content";
+import { slideDetailBlogContentSchema } from "../../schema";
 import type {
   ListBlock,
   SectionBlock,
@@ -160,6 +162,77 @@ describe("blog-content utility tests", () => {
       const listBlock = result.blocks[1] as ListBlock;
       expect(listBlock.items[0].text).toBe("Nội dung mục");
       expect(listBlock.items[0].content).toBe("Nội dung mục");
+    });
+  });
+
+  describe("adaptImportedBlocksForBlog", () => {
+    it("adapts Quick Import and AI Smart Import blocks to pass slideDetailBlogContentSchema", () => {
+      const rawImportedBlocks = [
+        {
+          id: "ai_1",
+          type: "heading",
+          level: 9, // out of range, should clamp to 6
+          text: "<strong>Tiêu đề nhập từ Docs</strong>",
+          textAlign: "center",
+          fontSize: 120, // out of range, should clamp to 96
+        },
+        {
+          id: "ai_2",
+          type: "paragraph",
+          text: "   ", // empty paragraph, should be filtered out
+        },
+        {
+          id: "ai_3",
+          type: "paragraph",
+          text: "Đoạn văn hợp lệ từ Google Docs với <em>in nghiêng</em>.",
+          indent: 32,
+          textAlign: "justify",
+        },
+        {
+          id: "ai_4",
+          type: "image",
+          url: "https://ik.imagekit.io/vdcd/articles/anh-1.jpg",
+          fileId: "file_123",
+          alt: "Ảnh minh họa",
+          caption: "Chú thích ảnh 1",
+        },
+        {
+          id: "ai_5",
+          type: "list",
+          listType: "ordered",
+          items: [
+            { id: "temp_1", content: "Bước 1: Khảo sát nhu cầu" },
+            { id: "temp_2", text: "Bước 2: Đánh giá giải pháp" },
+          ],
+        },
+        {
+          id: "ai_6",
+          type: "quote",
+          text: "Đổi mới sáng tạo bắt đầu từ nhu cầu thực tiễn.",
+          author: "VDCD Gia Lai",
+        },
+      ];
+
+      const adapted = adaptImportedBlocksForBlog(rawImportedBlocks);
+      expect(adapted).toHaveLength(5);
+
+      // Verify schema validation passes 100%
+      const parsed = slideDetailBlogContentSchema.safeParse({
+        version: 1,
+        blocks: adapted,
+      });
+      expect(parsed.success).toBe(true);
+
+      // Verify list items have both content and text populated
+      const listBlock = adapted.find((b) => b.type === "list") as ListBlock;
+      expect(listBlock).toBeDefined();
+      expect(listBlock.listType).toBe("ordered");
+      expect(listBlock.listStyle).toBe("decimal");
+      expect(listBlock.items).toHaveLength(2);
+      expect(listBlock.items[0].content).toBe("Bước 1: Khảo sát nhu cầu");
+      expect(listBlock.items[0].text).toBe("Bước 1: Khảo sát nhu cầu");
+      expect(listBlock.items[1].content).toBe("Bước 2: Đánh giá giải pháp");
+      expect(listBlock.items[1].text).toBe("Bước 2: Đánh giá giải pháp");
     });
   });
 });

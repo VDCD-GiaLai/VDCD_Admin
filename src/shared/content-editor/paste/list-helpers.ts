@@ -115,7 +115,7 @@ export function normalizeListItem(raw: unknown): ListItem {
  */
 export function normalizeListItems(items: unknown): ListItem[] {
   if (!Array.isArray(items) || items.length === 0) {
-    return [{ id: generateListItemId(), content: "", children: [] }];
+    return [{ id: generateListItemId(), content: "", text: "", children: [] }];
   }
 
   const seenIds = new Set<string>();

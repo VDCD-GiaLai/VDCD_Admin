@@ -19,6 +19,8 @@ import { useProjects } from "@/features/projects/api";
 import { usePrograms } from "@/features/programs/api";
 import { useSolutions } from "@/features/solutions/api";
 import { articleSchema, type ArticleFormData } from "@/features/articles/schema";
+import { normalizeArticlePublishedAt } from "@/features/articles/utils/article-content";
+import { normalizeSlideDetailBlogContent } from "@/features/slide-detail-blogs/utils/blog-content";
 import { BlockEditor, BlockFormatToolbar } from "@/features/slide-detail-blogs/components/BlockEditor";
 import { BlogPreviewContainer } from "@/features/slide-detail-blogs/components/BlogPreview";
 import { VisualEditorCanvas } from "@/features/slide-detail-blogs/components/VisualEditor";
@@ -291,15 +293,18 @@ export default function CreateArticlePage() {
 
   // Submit Handler
   const onSubmit = (data: ArticleFormData, publish = false) => {
+    const normalizedContent = normalizeSlideDetailBlogContent(data.content);
     const payload: ArticleFormData = {
       ...data,
       content: {
-        ...(data.content || {}),
+        ...normalizedContent,
         sidebarConfig: data.sidebarConfig ?? null,
       } as SlideDetailBlogContent,
       sidebarConfig: data.sidebarConfig ?? null,
       isPublished: publish,
-      publishedAt: publish ? data.publishedAt || new Date().toISOString() : data.publishedAt || null,
+      publishedAt:
+        normalizeArticlePublishedAt(data.publishedAt) ??
+        (publish ? new Date().toISOString() : null),
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
@@ -543,6 +548,7 @@ export default function CreateArticlePage() {
             excerpt={watchedExcerpt}
             heroImageUrl={currentThumbnailPreview}
             content={watchedContent ?? { version: 1, blocks: [] }}
+            simulatedUrl={`vdcd.vn/bai-viet/${watchedSlug || "..."}`}
             onContentChange={(c) => setValue("content", c, { shouldDirty: true })}
             onTitleChange={(t) => setValue("title", t, { shouldDirty: true })}
             onSubtitleChange={(s) => setValue("subtitle", s, { shouldDirty: true })}

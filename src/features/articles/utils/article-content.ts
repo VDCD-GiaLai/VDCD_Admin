@@ -2,6 +2,7 @@ import type {
   SlideDetailBlogContent,
   SlideDetailBlogBlock,
 } from "@/types/slide-detail-blog";
+import { normalizeSlideDetailBlogContent } from "@/features/slide-detail-blogs/utils/blog-content";
 import type { ArticleFormData } from "../schema";
 
 /**
@@ -113,11 +114,15 @@ export function convertLegacyHtmlToContent(html: string): SlideDetailBlogContent
       }
     } else if (tagName === "ul" || tagName === "ol") {
       const liMatches = innerHtml.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
-      const items = liMatches.map((li, idx) => ({
-        id: `li_${Date.now()}_${idx}`,
-        content: li.replace(/<[^>]+>/g, "").trim(),
-        children: [],
-      }));
+      const items = liMatches.map((li, idx) => {
+        const text = li.replace(/<[^>]+>/g, "").trim();
+        return {
+          id: `li_${Date.now()}_${idx}`,
+          content: text,
+          text,
+          children: [],
+        };
+      });
 
       if (items.length > 0) {
         blocks.push({
@@ -159,15 +164,41 @@ export function convertLegacyHtmlToContent(html: string): SlideDetailBlogContent
 }
 
 /**
+ * Normalizes a datetime-local or ISO string into a valid ISO 8601 UTC string,
+ * or null if empty/invalid.
+ */
+export function normalizeArticlePublishedAt(
+  publishedAt: string | null | undefined,
+): string | null {
+  if (!publishedAt || !publishedAt.trim()) return null;
+  const parsed = new Date(publishedAt);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+/**
  * Prepares the payload to submit to Backend API.
  * Passes content as a structured JSON object to comply with Backend's @IsObject() validation,
  * and passes subtitle and excerpt as first-class entity columns.
  */
 export function serializeArticlePayload(data: ArticleFormData): Record<string, unknown> {
-  const contentObj =
+  const rawContentObj =
     typeof data.content === "string"
       ? parseArticleContent(data.content).content
       : (data.content ?? { version: 1, blocks: [] });
+
+  const normalizedContent = normalizeSlideDetailBlogContent(rawContentObj);
+  const rawSidebarConfig =
+    data.sidebarConfig !== undefined
+      ? data.sidebarConfig
+      : (rawContentObj as unknown as Record<string, unknown>)?.sidebarConfig;
+
+  const contentObj =
+    rawSidebarConfig !== undefined
+      ? ({ ...normalizedContent, sidebarConfig: rawSidebarConfig } as SlideDetailBlogContent)
+      : normalizedContent;
+
+  const normalizedPublishedAt = normalizeArticlePublishedAt(data.publishedAt);
 
   return {
     title: data.title,
@@ -175,6 +206,7 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
     slug: data.slug || undefined,
     excerpt: data.excerpt || undefined,
     content: contentObj,
+    ...(rawSidebarConfig !== undefined ? { sidebarConfig: rawSidebarConfig } : {}),
     thumbnail: data.thumbnail || null,
     thumbnailFileId: data.thumbnailFileId || null,
     category: data.category || undefined,
@@ -185,6 +217,6 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
     metaTitle: data.metaTitle || undefined,
     metaDescription: data.metaDescription || undefined,
     isPublished: data.isPublished ?? false,
-    publishedAt: data.publishedAt || null,
+    publishedAt: normalizedPublishedAt,
   };
 }

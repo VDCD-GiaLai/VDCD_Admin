@@ -357,7 +357,12 @@ export function VisualEditorCanvas({
               const selection = window.getSelection();
               if (selection) {
                 const range = document.createRange();
-                range.selectNodeContents(editable);
+                const targetNode =
+                  (editable.tagName === "UL" || editable.tagName === "OL") &&
+                  editable.lastElementChild
+                    ? editable.lastElementChild
+                    : editable;
+                range.selectNodeContents(targetNode);
                 range.collapse(false);
                 selection.removeAllRanges();
                 selection.addRange(range);
@@ -1491,7 +1496,9 @@ export function VisualEditorCanvas({
       <SmartImportModal
         open={showSmartImport}
         onClose={() => setShowSmartImport(false)}
+        uploadFn={uploadBlogImage}
         onImport={(importedBlocks) => {
+          pushState();
           const newBlocks = [...blocks, ...importedBlocks];
           onContentChange({
             ...content,

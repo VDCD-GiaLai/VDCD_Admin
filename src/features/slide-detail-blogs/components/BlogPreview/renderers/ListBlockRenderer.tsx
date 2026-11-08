@@ -217,6 +217,7 @@ function parseDOMList(container: HTMLElement, seenIds = new Set<string>()): List
       result.push({
         id,
         content: text,
+        text,
         children: subItems,
         ...(checked !== undefined ? { checked } : {}),
       });
@@ -230,9 +231,18 @@ function parseDOMList(container: HTMLElement, seenIds = new Set<string>()): List
       {
         id: generateListItemId(),
         content: fallbackText,
+        text: fallbackText,
         children: [],
       },
     ];
+  }
+
+  // Prune accidental empty leaf items when at least one valid item exists at this level
+  const nonEmpty = result.filter(
+    (item) => item.content.trim().length > 0 || item.children.length > 0,
+  );
+  if (nonEmpty.length > 0) {
+    return nonEmpty;
   }
 
   return result;
@@ -273,7 +283,7 @@ export function ListBlockRenderer({
       const finalItems =
         parsed.length > 0
           ? parsed
-          : [{ id: generateListItemId(), content: "", children: [] }];
+          : [{ id: generateListItemId(), content: "", text: "", children: [] }];
       onItemsChange(finalItems);
     }
   }, [onItemsChange]);
