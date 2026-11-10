@@ -72,6 +72,7 @@ export const listItemSchema: z.ZodType<ListItem, ListItem> = z.lazy(() =>
   z.object({
     id: z.string(),
     content: z.string().min(1, "Mục không được để trống"),
+    text: z.string().optional(),
     children: z.array(listItemSchema),
     checked: z.boolean().optional(),
   }),
@@ -226,6 +227,7 @@ export const documentContentSchema = z.object({
   version: z.number(),
   blocks: z.array(contentBlockSchema),
   heroMeta: heroMetaSchema,
+  sidebarConfig: z.any().nullable().optional(),
 });
 
 /** Generic unified aliases for schemas */

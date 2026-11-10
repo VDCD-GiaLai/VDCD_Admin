@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { slideDetailBlogContentSchema } from "@/features/slide-detail-blogs/schema";
+import { documentContentSchema } from "@/shared/content-editor";
 import type { SidebarConfig } from "@/types/sidebar-config";
 
 /**
@@ -13,7 +13,7 @@ export const articleSchema = z.object({
   subtitle: z.string().nullable().optional(),
   slug: z.string().optional(),
   excerpt: z.string().nullable().optional(),
-  content: slideDetailBlogContentSchema,
+  content: documentContentSchema,
   thumbnail: z.string().nullable().optional(),
   thumbnailFileId: z.string().nullable().optional(),
   category: z.string().optional(),
@@ -29,6 +29,7 @@ export const articleSchema = z.object({
     .optional(),
   isPublished: z.boolean().optional(),
   publishedAt: z.string().nullable().optional(),
+  tempFolderKey: z.string().optional(),
 });
 
 export type ArticleFormData = z.infer<typeof articleSchema>;

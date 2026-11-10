@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { ContentBlock } from "../model/document.types";
 import type { ImageBlock, HeadingBlock } from "@/types/slide-detail-blog";
+import { useDocumentUpload } from "../media/DocumentUploadContext";
 import {
   parseHtmlToBlocks,
   parsePlainTextToBlocks,
@@ -31,6 +32,8 @@ type ProcessingState = "idle" | "uploading" | "preview" | "processing-ai" | "err
  */
 export function SmartImportModal({ open, onClose, onImport, uploadFn }: SmartImportModalProps) {
   const [activeTab, setActiveTab] = useState<MainTab>("quick");
+  const { uploadDocumentImage } = useDocumentUpload();
+  const resolvedUploadFn = uploadFn ?? uploadDocumentImage;
 
   // ── Quick Import States ──
   const [quickBlocks, setQuickBlocks] = useState<ContentBlock[]>([]);
@@ -106,7 +109,7 @@ export function SmartImportModal({ open, onClose, onImport, uploadFn }: SmartImp
           (info) => {
             setUploadProgress(info.message || `Đang tải lên ảnh ${info.current}/${info.total}...`);
           },
-          uploadFn,
+          resolvedUploadFn,
         );
 
         onImport(result.blocks);
@@ -128,7 +131,7 @@ export function SmartImportModal({ open, onClose, onImport, uploadFn }: SmartImp
       setQuickState("idle");
       onClose();
     }
-  }, [quickBlocks, quickStats.uploadCandidates, onImport, onClose, uploadFn]);
+  }, [quickBlocks, quickStats.uploadCandidates, onImport, onClose, resolvedUploadFn]);
 
   const handleQuickReset = useCallback(() => {
     setQuickBlocks([]);

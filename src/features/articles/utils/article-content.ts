@@ -27,13 +27,15 @@ export function parseArticleContent(
     const doc = rawContent as SlideDetailBlogContent & {
       subtitle?: string | null;
       excerpt?: string | null;
+      sidebarConfig?: unknown;
     };
     return {
       content: {
         version: doc.version || 1,
         blocks: Array.isArray(doc.blocks) ? doc.blocks : [],
         heroMeta: doc.heroMeta,
-      },
+        ...(doc.sidebarConfig ? { sidebarConfig: doc.sidebarConfig } : {}),
+      } as SlideDetailBlogContent,
       subtitle: doc.subtitle ?? null,
       excerpt: doc.excerpt ?? null,
     };
@@ -47,6 +49,7 @@ export function parseArticleContent(
         const parsed = JSON.parse(trimmed) as SlideDetailBlogContent & {
           subtitle?: string | null;
           excerpt?: string | null;
+          sidebarConfig?: unknown;
         };
         if (parsed && Array.isArray(parsed.blocks)) {
           return {
@@ -54,7 +57,8 @@ export function parseArticleContent(
               version: parsed.version || 1,
               blocks: parsed.blocks,
               heroMeta: parsed.heroMeta,
-            },
+              ...(parsed.sidebarConfig ? { sidebarConfig: parsed.sidebarConfig } : {}),
+            } as SlideDetailBlogContent,
             subtitle: parsed.subtitle ?? null,
             excerpt: parsed.excerpt ?? null,
           };
@@ -218,5 +222,6 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
     metaDescription: data.metaDescription || undefined,
     isPublished: data.isPublished ?? false,
     publishedAt: normalizedPublishedAt,
+    ...(data.tempFolderKey ? { tempFolderKey: data.tempFolderKey } : {}),
   };
 }
