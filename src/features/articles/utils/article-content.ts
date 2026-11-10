@@ -203,11 +203,17 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
       : normalizedContent;
 
   const normalizedPublishedAt = normalizeArticlePublishedAt(data.publishedAt);
+  const cleanSlug = data.slug?.trim().replace(/^\/+|\/+$/g, "") || undefined;
+  const cleanOrder =
+    typeof data.order === "number" && !Number.isNaN(data.order) && data.order >= 1
+      ? Math.floor(data.order)
+      : undefined;
 
   return {
     title: data.title,
     subtitle: data.subtitle ?? undefined,
-    slug: data.slug || undefined,
+    slug: cleanSlug,
+    ...(cleanOrder !== undefined ? { order: cleanOrder } : {}),
     excerpt: data.excerpt ?? undefined,
     content: contentObj,
     ...(rawSidebarConfig !== undefined ? { sidebarConfig: rawSidebarConfig } : {}),

@@ -12,6 +12,18 @@ export const articleSchema = z.object({
     .max(255, "Tiêu đề tối đa 255 ký tự"),
   subtitle: z.string().nullable().optional(),
   slug: z.string().optional(),
+  order: z
+    .union([
+      z
+        .number()
+        .int("Vị trí phải là số nguyên")
+        .min(1, "Vị trí sắp xếp phải lớn hơn hoặc bằng 1"),
+      z.nan().transform(() => null),
+      z.literal(0).transform(() => null),
+      z.null(),
+    ])
+    .nullable()
+    .optional(),
   excerpt: z.string().nullable().optional(),
   content: documentContentSchema,
   thumbnail: z.string().nullable().optional(),

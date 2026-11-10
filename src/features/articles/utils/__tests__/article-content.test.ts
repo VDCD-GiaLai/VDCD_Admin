@@ -219,6 +219,23 @@ describe("article-content utils", () => {
 
       expect(payload.publishedAt).toBe(expectedIso);
     });
+
+    it("strips leading/trailing slashes from slug and serializes positive integer order", () => {
+      const payload = serializeArticlePayload({
+        title: "AI Drone Challenge 2026",
+        slug: " /ai-drone-challenge-2026-san-choi-uav-sinh-vien-fpt-quy-nhon/ ",
+        order: 2,
+        content: {
+          version: 1,
+          blocks: [{ id: "p1", type: "paragraph", text: "Nội dung" }],
+        },
+      });
+
+      expect(payload.slug).toBe(
+        "ai-drone-challenge-2026-san-choi-uav-sinh-vien-fpt-quy-nhon",
+      );
+      expect(payload.order).toBe(2);
+    });
   });
 
   describe("PART D — Scalability & Performance Benchmarks", () => {

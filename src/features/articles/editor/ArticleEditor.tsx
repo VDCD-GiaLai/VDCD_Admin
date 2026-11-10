@@ -31,6 +31,7 @@ import {
   usePublishArticle,
   useDeleteArticle,
   useArticles,
+  useReorderArticles,
   articleKeys,
 } from "../api";
 import { useProjects } from "@/features/projects/api";
@@ -71,6 +72,36 @@ export interface ArticleEditorProps {
   article?: Article;
 }
 
+function resolveDuplicateOrders(
+  currentArticleId: string,
+  targetOrder: number,
+  articlesList: { id: string; order?: number }[],
+): { id: string; order: number }[] {
+  const others = articlesList
+    .filter((a) => a.id !== currentArticleId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const newReordered: { id: string; order: number }[] = [];
+  let currentAssigned = false;
+  let runningOrder = 1;
+
+  for (const item of others) {
+    if (!currentAssigned && runningOrder >= targetOrder) {
+      newReordered.push({ id: currentArticleId, order: runningOrder });
+      currentAssigned = true;
+      runningOrder++;
+    }
+    newReordered.push({ id: item.id, order: runningOrder });
+    runningOrder++;
+  }
+
+  if (!currentAssigned) {
+    newReordered.push({ id: currentArticleId, order: runningOrder });
+  }
+
+  return newReordered;
+}
+
 export function ArticleEditor({ mode, article }: ArticleEditorProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -81,6 +112,7 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
   const updateMutation = useUpdateArticle(article?.id ?? "");
   const publishMutation = usePublishArticle();
   const deleteMutation = useDeleteArticle();
+  const reorderArticlesMutation = useReorderArticles();
   const isSubmitting =
     createMutation.isPending || updateMutation.isPending || publishMutation.isPending;
 
@@ -161,7 +193,8 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
     defaultValues: {
       title: article?.title ?? "",
       subtitle: article?.subtitle || initialParsed.subtitle || "",
-      slug: article?.slug ?? "",
+      slug: article?.slug?.trim().replace(/^\/+|\/+$/g, "") ?? "",
+      order: article?.order && article.order > 0 ? article.order : undefined,
       excerpt: article?.excerpt || initialParsed.excerpt || "",
       thumbnail: article?.thumbnail ?? null,
       thumbnailFileId: article?.thumbnailFileId ?? null,
@@ -198,7 +231,8 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
       reset({
         title: article.title,
         subtitle: article.subtitle || parsed.subtitle || "",
-        slug: article.slug,
+        slug: article.slug?.trim().replace(/^\/+|\/+$/g, "") ?? "",
+        order: article.order && article.order > 0 ? article.order : 1,
         excerpt: article.excerpt || parsed.excerpt || "",
         thumbnail: article.thumbnail ?? null,
         thumbnailFileId: article.thumbnailFileId ?? null,
@@ -225,6 +259,7 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
   const watchedSubtitle = useWatch({ control, name: "subtitle" });
   const watchedExcerpt = useWatch({ control, name: "excerpt" });
   const watchedSlug = useWatch({ control, name: "slug" }) ?? "";
+  const watchedOrder = useWatch({ control, name: "order" });
   const watchedCategory = useWatch({ control, name: "category" });
   const watchedThumbnail = useWatch({ control, name: "thumbnail" });
   const watchedProjectId = useWatch({ control, name: "projectId" });
@@ -238,6 +273,39 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
     | undefined;
 
   const isCurrentlyPublished = watchedIsPublished ?? article?.isPublished ?? false;
+
+  // Next available positive integer order
+  const nextAvailableOrder = useMemo(() => {
+    if (!allArticlesData?.items || allArticlesData.items.length === 0) return 1;
+    const otherOrders = allArticlesData.items
+      .filter((a) => a.id !== article?.id)
+      .map((a) => a.order)
+      .filter((o): o is number => typeof o === "number" && o > 0);
+
+    if (otherOrders.length === 0) return 1;
+    const maxOrder = Math.max(...otherOrders);
+    for (let i = 1; i <= maxOrder; i++) {
+      if (!otherOrders.includes(i)) return i;
+    }
+    return maxOrder + 1;
+  }, [allArticlesData, article?.id]);
+
+  // Set default order for new articles
+  useEffect(() => {
+    if (mode === "create" && getValues("order") === undefined && nextAvailableOrder) {
+      setValue("order", nextAvailableOrder, { shouldValidate: true });
+    }
+  }, [mode, nextAvailableOrder, getValues, setValue]);
+
+  // Duplicate order conflict detection
+  const conflictingArticle = useMemo(() => {
+    if (!watchedOrder || watchedOrder < 1 || !allArticlesData?.items) return null;
+    return allArticlesData.items.find(
+      (a) => a.id !== article?.id && a.order === watchedOrder,
+    );
+  }, [watchedOrder, allArticlesData, article?.id]);
+
+  const totalArticlesCount = allArticlesData?.total ?? allArticlesData?.items?.length ?? 0;
 
   const currentDocumentContent: DocumentContent = useMemo(() => {
     if (
@@ -662,6 +730,21 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
 
           await queryClient.invalidateQueries({ queryKey: articleKeys.all });
 
+          if (
+            conflictingArticle &&
+            typeof payload.order === "number" &&
+            payload.order >= 1 &&
+            allArticlesData?.items &&
+            createdArticle?.id
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              createdArticle.id,
+              payload.order,
+              allArticlesData.items,
+            );
+            reorderArticlesMutation.mutate(reorderedItems);
+          }
+
           toast({
             title: publish ? "Đã xuất bản bài viết" : "Đã lưu bản nháp",
             color: "success",
@@ -681,6 +764,21 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
             (payload.content?.blocks || []) as DocumentBlock[],
             payload.thumbnailFileId,
           );
+
+          if (
+            conflictingArticle &&
+            typeof payload.order === "number" &&
+            payload.order >= 1 &&
+            allArticlesData?.items &&
+            article?.id
+          ) {
+            const reorderedItems = resolveDuplicateOrders(
+              article.id,
+              payload.order,
+              allArticlesData.items,
+            );
+            reorderArticlesMutation.mutate(reorderedItems);
+          }
 
           if (
             payload.content &&
@@ -1013,31 +1111,33 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <label className="text-xs font-semibold text-text">
-                            Tiêu đề phụ (Subtitle)
-                          </label>
-                          <BlockFormatToolbar
-                            onApply={(action) =>
-                              applySubtitleFormat(subtitleInputRef.current, action)
-                            }
-                            size="xs"
-                          />
-                        </div>
-                        <FormInput
-                          placeholder="VD: Hướng tới xây dựng chính quyền số và kinh tế số..."
-                          errorMessage={errors.subtitle?.message}
-                          {...subtitleRegister}
-                          ref={(el) => {
-                            subtitleRegister.ref(el);
-                            subtitleInputRef.current = el;
-                          }}
-                          onKeyDown={handleSubtitleKeyDown}
-                          onPaste={handlePlainPaste}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-semibold text-text">
+                          Tiêu đề phụ (Subtitle)
+                        </label>
+                        <BlockFormatToolbar
+                          onApply={(action) =>
+                            applySubtitleFormat(subtitleInputRef.current, action)
+                          }
+                          size="xs"
                         />
                       </div>
+                      <FormInput
+                        placeholder="VD: Hướng tới xây dựng chính quyền số và kinh tế số..."
+                        errorMessage={errors.subtitle?.message}
+                        {...subtitleRegister}
+                        ref={(el) => {
+                          subtitleRegister.ref(el);
+                          subtitleInputRef.current = el;
+                        }}
+                        onKeyDown={handleSubtitleKeyDown}
+                        onPaste={handlePlainPaste}
+                        helperText="Hỗ trợ phím tắt Ctrl+B (Đậm), Ctrl+I (Nghiêng), Ctrl+U (Gạch chân)..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div id="field-slug">
                         <FormInput
                           label="Đường dẫn tĩnh (Slug)"
@@ -1047,7 +1147,71 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
                           {...register("slug")}
                         />
                       </div>
+                      <div id="field-order">
+                        <FormInput
+                          type="number"
+                          label="Vị trí sắp xếp (Thứ tự)"
+                          placeholder="1"
+                          min={1}
+                          step={1}
+                          startContent={<span className="font-mono text-xs text-text-muted">#</span>}
+                          errorMessage={errors.order?.message}
+                          helperText={
+                            !conflictingArticle && typeof watchedOrder === "number" && watchedOrder > 0
+                              ? watchedOrder > totalArticlesCount
+                                ? `Hiện có ${totalArticlesCount} bài viết. Sẽ xếp ở cuối.`
+                                : "Số nhỏ hơn sẽ hiển thị trước (1 là đầu tiên)"
+                              : undefined
+                          }
+                          {...register("order", {
+                            valueAsNumber: true,
+                            min: { value: 1, message: "Vị trí sắp xếp phải lớn hơn hoặc bằng 1" },
+                          })}
+                        />
+                      </div>
                     </div>
+
+                    {/* Cảnh báo và gợi ý khi trùng vị trí sắp xếp */}
+                    {conflictingArticle && (
+                      <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text">
+                        <div className="flex items-start gap-2.5">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <div className="flex-1 space-y-1">
+                            <p className="font-semibold text-text">
+                              Vị trí #{watchedOrder} đang thuộc về bài viết &ldquo;{conflictingArticle.title}&rdquo;
+                            </p>
+                            <p className="leading-relaxed text-text-muted">
+                              Khi lưu, hệ thống sẽ tự động chèn bài viết này vào vị trí #{watchedOrder} và dời các bài viết sau xuống để không bị trùng số.
+                            </p>
+                            {nextAvailableOrder && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setValue("order", nextAvailableOrder, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              >
+                                ↳ Hoặc dùng vị trí chưa ai chọn: #{nextAvailableOrder}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
@@ -1501,7 +1665,7 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
               content={currentDocumentContent}
               slug={watchedSlug}
               badge={watchedCategory || undefined}
-              urlPrefix="vdcd.vn/bai-viet/"
+              urlPrefix="vdcd.vn/news/"
             />
           </div>
         )}
@@ -1538,7 +1702,7 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
               }}
               onHeroImageDelete={handleDeleteHeroImage}
               onImageDiscard={handleImageBlockDiscard}
-              simulatedUrl={`vdcd.vn/bai-viet/${watchedSlug || "..."}`}
+              simulatedUrl={`vdcd.vn/news/${watchedSlug || "..."}`}
             />
           </div>
         )}

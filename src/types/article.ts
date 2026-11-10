@@ -10,6 +10,7 @@ export interface Article {
   title: string;
   subtitle?: string | null;
   slug: string;
+  order?: number;
   excerpt?: string | null;
   content: SlideDetailBlogContent | string | null;
   thumbnail: string | null;
