@@ -29,7 +29,6 @@ export const articleSchema = z.object({
     .optional(),
   isPublished: z.boolean().optional(),
   publishedAt: z.string().nullable().optional(),
-  tempFolderKey: z.string().optional(),
 });
 
 export type ArticleFormData = z.infer<typeof articleSchema>;

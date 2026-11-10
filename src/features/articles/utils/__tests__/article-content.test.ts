@@ -159,6 +159,7 @@ describe("article-content utils", () => {
       expect(payload.solutionId).toBe("sol-1");
       expect(payload.subtitle).toBe("Phụ đề phụ");
       expect(payload.excerpt).toBe("Đoạn trích tóm tắt");
+      expect("tempFolderKey" in payload).toBe(false);
       expect(typeof payload.content).toBe("object");
 
       const parsedContent = payload.content as SlideDetailBlogContent;
