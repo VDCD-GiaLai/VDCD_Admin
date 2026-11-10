@@ -206,9 +206,9 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
 
   return {
     title: data.title,
-    subtitle: data.subtitle || undefined,
+    subtitle: data.subtitle ?? undefined,
     slug: data.slug || undefined,
-    excerpt: data.excerpt || undefined,
+    excerpt: data.excerpt ?? undefined,
     content: contentObj,
     ...(rawSidebarConfig !== undefined ? { sidebarConfig: rawSidebarConfig } : {}),
     thumbnail: data.thumbnail || null,
@@ -222,6 +222,5 @@ export function serializeArticlePayload(data: ArticleFormData): Record<string, u
     metaDescription: data.metaDescription || undefined,
     isPublished: data.isPublished ?? false,
     publishedAt: normalizedPublishedAt,
-    ...(data.tempFolderKey ? { tempFolderKey: data.tempFolderKey } : {}),
   };
 }

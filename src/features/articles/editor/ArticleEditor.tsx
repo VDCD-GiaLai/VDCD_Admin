@@ -611,7 +611,6 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
       projectId: data.projectId || null,
       programId: data.programId || null,
       solutionId: data.solutionId || null,
-      tempFolderKey: randomFallbackSubfolder,
     };
 
     if (targetIsPublished) {
@@ -869,7 +868,6 @@ export function ArticleEditor({ mode, article }: ArticleEditorProps) {
     <DocumentUploadProvider
       folder="article"
       subfolder={currentSubfolder}
-      tempFolderKey={randomFallbackSubfolder}
       onGalleryFileSelect={handleGalleryFileSelect}
     >
       <div className="space-y-6 pb-12">
