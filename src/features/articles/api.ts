@@ -50,14 +50,30 @@ export function useArticle(id: string) {
 }
 
 export function useCreateArticle() {
-
   const queryClient = useQueryClient();
   return useMutation<Article, ApiError, ArticleFormData>({
-    mutationFn: (data) =>
-      clientFetch<Article>("/api/articles", {
-        method: "POST",
-        body: JSON.stringify(serializeArticlePayload(data)),
-      }),
+    mutationFn: async (data) => {
+      const payload = serializeArticlePayload(data);
+      try {
+        return await clientFetch<Article>("/api/articles", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (
+          err instanceof ApiError &&
+          err.message?.includes("property order should not exist")
+        ) {
+          const restPayload = { ...payload };
+          delete restPayload.order;
+          return await clientFetch<Article>("/api/articles", {
+            method: "POST",
+            body: JSON.stringify(restPayload),
+          });
+        }
+        throw err;
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
     },
@@ -67,15 +83,30 @@ export function useCreateArticle() {
 export function useUpdateArticle(id: string) {
   const queryClient = useQueryClient();
   return useMutation<Article, ApiError, Partial<ArticleFormData>>({
-    mutationFn: (data) =>
-      clientFetch<Article>(`/api/articles/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(
-          data.content
-            ? serializeArticlePayload(data as ArticleFormData)
-            : data,
-        ),
-      }),
+    mutationFn: async (data) => {
+      const payload = data.content
+        ? serializeArticlePayload(data as ArticleFormData)
+        : (data as Record<string, unknown>);
+      try {
+        return await clientFetch<Article>(`/api/articles/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (
+          err instanceof ApiError &&
+          err.message?.includes("property order should not exist")
+        ) {
+          const restPayload = { ...payload };
+          delete restPayload.order;
+          return await clientFetch<Article>(`/api/articles/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(restPayload),
+          });
+        }
+        throw err;
+      }
+    },
     onSuccess: (updatedArticle) => {
       if (updatedArticle) {
         queryClient.setQueryData(articleKeys.detail(id), updatedArticle);
@@ -120,6 +151,31 @@ export function useDeleteArticle() {
   return useMutation<void, ApiError, string>({
     mutationFn: (id) =>
       clientFetch<void>(`/api/articles/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: articleKeys.all });
+    },
+  });
+}
+
+/**
+ * PATCH /admin/articles/reorder — reorder articles display positions.
+ */
+export function useReorderArticles() {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, { id: string; order: number }[]>({
+    mutationFn: async (items) => {
+      try {
+        await clientFetch<void>("/api/admin/articles/reorder", {
+          method: "PATCH",
+          body: JSON.stringify({ items }),
+        });
+      } catch {
+        await clientFetch<void>("/api/articles/reorder", {
+          method: "PATCH",
+          body: JSON.stringify({ items }),
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: articleKeys.all });
     },
